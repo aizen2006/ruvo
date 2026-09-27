@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+/*
+ * RUVO design tokens.
+ * Cool mineral paper, slate ink, one verdigris accent for actions.
+ * Evidence methods are coloured by trust tier: structured (verdigris), pattern (ochre),
+ * model (violet), derived (slate).
+ */
+@theme {
+  --color-paper: #f4f6f5;
+  --color-surface: #ffffff;
+  --color-ink: #1c2b30;
+  --color-muted: #5a6b70;
+  --color-faint: #8b9a9e;
+  --color-rule: #d3dcdb;
+  --color-rule-strong: #b7c4c3;
+
+  --color-accent: #1f6f5c;
+  --color-accent-strong: #185a4a;
+  --color-accent-wash: #e3efeb;
+
+  --color-structured: #1f6f5c;
+  --color-structured-wash: #e3efeb;
+  --color-pattern: #8a6410;
+  --color-pattern-wash: #f5ecd6;
+  --color-model: #62489a;
+  --color-model-wash: #ece7f5;
+  --color-derived: #4f6166;
+  --color-derived-wash: #e7ecec;
+
+  --color-danger: #a33a2f;
+  --color-danger-wash: #f6e4e1;
+  --color-warn: #8a6410;
+
+  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --radius-control: 6px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-feature-settings: "tnum" 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-accent-wash);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
