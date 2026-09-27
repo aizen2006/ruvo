@@ -56,16 +56,7 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
 
   const candidates: SourceCandidate[] = selected
     .filter(({ company }) => available.has(company.ats))
-    .map(({ company, reason }) => ({
-      ref: `${company.ats}:${company.slug}`,
-      adapter: company.ats,
-      label: company.name,
-      params: { slug: company.slug, company: company.name, tags: company.tags },
-      tags: company.tags,
-      jobCount: company.jobCount,
-      reason,
-      origin: "registry",
-    }));
+    .map(({ company, reason }) => registryCandidate(company, reason));
 
   if (hints.includeCommunityBoards && available.has("hn_whoishiring")) {
     candidates.push({
@@ -95,4 +86,18 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   }
 
   return { candidates, unmatchedCompanies: named.filter((n) => !n.match).map((n) => n.name) };
+}
+
+/** A registry company as a plannable source. */
+export function registryCandidate(company: RegistryCompany, reason: string): SourceCandidate {
+  return {
+    ref: `${company.ats}:${company.slug}`,
+    adapter: company.ats,
+    label: company.name,
+    params: { slug: company.slug, company: company.name, tags: company.tags },
+    tags: company.tags,
+    jobCount: company.jobCount,
+    reason,
+    origin: "registry",
+  };
 }
