@@ -145,8 +145,10 @@ export function compileCriterion(contract: DatasetContract, criterion: Criterion
     case "company_tag": {
       const wanted = new Set(criterion.values);
       return (c) => {
+        // Companies outside the registry (e.g. Hacker News posters) have no known tags:
+        // that is "unknown", not "fails", so they are not rejected for it.
         const tags = (c.item.meta.companyTags as string[] | undefined) ?? [];
-        return tags.some((t) => wanted.has(t));
+        return tags.length === 0 ? null : tags.some((t) => wanted.has(t));
       };
     }
     case "semantic":

@@ -120,6 +120,17 @@ describe("match and validate", () => {
     ]);
   });
 
+  test("companies without registry tags are undecided on company criteria, not rejected", async () => {
+    const hardTags = { ...DEMO_CONTRACT, criteria: DEMO_CONTRACT.criteria.map((c) => (c.kind === "company_tag" ? { ...c, strength: "hard" as const } : c)) };
+    const [unknown, tagged] = await match({ contract: hardTags } as never, {} as never, matchStep, [
+      candidate({ ...base, title: "Backend Engineer" }, []),
+      candidate({ ...base, title: "Backend Engineer" }, ["fintech"]),
+    ]);
+    expect(unknown!.signals.find((s) => s.criterionId === "good_company")?.passed).toBeNull();
+    expect(unknown!.rejectReasons).toEqual([]);
+    expect(tagged!.rejectReasons).toEqual(["AI / infra / devtools company: not met"]);
+  });
+
   test("partial soft matches score proportionally", async () => {
     const [onsite] = await match(ctx, {} as never, matchStep, [candidate({ ...base, title: "Backend Engineer", remote: "onsite" }, ["ai_lab"])]);
     expect(onsite!.matchScore).toBeCloseTo(0.3 / 0.8);
