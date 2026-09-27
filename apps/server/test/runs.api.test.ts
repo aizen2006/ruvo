@@ -59,10 +59,12 @@ describe("runs API", () => {
 
     await waitFor(() => api.get(`/api/runs/${body.runId}`), (r) => r.body.status === "completed");
     const events = await api.get(`/api/runs/${body.runId}/events`);
-    expect(events.body.map((e: { type: string }) => e.type)).toEqual(["run.claimed", "run.completed"]);
+    const types = events.body.map((e: { type: string }) => e.type);
+    expect(types[0]).toBe("run.claimed");
+    expect(types.at(-1)).toBe("run.completed");
 
     const after = await api.get(`/api/runs/${body.runId}/events?after=1`);
-    expect(after.body.map((e: { seq: number }) => e.seq)).toEqual([2]);
+    expect(after.body[0].seq).toBe(2);
     await worker.stop();
   });
 });

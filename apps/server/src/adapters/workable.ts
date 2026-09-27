@@ -37,7 +37,7 @@ export const workable: SourceAdapter<AtsParams> = {
     posted_at: "API",
   },
 
-  async collect({ fetcher, scope }, { slug, company }) {
+  async collect({ fetcher, scope }, { slug, company, tags }) {
     const url = ATS_BOARD_URL.workable(slug);
     const { data, page } = await fetcher.json<{ name?: string; jobs: WorkableJob[] }>(scope, url, `workable:${slug}`);
 
@@ -64,7 +64,7 @@ export const workable: SourceAdapter<AtsParams> = {
           posted_at: fromApi(job.published_on, page, jobUrl, `${path}.published_on`),
         }),
         text: null,
-        meta: {},
+        meta: { companyTags: tags },
       };
     });
   },

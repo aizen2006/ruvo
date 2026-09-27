@@ -31,3 +31,17 @@ export function createBudget(limits: Budgets, now: () => number = Date.now): Bud
     expired: () => now() > deadline,
   };
 }
+
+/** Per-run caps from the environment; the IR compiler clamps planned budgets to these. */
+export const budgetsFromEnv = (e: {
+  MAX_PAGES: number;
+  MAX_BROWSER_PAGES: number;
+  MAX_LLM_CALLS: number;
+  MAX_RUN_MS: number;
+}, maxRecords = 500): Budgets => ({
+  maxPages: e.MAX_PAGES,
+  maxBrowserPages: e.MAX_BROWSER_PAGES,
+  maxLlmCalls: e.MAX_LLM_CALLS,
+  maxDurationMs: e.MAX_RUN_MS,
+  maxRecords,
+});

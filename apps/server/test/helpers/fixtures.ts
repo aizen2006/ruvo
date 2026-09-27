@@ -8,28 +8,41 @@ export function loadFixture<T = unknown>(name: string): { url: string; data: T }
   return JSON.parse(readFileSync(new URL(`../fixtures/${name}.json`, import.meta.url), "utf8"));
 }
 
-/** A Fetcher that serves one fixture for every JSON request and records the URLs asked for. */
-export function fixtureFetcher(name: string) {
-  const { data } = loadFixture(name);
+/**
+ * A Fetcher serving captured fixtures. `routes` maps a URL substring to a fixture name,
+ * e.g. { "greenhouse.io": "greenhouse" }; unmatched URLs fail like a 404.
+ * Records every URL requested.
+ */
+export function fixtureFetcher(routes: Record<string, string> | string) {
+  const table = typeof routes === "string" ? { "": routes } : routes;
+  const pageIds = new Map<string, string>();
   const requested: string[] = [];
-  const page = (url: string): FetchResult => ({
-    pageId: `page-${name}`,
-    url,
-    finalUrl: url,
-    status: 200,
-    via: "http",
-    fromCache: false,
-    contentType: "application/json",
-    body: JSON.stringify(data),
-  });
+
+  const resolve = (url: string): FetchResult => {
+    requested.push(url);
+    const entry = Object.entries(table).find(([fragment]) => url.includes(fragment));
+    if (!entry) throw Object.assign(new Error(`HTTP 404 from ${url}`), { kind: "http_status" });
+    const name = entry[1];
+    if (!pageIds.has(name)) pageIds.set(name, crypto.randomUUID());
+    return {
+      pageId: pageIds.get(name)!,
+      url,
+      finalUrl: url,
+      status: 200,
+      via: "http",
+      fromCache: false,
+      contentType: "application/json",
+      body: JSON.stringify(loadFixture(name).data),
+    };
+  };
+
   const fetcher: Fetcher = {
     async fetch(_scope, req) {
-      requested.push(req.url);
-      return page(req.url);
+      return resolve(req.url);
     },
     async json<T>(_scope: FetchScope, url: string) {
-      requested.push(url);
-      return { data: data as T, page: page(url) };
+      const page = resolve(url);
+      return { data: JSON.parse(page.body) as T, page };
     },
   };
   return { fetcher, requested };

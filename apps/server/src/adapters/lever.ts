@@ -36,7 +36,7 @@ export const lever: SourceAdapter<AtsParams> = {
     description: "API",
   },
 
-  async collect({ fetcher, scope }, { slug, company }) {
+  async collect({ fetcher, scope }, { slug, company, tags }) {
     const url = ATS_BOARD_URL.lever(slug);
     const { data, page } = await fetcher.json<LeverJob[]>(scope, url, `lever:${slug}`, { maxBytes: ATS_MAX_BYTES });
 
@@ -81,7 +81,7 @@ export const lever: SourceAdapter<AtsParams> = {
           description: fromApi(truncate(description, 500), page, jobUrl, `${path}.descriptionPlain`),
         }),
         text: description ? { plain: description, sourceUrl: jobUrl, pageId: page.pageId } : null,
-        meta: { team: categories.team ?? null },
+        meta: { companyTags: tags, team: categories.team ?? null },
       };
     });
   },

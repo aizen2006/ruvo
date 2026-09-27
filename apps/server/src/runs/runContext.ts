@@ -1,6 +1,7 @@
 import type { Budgets, DatasetContract, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
+import type { Fetcher } from "../fetch/fetcher";
 import { runs } from "../db/schema";
 import { logger, type Logger } from "../libs/logger";
 import { createBudget, type Budget } from "./budget";
@@ -19,6 +20,7 @@ export interface RunContext {
   ir: WorkflowIR;
   budget: Budget;
   metrics: Metrics;
+  fetcher: Fetcher;
   log: Logger;
   emit(event: EmitInput): void;
   /** Moves the run to a new user-facing stage (persisted and announced). */
@@ -37,6 +39,7 @@ export async function createRunContext(args: {
   signal: AbortSignal;
   contract: DatasetContract;
   ir: WorkflowIR;
+  fetcher: Fetcher;
   initialMetrics?: RunMetrics;
   budgets?: Budgets;
 }): Promise<OwnedRunContext> {
@@ -55,6 +58,7 @@ export async function createRunContext(args: {
     ir: args.ir,
     budget: createBudget(args.budgets ?? args.ir.budgets),
     metrics,
+    fetcher: args.fetcher,
     log: logger.child({ runId }),
     emit: bus.emit,
     async setStage(stage) {

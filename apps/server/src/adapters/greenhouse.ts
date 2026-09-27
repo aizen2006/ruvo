@@ -35,7 +35,7 @@ export const greenhouse: SourceAdapter<AtsParams> = {
     description: "API",
   },
 
-  async collect({ fetcher, scope }, { slug, company }) {
+  async collect({ fetcher, scope }, { slug, company, tags }) {
     const url = ATS_BOARD_URL.greenhouse(slug);
     const { data, page } = await fetcher.json<{ jobs: GreenhouseJob[] }>(scope, url, `greenhouse:${slug}`, {
       maxBytes: ATS_MAX_BYTES,
@@ -68,7 +68,7 @@ export const greenhouse: SourceAdapter<AtsParams> = {
           description: fromApi(truncate(description, 500), page, jobUrl, `${path}.content`),
         }),
         text: description ? { plain: description, sourceUrl: jobUrl, pageId: page.pageId } : null,
-        meta: { departments: job.departments?.map((d) => d.name) ?? [] },
+        meta: { companyTags: tags, departments: job.departments?.map((d) => d.name) ?? [] },
       };
     });
   },

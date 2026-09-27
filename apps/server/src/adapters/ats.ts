@@ -7,6 +7,8 @@ export const AtsParams = z.object({
   slug: z.string().min(1),
   /** Display name from the registry; used when the ATS response doesn't name the company. */
   company: z.string().min(1),
+  /** Registry tags (ai_lab, ai_infra, …) carried onto items for "good company" signals. */
+  tags: z.array(z.string()).default([]),
 });
 export type AtsParams = z.infer<typeof AtsParams>;
 

@@ -2,11 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { ashby } from "../src/adapters/ashby";
 import { greenhouse } from "../src/adapters/greenhouse";
 import { lever } from "../src/adapters/lever";
+import type { AtsParams } from "../src/adapters/ats";
 import type { Item, SourceAdapter } from "../src/adapters/types";
 import { workable } from "../src/adapters/workable";
 import { fixtureFetcher, testScope } from "./helpers/fixtures";
 
-type Case = { adapter: SourceAdapter<{ slug: string; company: string }>; fixture: string; slug: string; company: string };
+type Case = { adapter: SourceAdapter<AtsParams>; fixture: string; slug: string; company: string };
 
 const cases: Case[] = [
   { adapter: greenhouse, fixture: "greenhouse", slug: "anthropic", company: "Anthropic" },
@@ -17,7 +18,7 @@ const cases: Case[] = [
 
 async function collect({ adapter, fixture, slug, company }: Case) {
   const { fetcher, requested } = fixtureFetcher(fixture);
-  const items = await adapter.collect({ fetcher, scope: testScope() }, { slug, company });
+  const items = await adapter.collect({ fetcher, scope: testScope() }, { slug, company, tags: ["ai_lab"] });
   return { items, requested };
 }
 
@@ -50,6 +51,11 @@ describe.each(cases)("$fixture adapter", (c) => {
         if (field!.evidence.method === "API") expect(field!.evidence.locator.kind).toBe("jsonPath");
       }
     }
+  });
+
+  test("carries registry tags onto every item", async () => {
+    const { items } = await collect(c);
+    expect(items.every((i) => (i.meta.companyTags as string[]).includes("ai_lab"))).toBe(true);
   });
 
   test("only produces fields it declares in `provides`", async () => {

@@ -48,7 +48,7 @@ export const ashby: SourceAdapter<AtsParams> = {
     description: "API",
   },
 
-  async collect({ fetcher, scope }, { slug, company }) {
+  async collect({ fetcher, scope }, { slug, company, tags }) {
     const url = ATS_BOARD_URL.ashby(slug);
     const { data, page } = await fetcher.json<{ jobs: AshbyJob[] }>(scope, url, `ashby:${slug}`, {
       maxBytes: ATS_MAX_BYTES,
@@ -93,7 +93,7 @@ export const ashby: SourceAdapter<AtsParams> = {
             description: fromApi(truncate(job.descriptionPlain ?? "", 500), page, jobUrl, `${path}.descriptionPlain`),
           }),
           text: job.descriptionPlain ? { plain: job.descriptionPlain, sourceUrl: jobUrl, pageId: page.pageId } : null,
-          meta: { team: job.team ?? null },
+          meta: { companyTags: tags, team: job.team ?? null },
         },
       ];
     });
