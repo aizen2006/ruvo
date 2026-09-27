@@ -1,3 +1,4 @@
+import { thresholdsFor } from "../../decide/calibration";
 import { noulBand, type DecisionRequest } from "../../decide/decider";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
@@ -32,7 +33,7 @@ export const triage: StepFn<"triage"> = async (ctx, branch, _step, input) => {
         if (!title || !roleKeywords) return null;
         return roleKeywords.test(title) ? "yes" : "no";
       },
-      band: noulBand(0.75, 0.25),
+      band: noulBand(thresholdsFor("RELEVANCE").yes, thresholdsFor("RELEVANCE").no),
       defaultLabel: "unknown",
     }),
   );

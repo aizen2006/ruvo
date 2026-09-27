@@ -6,6 +6,7 @@ import { decisions } from "../db/schema";
 import { sha256, stableStringify } from "../libs/hash";
 import { LlmError } from "../llm/client";
 import type { RunContext } from "../runs/runContext";
+import { modeFor } from "./calibration";
 import type { SystemOneAnswer, SystemOneClient, SystemOneQuestion } from "./systemOneClient";
 
 /**
@@ -110,12 +111,13 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
         await Promise.all(
           pending().map(async (i) => {
             const r = requests[i]!;
-            if (!provider.available()) return;
+            const taskMode = modeFor(r.task, mode);
+            if (taskMode === "off" || !provider.available()) return;
             try {
               const { model, answers } = await provider.ask(r.state, { q: r.question }, scope.signal);
               models[i] = model;
               const banded = answers.q ? r.band(answers.q) : null;
-              if (banded && mode === "active") settle(i, banded.label, banded.confidence, "DECIDER");
+              if (banded && taskMode === "active") settle(i, banded.label, banded.confidence, "DECIDER");
               else if (answers.q) shadows[i] = banded ?? rawShadow(answers.q);
             } catch {
               // Unavailable or failed: the LLM judge decides instead.

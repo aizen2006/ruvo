@@ -1,0 +1,12 @@
+{
+  "CRITERION": {
+    "yes": 0.85,
+    "no": 0.45,
+    "mode": "active",
+    "model": "jev-1.13.0",
+    "precision": 0.9,
+    "coverage": 0.87,
+    "samples": 60,
+    "calibratedAt": "2026-09-27T18:11:58.082Z"
+  }
+}

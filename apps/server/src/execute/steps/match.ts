@@ -1,5 +1,6 @@
 import type { Criterion, DatasetContract, Signal } from "@repo/contracts";
 import type { FieldValue } from "../../adapters/types";
+import { thresholdsFor } from "../../decide/calibration";
 import { noulBand, type DecisionRequest } from "../../decide/decider";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
@@ -72,7 +73,7 @@ function semanticRequest(contract: DatasetContract, criterion: Criterion, candid
     state,
     question: { type: "noul", instructions: criterion.values[0] ?? criterion.label },
     labels: ["yes", "no", "unknown"],
-    band: noulBand(0.8, 0.2),
+    band: noulBand(thresholdsFor("CRITERION").yes, thresholdsFor("CRITERION").no),
     defaultLabel: "unknown",
   };
 }

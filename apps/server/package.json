@@ -15,6 +15,7 @@
     "smoke": "bun scripts/smoke.ts",
     "probe:registry": "bun scripts/probe-registry.ts",
     "eval": "bun scripts/eval.ts",
+    "calibrate": "bun scripts/calibrate-decider.ts",
     "e2e": "bun scripts/e2e.ts"
   },
   "devDependencies": {
