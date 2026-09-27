@@ -33,11 +33,18 @@ export const RunDetail = RunSummary.extend({
 });
 export type RunDetail = z.infer<typeof RunDetail>;
 
+/** Query-string boolean: only "true"/"1" are true (z.coerce.boolean would treat "false" as true). */
+const queryBool = z
+  .enum(["true", "false", "1", "0"])
+  .transform((v) => v === "true" || v === "1");
+
 export const ListRecordsQuery = z.object({
-  q: z.string().optional(),
+  q: z.string().trim().optional(),
   status: RecordStatus.optional(),
   source: z.string().optional(),
-  includeDuplicates: z.coerce.boolean().default(false),
+  remote: z.enum(["remote", "hybrid", "onsite"]).optional(),
+  hasSalary: queryBool.optional(),
+  includeDuplicates: queryBool.default(false),
   minConfidence: z.coerce.number().min(0).max(1).optional(),
   page: z.coerce.number().int().positive().default(1),
   pageSize: z.coerce.number().int().positive().max(200).default(50),
@@ -45,3 +52,9 @@ export const ListRecordsQuery = z.object({
 export type ListRecordsQuery = z.infer<typeof ListRecordsQuery>;
 
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
+
+export const ExportQuery = z.object({
+  format: z.enum(["csv", "json"]).default("csv"),
+  scope: z.enum(["valid", "all"]).default("valid"),
+});
+export type ExportQuery = z.infer<typeof ExportQuery>;

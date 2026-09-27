@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { datasetsRouter } from "./api/datasets.routes";
 import { runsRouter } from "./api/runs.routes";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler, notFoundHandler } from "./middlewares/errorLogger";
@@ -19,6 +20,7 @@ export function createApp() {
     res.status(200).json({ status: "ok" });
   });
   app.use("/api/runs", runsRouter);
+  app.use("/api/datasets", datasetsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

@@ -1,19 +1,14 @@
-import { CreateRunRequest } from "@repo/contracts";
+import { CreateRunRequest, ListRecordsQuery } from "@repo/contracts";
 import { Router } from "express";
 import { z } from "zod";
+import { getRecordWithEvidence, listRecords } from "../db/repos/records";
 import { createRun, getRunDetail, listEvents, listRuns, requestCancel, startRun } from "../db/repos/runs";
-import { notFound } from "../libs/errors";
+import { fieldNamesOf, parseId } from "./params";
 
-const RunId = z.string().uuid();
 const EventsQuery = z.object({ after: z.coerce.number().int().nonnegative().default(0) });
 const ListQuery = z.object({ limit: z.coerce.number().int().positive().max(200).default(50) });
 
-/** Malformed ids can never match a run, so they are reported as 404 rather than 400. */
-function runId(raw: string | undefined): string {
-  const parsed = RunId.safeParse(raw);
-  if (!parsed.success) throw notFound("Run");
-  return parsed.data;
-}
+const runId = (raw: string | undefined) => parseId(raw, "Run");
 
 export const runsRouter = Router();
 
@@ -43,4 +38,15 @@ runsRouter.post("/:id/cancel", async (req, res) => {
 runsRouter.get("/:id/events", async (req, res) => {
   const { after } = EventsQuery.parse(req.query);
   res.json(await listEvents(runId(req.params.id), after));
+});
+
+runsRouter.get("/:id/records", async (req, res) => {
+  const id = runId(req.params.id);
+  const query = ListRecordsQuery.parse(req.query);
+  const { contract } = await getRunDetail(id);
+  res.json(await listRecords(id, query, fieldNamesOf(contract)));
+});
+
+runsRouter.get("/:id/evidence/:recordId", async (req, res) => {
+  res.json(await getRecordWithEvidence(runId(req.params.id), parseId(req.params.recordId, "Record")));
 });
