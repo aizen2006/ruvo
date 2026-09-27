@@ -3,6 +3,7 @@
 import { isTerminal } from "@repo/contracts";
 import { useParams } from "next/navigation";
 import { useState } from "react";
+import { ContractView } from "@/components/contract/contract-view";
 import { EventFeed, LatestEvent } from "@/components/run/event-feed";
 import { MetricsLine } from "@/components/run/metrics-line";
 import { RunHeader } from "@/components/run/run-header";
@@ -44,8 +45,8 @@ export default function RunPage() {
             { value: "activity", label: "Activity", hint: events.length ? formatNumber(events.length) : undefined },
           ]}
         />
-        <TabPanel value="contract" className="py-6 text-muted">
-          The dataset contract appears here.
+        <TabPanel value="contract">
+          <ContractView run={run} />
         </TabPanel>
         <TabPanel value="workflow" className="py-6 text-muted">
           The workflow appears here.

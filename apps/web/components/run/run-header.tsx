@@ -19,7 +19,9 @@ export function RunHeader({ run }: { run: RunDetail }) {
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="max-w-4xl space-y-2">
         <StatusBadge status={run.status} />
-        <h1 className="font-serif text-2xl leading-snug text-balance sm:text-3xl">{run.prompt}</h1>
+        <h1 className="line-clamp-2 font-serif text-xl leading-snug" title={run.prompt}>
+          {run.prompt}
+        </h1>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {run.status === "awaiting_approval" && (
