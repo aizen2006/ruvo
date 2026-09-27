@@ -9,6 +9,7 @@ import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
+import { createDecider } from "../src/decide/decider";
 import { fakeLlm } from "./helpers/fakeLlm";
 import { fixtureFetcher } from "./helpers/fixtures";
 
@@ -61,6 +62,8 @@ describe("clusterDuplicates", () => {
 describe("dedupeRun", () => {
   beforeEach(resetDb);
 
+const offDecider = createDecider({ provider: null, mode: "off" });
+
   test("the same board collected twice yields one set of records seen on both sources", async () => {
     const run = await insertRun({ status: "running" });
     const openai = { id: crypto.randomUUID(), name: "OpenAI", ats: "ashby", slug: "openai", tags: [], origin: "curated", jobCount: null, verifiedAt: null } satisfies RegistryCompany;
@@ -75,7 +78,7 @@ describe("dedupeRun", () => {
     ir.sources.push(mirror);
 
     const { fetcher } = fixtureFetcher({ "ashbyhq.com": "ashby" });
-    const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm() });
+    const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider });
     await executeWorkflow(ctx);
     await ctx.dispose();
 

@@ -29,6 +29,8 @@ const EnvSchema = z.object({
   DECIDER_BASE_URL: z.string().url().default("https://api.typesafe.ai"),
   DECIDER_MODEL: z.string().default("jev-1.13.0"),
   TYPESAFE_API_KEY: optionalSecret,
+  /** off: never ask the decision model; shadow: ask and log, but don't act; active: act on confident answers. */
+  DECIDER_MODE: z.enum(["off", "shadow", "active"]).default("active"),
 
   WORKER_INLINE: flag,
   BROWSER_MODE: z.enum(["native", "sidecar", "spawn"]).default("native"),

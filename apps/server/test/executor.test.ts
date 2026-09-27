@@ -12,10 +12,13 @@ import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
+import { createDecider } from "../src/decide/decider";
 import { fakeLlm } from "./helpers/fakeLlm";
 import { fixtureFetcher } from "./helpers/fixtures";
 
 beforeEach(resetDb);
+
+const offDecider = createDecider({ provider: null, mode: "off" });
 
 const company = (name: string, ats: RegistryCompany["ats"], slug: string, tags: string[]): RegistryCompany => ({
   id: crypto.randomUUID(),
@@ -34,7 +37,7 @@ async function runWith(companies: RegistryCompany[], contract: DatasetContract =
   const run = await insertRun({ status: "running" });
   const ir = buildTemplateIr(contract, companies, { budgets, maxItemsPerSource: 40 });
   const { fetcher } = fixtureFetcher({ "greenhouse.io": "greenhouse", "ashbyhq.com": "ashby", "lever.co": "lever" });
-  const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract, ir, fetcher, llm: fakeLlm() });
+  const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract, ir, fetcher, llm: fakeLlm(), decider: offDecider });
   await executeWorkflow(ctx);
   await ctx.dispose();
   return { run, ctx };
@@ -76,7 +79,7 @@ describe("executeWorkflow", () => {
     const ir = buildTemplateIr(DEMO_CONTRACT, [company("OpenAI", "ashby", "openai", [])], { budgets, maxItemsPerSource: 40 });
     for (let attempt = 0; attempt < 2; attempt++) {
       const { fetcher } = fixtureFetcher({ "ashbyhq.com": "ashby" });
-      const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm() });
+      const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider });
       await executeWorkflow(ctx);
       await ctx.dispose();
     }

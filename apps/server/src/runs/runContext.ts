@@ -1,6 +1,7 @@
 import type { Budgets, DatasetContract, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
+import type { Decider } from "../decide/decider";
 import type { Fetcher } from "../fetch/fetcher";
 import type { LlmClient } from "../llm/client";
 import { runs } from "../db/schema";
@@ -23,6 +24,7 @@ export interface RunContext {
   metrics: Metrics;
   fetcher: Fetcher;
   llm: LlmClient;
+  decider: Decider;
   log: Logger;
   emit(event: EmitInput): void;
   /** Moves the run to a new user-facing stage (persisted and announced). */
@@ -43,6 +45,7 @@ export async function createRunContext(args: {
   ir: WorkflowIR;
   fetcher: Fetcher;
   llm: LlmClient;
+  decider: Decider;
   initialMetrics?: RunMetrics;
   budgets?: Budgets;
 }): Promise<OwnedRunContext> {
@@ -63,6 +66,7 @@ export async function createRunContext(args: {
     metrics,
     fetcher: args.fetcher,
     llm: args.llm,
+    decider: args.decider,
     log: logger.child({ runId }),
     emit: bus.emit,
     async setStage(stage) {

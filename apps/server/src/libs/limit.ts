@@ -11,3 +11,19 @@ export async function mapLimit<T, R>(items: readonly T[], concurrency: number, f
   await Promise.all(workers);
   return results;
 }
+
+/** Limits how many async tasks run at once. */
+export function createSemaphore(max: number) {
+  let active = 0;
+  const waiting: Array<() => void> = [];
+  return async function run<T>(task: () => Promise<T>): Promise<T> {
+    while (active >= max) await new Promise<void>((resolve) => waiting.push(resolve));
+    active++;
+    try {
+      return await task();
+    } finally {
+      active--;
+      waiting.shift()?.();
+    }
+  };
+}
