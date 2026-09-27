@@ -7,6 +7,7 @@ import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
+import { fakeLlm } from "./helpers/fakeLlm";
 import { fixtureFetcher } from "./helpers/fixtures";
 import { startTestServer } from "./helpers/http";
 
@@ -33,7 +34,7 @@ beforeAll(async () => {
   await attachWorkflow(run.id, (await saveWorkflow({ contractId: contractRow.id, ir })).id);
 
   const { fetcher } = fixtureFetcher({ "ashbyhq.com": "ashby", "greenhouse.io": "greenhouse" });
-  const ctx = await createRunContext({ runId, signal: new AbortController().signal, contract, ir, fetcher });
+  const ctx = await createRunContext({ runId, signal: new AbortController().signal, contract, ir, fetcher, llm: fakeLlm() });
   await executeWorkflow(ctx);
   await ctx.dispose();
 });

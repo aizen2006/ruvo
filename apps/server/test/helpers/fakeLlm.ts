@@ -1,4 +1,4 @@
-import type { ResponsesApi } from "../../src/llm/client";
+import { createLlmClient, type LlmClient, type ResponsesApi } from "../../src/llm/client";
 
 type FakeReply = unknown | ((request: { input: Array<{ role: string; content: string }> }) => unknown);
 
@@ -22,4 +22,14 @@ export function fakeResponses(replies: Record<string, FakeReply>, opts: { refuse
     },
   } as unknown as ResponsesApi;
   return { responses, calls };
+}
+
+/** An LlmClient backed by fakeResponses (no caching, no network). */
+export function fakeLlm(replies: Record<string, FakeReply> = {}, opts: { refuse?: string[] } = {}): LlmClient & { calls: ReturnType<typeof fakeResponses>["calls"] } {
+  const fake = fakeResponses(replies, opts);
+  const client = createLlmClient({
+    env: { MODEL_PLANNER: "gpt-6-sol", MODEL_WORKER: "gpt-6-luna", LLM_CACHE_MODE: "off", OPENAI_API_KEY: "test" },
+    responses: fake.responses,
+  });
+  return Object.assign(client, { calls: fake.calls });
 }

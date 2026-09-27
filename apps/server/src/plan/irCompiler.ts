@@ -7,6 +7,8 @@ import type { SourceCandidate } from "./discovery";
 const GENERATED_FIELDS: ReadonlySet<CatalogKey> = new Set(["match_reason"]);
 
 const MAX_ITEMS_PER_SOURCE = 100;
+/** Posts per free-text source that may use the LLM rung (the run's LLM budget still applies). */
+const TEXT_SOURCE_LLM_ITEMS = 30;
 const DEFAULT_ITEMS_PER_SOURCE = 40;
 
 export interface CompileOptions {
@@ -83,6 +85,10 @@ function buildBranch(
       maxItems: clamp(Math.round(plan.maxItems || DEFAULT_ITEMS_PER_SOURCE), 1, MAX_ITEMS_PER_SOURCE),
     },
   ];
+  // Free-text sources need their fields read from the text before any keyword gate can apply.
+  if (adapterKind === "text") {
+    steps.push({ id: `${id}.extract_text`, kind: "extract_text", parser: "hn_header", llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS });
+  }
   // The keyword gate only makes sense when the contract has keyword criteria to apply.
   if (include.length || exclude.length) {
     steps.push({

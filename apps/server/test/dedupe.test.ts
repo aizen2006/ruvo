@@ -9,6 +9,7 @@ import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
+import { fakeLlm } from "./helpers/fakeLlm";
 import { fixtureFetcher } from "./helpers/fixtures";
 
 const specs = DEMO_CONTRACT.dedupKeys; // [["url"], ["company","title","location"]]
@@ -74,7 +75,7 @@ describe("dedupeRun", () => {
     ir.sources.push(mirror);
 
     const { fetcher } = fixtureFetcher({ "ashbyhq.com": "ashby" });
-    const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher });
+    const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm() });
     await executeWorkflow(ctx);
     await ctx.dispose();
 
