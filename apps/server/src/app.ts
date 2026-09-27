@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import { datasetsRouter } from "./api/datasets.routes";
 import { runsRouter } from "./api/runs.routes";
+import { careersSite } from "./fixtures/careersSite";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler, notFoundHandler } from "./middlewares/errorLogger";
 
@@ -21,6 +22,8 @@ export function createApp() {
   });
   app.use("/api/runs", runsRouter);
   app.use("/api/datasets", datasetsRouter);
+  // Fictional demo site for self-repair demos; not served in production.
+  if (process.env.NODE_ENV !== "production") app.use("/fixtures", careersSite);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

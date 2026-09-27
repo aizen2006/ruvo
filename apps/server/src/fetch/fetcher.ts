@@ -44,8 +44,10 @@ export interface FetcherOptions {
   userAgent: string;
   cacheMode: CacheMode;
   cacheTtlMs?: number;
-  /** Only for tests and the local fixture site: skips the SSRF guard. */
+  /** Only for tests: skips the SSRF guard for every URL. */
   allowPrivateNetwork?: boolean;
+  /** Origins exempt from the SSRF guard, e.g. RUVO's own demo site on localhost. */
+  trustedOrigins?: string[];
   timeoutMs?: number;
   robots?: Robots;
   limiter?: HostLimiter;
@@ -70,8 +72,10 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   const cacheTtlMs = opts.cacheTtlMs ?? 6 * 60 * 60 * 1000;
   const timeoutMs = opts.timeoutMs ?? 20_000;
 
+  const trusted = new Set(opts.trustedOrigins ?? []);
   const guard = async (url: string) => {
-    if (!opts.allowPrivateNetwork) await assertPublicUrl(url);
+    if (opts.allowPrivateNetwork || trusted.has(new URL(url).origin)) return;
+    await assertPublicUrl(url);
   };
 
   /** Stored copy of a page for this transport, honouring the cache mode. */
