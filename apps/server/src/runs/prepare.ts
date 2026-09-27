@@ -3,6 +3,7 @@ import { compileRequirement } from "../compile/requirementCompiler";
 import { env } from "../config/env";
 import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
+import { autoDetectCompanies } from "../plan/atsDetect";
 import { discoverSources } from "../plan/discovery";
 import type { LlmClient } from "../llm/client";
 import { planForContract } from "../plan/planner";
@@ -36,7 +37,20 @@ export const createPreparer = ({ llm }: { llm: LlmClient }): RunPreparer => asyn
     });
 
     await stage("planning", { type: "discovery.started", message: "Finding sources" });
-    const discovery = discoverSources(contract, await listRegistry());
+    let discovery = discoverSources(contract, await listRegistry());
+
+    // Companies the user named that the registry doesn't know: look for their public boards.
+    if (discovery.unmatchedCompanies.length) {
+      const { found, missing } = await autoDetectCompanies(discovery.unmatchedCompanies, { userAgent: env.USER_AGENT });
+      for (const { name, hit } of found) {
+        bus.emit({ stage: "planning", type: "discovery.detected", message: `Found a ${hit.ats} job board for ${name} (${hit.jobCount} postings)` });
+      }
+      if (missing.length) {
+        bus.emit({ stage: "planning", type: "discovery.not_found", level: "warn", message: `No public job board found for ${missing.join(", ")}` });
+      }
+      if (found.length) discovery = discoverSources(contract, await listRegistry());
+    }
+
     bus.emit({
       stage: "planning",
       type: "discovery.completed",
