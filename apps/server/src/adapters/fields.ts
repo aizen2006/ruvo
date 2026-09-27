@@ -77,3 +77,28 @@ export function salaryFromApi(
 export function compactFields(fields: Record<string, FieldValue | undefined>): Record<string, FieldValue> {
   return Object.fromEntries(Object.entries(fields).filter((e): e is [string, FieldValue] => e[1] !== undefined));
 }
+
+/**
+ * A value found in free text by a deterministic parser. `snippet` must appear in `text`;
+ * its character span becomes the locator so the evidence can be re-checked later.
+ */
+export function fromText(
+  value: Scalar,
+  snippet: string,
+  text: string,
+  source: { sourceUrl: string; pageId: string | null },
+): FieldValue | undefined {
+  if (isEmpty(value)) return undefined;
+  const start = text.indexOf(snippet);
+  return {
+    value: typeof value === "number" ? String(value) : value!,
+    evidence: {
+      method: "REGEX",
+      sourceUrl: source.sourceUrl,
+      pageId: source.pageId,
+      snippet: truncate(snippet, SNIPPET_MAX),
+      locator: { kind: "textSpan", value: start >= 0 ? `${start}-${start + snippet.length}` : "header" },
+      verified: start >= 0,
+    },
+  };
+}

@@ -55,8 +55,14 @@ describe("discoverSources", () => {
     });
   });
 
+  test("offers the Hacker News board when community boards are requested", () => {
+    const refs = discoverSources(contractWith({ includeCommunityBoards: true }, []), registry).candidates.map((c) => c.ref);
+    expect(refs).toContain("hn_whoishiring:latest");
+    expect(discoverSources(contractWith({}, []), registry).candidates.map((c) => c.ref)).not.toContain("hn_whoishiring:latest");
+  });
+
   test("does not offer sources whose adapter is not implemented yet", () => {
-    const result = discoverSources(contractWith({ includeCommunityBoards: true, urls: ["https://example.com/jobs"] }, []), registry);
-    expect(result.candidates.some((c) => c.adapter === "hn_whoishiring" || c.adapter === "html_list")).toBe(false);
+    const result = discoverSources(contractWith({ urls: ["https://example.com/jobs"] }, []), registry);
+    expect(result.candidates.some((c) => c.adapter === "html_list")).toBe(false);
   });
 });

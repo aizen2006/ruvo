@@ -1,6 +1,7 @@
 import type { AdapterId } from "@repo/contracts";
 import { ashby } from "./ashby";
 import { greenhouse } from "./greenhouse";
+import { hnWhoIsHiring } from "./hn";
 import { lever } from "./lever";
 import type { SourceAdapter } from "./types";
 import { workable } from "./workable";
@@ -11,6 +12,7 @@ const ADAPTERS: Partial<Record<AdapterId, SourceAdapter<unknown>>> = {
   ashby: ashby as SourceAdapter<unknown>,
   lever: lever as SourceAdapter<unknown>,
   workable: workable as SourceAdapter<unknown>,
+  hn_whoishiring: hnWhoIsHiring as SourceAdapter<unknown>,
 };
 
 export function getAdapter(id: AdapterId): SourceAdapter<unknown> {

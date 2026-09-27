@@ -38,3 +38,13 @@ await capture("workable", "https://apply.workable.com/api/v1/widget/accounts/hug
   ...d,
   jobs: d.jobs.slice(0, KEEP),
 }));
+
+// HN "Who is hiring?": the latest thread's top-level comments (replies dropped).
+const threads = (await (await fetch("https://hn.algolia.com/api/v1/search_by_date?tags=story,author_whoishiring&hitsPerPage=10")).json()) as {
+  hits: Array<{ objectID: string; title: string }>;
+};
+const thread = threads.hits.find((h) => /who is hiring/i.test(h.title))!;
+await capture("hn-thread", `https://hn.algolia.com/api/v1/items/${thread.objectID}`, (d) => ({
+  ...d,
+  children: d.children.filter((c: { text: string | null }) => c.text).slice(0, 40).map((c: object) => ({ ...c, children: [] })),
+}));
