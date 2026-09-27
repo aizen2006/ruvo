@@ -9,9 +9,15 @@ import { chromium } from "playwright";
 const OUT = new URL("../test/fixtures/html/", import.meta.url);
 const UA = "RUVO/0.1 (+https://github.com/aizen2006/ruvo)";
 const DATA_SCRIPT = /application\/ld\+json|__NEXT_DATA__|__appData|__remixContext/;
+/**
+ * Client-side keys that sites embed in their pages (e.g. Greenhouse's Google Picker key).
+ * They are public, but committing them trips secret scanners, so fixtures get a placeholder.
+ */
+const EMBEDDED_KEYS = /AIza[0-9A-Za-z_-]{35}|sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9]{36}/g;
 
 function trim(html: string): string {
   return html
+    .replace(EMBEDDED_KEYS, "REDACTED_KEY")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
     .replace(/<svg[\s\S]*?<\/svg>/gi, "")
     .replace(/<!--[\s\S]*?-->/g, "")
