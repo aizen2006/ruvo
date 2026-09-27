@@ -2,7 +2,7 @@ import { CreateRunRequest, DatasetContract, ListRecordsQuery } from "@repo/contr
 import { Router } from "express";
 import { z } from "zod";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
-import { createRun, getRunDetail, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
+import { createRun, getQualityReport, getRunDetail, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
 import { getRunWorkflow } from "../db/repos/workflows";
 import { editRunContract } from "../runs/editContract";
 import { fieldNamesOf, parseId } from "./params";
@@ -64,4 +64,8 @@ runsRouter.patch("/:id/contract", async (req, res) => {
 
 runsRouter.post("/:id/rerun", async (req, res) => {
   res.status(201).json(await rerunRun(runId(req.params.id)));
+});
+
+runsRouter.get("/:id/quality", async (req, res) => {
+  res.json(await getQualityReport(runId(req.params.id)));
 });

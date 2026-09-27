@@ -190,3 +190,10 @@ export async function rerunRun(runId: string) {
     .returning({ runId: runs.id, status: runs.status });
   return run!;
 }
+
+export async function getQualityReport(runId: string) {
+  const [row] = await db.select({ report: runs.qualityReport }).from(runs).where(eq(runs.id, runId));
+  if (!row) throw notFound("Run");
+  if (!row.report) throw notFound("Quality report (the run has not finished)");
+  return row.report;
+}
