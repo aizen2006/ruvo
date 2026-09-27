@@ -22,6 +22,7 @@ export const store: StepFn<"store"> = async (ctx, _branch, _step, input) => {
     data: Object.fromEntries(fields.map((f) => [f.name, c.item.fields[itemKeyFor(ctx.contract, f.name)]?.value ?? null])),
     status: c.status ?? "incomplete",
     matchScore: c.matchScore,
+    confidence: c.confidence,
     signals: c.signals,
     rejectReasons: c.rejectReasons,
   }));
@@ -36,6 +37,7 @@ export const store: StepFn<"store"> = async (ctx, _branch, _step, input) => {
           data: sql`excluded.data`,
           status: sql`excluded.status`,
           matchScore: sql`excluded.match_score`,
+          confidence: sql`excluded.confidence`,
           signals: sql`excluded.signals`,
           rejectReasons: sql`excluded.reject_reasons`,
         },

@@ -54,6 +54,8 @@ describe("executeWorkflow", () => {
     const ev = await db.select().from(evidence).where(eq(evidence.recordId, rows[0]!.id));
     expect(ev.map((e) => e.field).sort()).toEqual(expect.arrayContaining(["company", "title", "url", "salary"]));
     expect(ev.find((e) => e.field === "title")).toMatchObject({ method: "API", verified: true, confidence: 0.99 });
+    // company is DERIVED from the registry (0.85), the weakest required field
+    expect(rows[0]!.confidence).toBe(0.85);
     expect(ctx.metrics.snapshot()).toMatchObject({ rawRecords: 2, validRecords: 2 });
   });
 
@@ -130,6 +132,19 @@ describe("match and validate", () => {
 
   test("describeMatch handles no confirmed criteria", () => {
     expect(describeMatch([])).toBe("No criteria confirmed.");
+  });
+
+  test("an unverified required value counts as missing and confidence is the weakest required field", async () => {
+    const c = candidate({ ...base, title: "Backend Engineer" });
+    c.item.fields.location!.evidence = { ...c.item.fields.location!.evidence, method: "LLM", verified: false };
+    const [unverified] = await validate(ctx, {} as never, validateStep, [c]);
+    expect(unverified!.status).toBe("incomplete");
+    expect(unverified!.rejectReasons).toEqual(["Missing required field: location"]);
+
+    c.item.fields.location!.evidence = { ...c.item.fields.location!.evidence, method: "REGEX", verified: true };
+    const [regex] = await validate(ctx, {} as never, validateStep, [c]);
+    expect(regex!.status).toBe("valid");
+    expect(regex!.confidence).toBe(0.8);
   });
 
   test("status reflects rejections and missing required fields", async () => {

@@ -13,6 +13,8 @@ export interface Candidate {
   signals: Signal[];
   rejectReasons: string[];
   matchScore: number;
+  /** Trust in the record: the lowest confidence among its required fields (0..1). */
+  confidence: number;
   status: RecordStatus | null;
 }
 
@@ -23,6 +25,7 @@ export const toCandidate = (sourceId: string, item: Item): Candidate => ({
   signals: [],
   rejectReasons: [],
   matchScore: 0,
+  confidence: 0,
   status: null,
 });
 
