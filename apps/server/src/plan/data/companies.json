@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Anthropic",
+    "ats": "greenhouse",
+    "slug": "anthropic",
+    "tags": [
+      "ai_lab"
+    ],
+    "jobCount": 618,
+    "verifiedAt": "2026-09-27T14:00:42.559Z"
+  },
+  {
+    "name": "OpenAI",
+    "ats": "ashby",
+    "slug": "openai",
+    "tags": [
+      "ai_lab"
+    ],
+    "jobCount": 830,
+    "verifiedAt": "2026-09-27T14:00:43.309Z"
+  },
+  {
+    "name": "Hugging Face",
+    "ats": "workable",
+    "slug": "huggingface",
+    "tags": [
+      "ai_lab",
+      "open_source"
+    ],
+    "jobCount": 8,
+    "verifiedAt": "2026-09-27T14:00:43.653Z"
+  },
+  {
+    "name": "Cohere",
+    "ats": "ashby",
+    "slug": "cohere",
+    "tags": [
+      "ai_lab"
+    ],
+    "jobCount": 147,
+    "verifiedAt": "2026-09-27T14:00:44.056Z"
+  },
+  {
+    "name": "Perplexity",
+    "ats": "ashby",
+    "slug": "perplexity",
+    "tags": [
+      "ai_lab"
+    ],
+    "jobCount": 123,
+    "verifiedAt": "2026-09-27T14:00:44.418Z"
+  },
+  {
+    "name": "ElevenLabs",
+    "ats": "ashby",
+    "slug": "elevenlabs",
+    "tags": [
+      "ai_lab"
+    ],
+    "jobCount": 207,
+    "verifiedAt": "2026-09-27T14:00:47.361Z"
+  },
+  {
+    "name": "Databricks",
+    "ats": "greenhouse",
+    "slug": "databricks",
+    "tags": [
+      "data_platform",
+      "ai_infra"
+    ],
+    "jobCount": 887,
+    "verifiedAt": "2026-09-27T14:00:47.917Z"
+  },
+  {
+    "name": "Scale AI",
+    "ats": "greenhouse",
+    "slug": "scaleai",
+    "tags": [
+      "ai_infra"
+    ],
+    "jobCount": 203,
+    "verifiedAt": "2026-09-27T14:00:48.271Z"
+  },
+  {
+    "name": "Together AI",
+    "ats": "greenhouse",
+    "slug": "togetherai",
+    "tags": [
+      "ai_infra"
+    ],
+    "jobCount": 78,
+    "verifiedAt": "2026-09-27T14:00:49.281Z"
+  },
+  {
+    "name": "Modal",
+    "ats": "ashby",
+    "slug": "modal",
+    "tags": [
+      "ai_infra",
+      "devtools"
+    ],
+    "jobCount": 39,
+    "verifiedAt": "2026-09-27T14:00:49.655Z"
+  },
+  {
+    "name": "Baseten",
+    "ats": "ashby",
+    "slug": "baseten",
+    "tags": [
+      "ai_infra"
+    ],
+    "jobCount": 101,
+    "verifiedAt": "2026-09-27T14:00:50.029Z"
+  },
+  {
+    "name": "Pinecone",
+    "ats": "ashby",
+    "slug": "pinecone",
+    "tags": [
+      "ai_infra",
+      "data_platform"
+    ],
+    "jobCount": 7,
+    "verifiedAt": "2026-09-27T14:00:50.335Z"
+  },
+  {
+    "name": "LangChain",
+    "ats": "ashby",
+    "slug": "langchain",
+    "tags": [
+      "ai_infra",
+      "devtools",
+      "open_source"
+    ],
+    "jobCount": 102,
+    "verifiedAt": "2026-09-27T14:00:50.695Z"
+  },
+  {
+    "name": "Vercel",
+    "ats": "greenhouse",
+    "slug": "vercel",
+    "tags": [
+      "devtools"
+    ],
+    "jobCount": 88,
+    "verifiedAt": "2026-09-27T14:00:54.612Z"
+  },
+  {
+    "name": "Supabase",
+    "ats": "ashby",
+    "slug": "supabase",
+    "tags": [
+      "devtools",
+      "data_platform",
+      "open_source"
+    ],
+    "jobCount": 56,
+    "verifiedAt": "2026-09-27T14:00:54.931Z"
+  },
+  {
+    "name": "Datadog",
+    "ats": "greenhouse",
+    "slug": "datadog",
+    "tags": [
+      "devtools",
+      "data_platform"
+    ],
+    "jobCount": 449,
+    "verifiedAt": "2026-09-27T14:01:12.789Z"
+  },
+  {
+    "name": "Stripe",
+    "ats": "greenhouse",
+    "slug": "stripe",
+    "tags": [
+      "fintech",
+      "devtools"
+    ],
+    "jobCount": 701,
+    "verifiedAt": "2026-09-27T14:01:13.495Z"
+  },
+  {
+    "name": "Palantir",
+    "ats": "lever",
+    "slug": "palantir",
+    "tags": [
+      "data_platform"
+    ],
+    "jobCount": 321,
+    "verifiedAt": "2026-09-27T14:01:21.023Z"
+  },
+  {
+    "name": "Spotify",
+    "ats": "lever",
+    "slug": "spotify",
+    "tags": [
+      "consumer_tech"
+    ],
+    "jobCount": 79,
+    "verifiedAt": "2026-09-27T14:01:22.480Z"
+  }
+]

@@ -1,8 +1,10 @@
+import { bootstrap } from "./bootstrap";
 import { logger } from "./libs/logger";
 import { runPipeline } from "./runs/pipeline";
 import { startWorker } from "./runs/worker";
 
 /** Standalone worker process: `bun src/worker.ts`. */
+await bootstrap();
 const worker = startWorker({ execute: runPipeline });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {

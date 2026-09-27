@@ -1,7 +1,7 @@
 import { joinLocations } from "../extract/parsers/location";
 import { arrangementFromWorkplaceType, detectArrangement } from "../extract/parsers/remote";
 import { htmlToText, truncate } from "../libs/text";
-import { ATS_MAX_BYTES, AtsParams, periodFromInterval } from "./ats";
+import { ATS_BOARD_URL, ATS_MAX_BYTES, AtsParams, periodFromInterval } from "./ats";
 import { compactFields, derived, fromApi, salaryFromApi } from "./fields";
 import type { SourceAdapter } from "./types";
 
@@ -37,7 +37,7 @@ export const lever: SourceAdapter<AtsParams> = {
   },
 
   async collect({ fetcher, scope }, { slug, company }) {
-    const url = `https://api.lever.co/v0/postings/${encodeURIComponent(slug)}?mode=json`;
+    const url = ATS_BOARD_URL.lever(slug);
     const { data, page } = await fetcher.json<LeverJob[]>(scope, url, `lever:${slug}`, { maxBytes: ATS_MAX_BYTES });
 
     return data.map((job, i) => {

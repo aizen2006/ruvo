@@ -1,7 +1,7 @@
 import { joinLocations } from "../extract/parsers/location";
 import { arrangementFromWorkplaceType, detectArrangement } from "../extract/parsers/remote";
 import { truncate } from "../libs/text";
-import { ATS_MAX_BYTES, AtsParams, humanizeEmploymentType, periodFromInterval } from "./ats";
+import { ATS_BOARD_URL, ATS_MAX_BYTES, AtsParams, humanizeEmploymentType, periodFromInterval } from "./ats";
 import { compactFields, derived, fromApi, salaryFromApi } from "./fields";
 import type { SourceAdapter } from "./types";
 
@@ -49,7 +49,7 @@ export const ashby: SourceAdapter<AtsParams> = {
   },
 
   async collect({ fetcher, scope }, { slug, company }) {
-    const url = `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(slug)}?includeCompensation=true`;
+    const url = ATS_BOARD_URL.ashby(slug);
     const { data, page } = await fetcher.json<{ jobs: AshbyJob[] }>(scope, url, `ashby:${slug}`, {
       maxBytes: ATS_MAX_BYTES,
     });

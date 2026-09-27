@@ -13,6 +13,7 @@
     "db:migrate": "bun src/db/migrate.ts",
     "browsers": "playwright install chromium",
     "smoke": "bun scripts/smoke.ts",
+    "probe:registry": "bun scripts/probe-registry.ts",
     "eval": "bun scripts/eval.ts",
     "e2e": "bun scripts/e2e.ts"
   },

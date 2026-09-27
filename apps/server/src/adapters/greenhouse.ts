@@ -1,7 +1,7 @@
 import { joinLocations } from "../extract/parsers/location";
 import { arrangementFromWorkplaceType, detectArrangement } from "../extract/parsers/remote";
 import { decodeEntities, htmlToText, truncate } from "../libs/text";
-import { ATS_MAX_BYTES, AtsParams } from "./ats";
+import { ATS_BOARD_URL, ATS_MAX_BYTES, AtsParams } from "./ats";
 import { compactFields, derived, fromApi } from "./fields";
 import type { SourceAdapter } from "./types";
 
@@ -36,7 +36,7 @@ export const greenhouse: SourceAdapter<AtsParams> = {
   },
 
   async collect({ fetcher, scope }, { slug, company }) {
-    const url = `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(slug)}/jobs?content=true`;
+    const url = ATS_BOARD_URL.greenhouse(slug);
     const { data, page } = await fetcher.json<{ jobs: GreenhouseJob[] }>(scope, url, `greenhouse:${slug}`, {
       maxBytes: ATS_MAX_BYTES,
     });

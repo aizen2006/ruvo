@@ -1,6 +1,6 @@
 import { joinLocations } from "../extract/parsers/location";
 import { detectArrangement } from "../extract/parsers/remote";
-import { AtsParams } from "./ats";
+import { ATS_BOARD_URL, AtsParams } from "./ats";
 import { compactFields, derived, fromApi } from "./fields";
 import type { SourceAdapter } from "./types";
 
@@ -38,7 +38,7 @@ export const workable: SourceAdapter<AtsParams> = {
   },
 
   async collect({ fetcher, scope }, { slug, company }) {
-    const url = `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(slug)}`;
+    const url = ATS_BOARD_URL.workable(slug);
     const { data, page } = await fetcher.json<{ name?: string; jobs: WorkableJob[] }>(scope, url, `workable:${slug}`);
 
     return data.jobs.map((job, i) => {
