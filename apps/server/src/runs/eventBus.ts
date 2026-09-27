@@ -89,3 +89,10 @@ export function createEventBus(
     },
   };
 }
+
+/** Writes a single event immediately; used for run lifecycle events outside a pipeline's bus. */
+export async function appendEvent(runId: string, event: EmitInput) {
+  const bus = createEventBus(runId, { startSeq: await nextEventSeq(runId) });
+  bus.emit(event);
+  await bus.close();
+}

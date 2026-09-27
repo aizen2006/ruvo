@@ -36,6 +36,8 @@ const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull(
 export const requests = pgTable("requests", {
   id: id(),
   prompt: text("prompt").notNull(),
+  /** Client-supplied Idempotency-Key; a retried POST returns the original run. */
+  idempotencyKey: text("idempotency_key").unique(),
   createdAt: createdAt(),
 });
 

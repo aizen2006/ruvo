@@ -1,35 +1,22 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import type { Server } from "node:http";
-import type { AddressInfo } from "node:net";
-import { createApp } from "../src/app";
+import { afterAll, describe, expect, test } from "bun:test";
+import { startTestServer } from "./helpers/http";
 
-let server: Server;
-let baseUrl: string;
-
-beforeAll(() => {
-  server = createApp().listen(0);
-  baseUrl = `http://localhost:${(server.address() as AddressInfo).port}`;
-});
-
-afterAll(() => {
-  server.close();
-});
+const api = startTestServer();
+afterAll(api.close);
 
 describe("app", () => {
   test("GET /health returns ok", async () => {
-    const res = await fetch(`${baseUrl}/health`);
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ status: "ok" });
+    expect(await api.get("/health")).toEqual({ status: 200, body: { status: "ok" } });
   });
 
   test("unknown route returns 404 JSON", async () => {
-    const res = await fetch(`${baseUrl}/nope`);
+    const res = await api.get("/nope");
     expect(res.status).toBe(404);
-    expect(((await res.json()) as { error: string }).error).toContain("not found");
+    expect(res.body.error).toContain("not found");
   });
 
   test("malformed JSON body returns 400", async () => {
-    const res = await fetch(`${baseUrl}/health`, {
+    const res = await api.raw("/health", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: "{bad json",

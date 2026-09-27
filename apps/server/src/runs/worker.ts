@@ -1,5 +1,6 @@
 import { claimNextRun, finishRun, heartbeat, recoverStaleRuns, releaseRun, type ClaimedRun } from "../db/queue";
 import { logger } from "../libs/logger";
+import { appendEvent } from "./eventBus";
 
 /** Executes one claimed run. Must stop promptly when `signal` aborts. */
 export type RunExecutor = (run: ClaimedRun, signal: AbortSignal) => Promise<void>;
@@ -47,7 +48,12 @@ export function startWorker(opts: WorkerOptions) {
     const controller = new AbortController();
     current = controller;
     const log = logger.child({ runId: run.id, workerId, attempt: run.attempt });
+    const lifecycle = (type: string, message: string, level: "info" | "warn" | "error" = "info") =>
+      appendEvent(run.id, { stage: run.stage, type, message, level }).catch((err) =>
+        log.warn("Could not record lifecycle event", { type, error: String(err) }),
+      );
     log.info("Run claimed");
+    await lifecycle("run.claimed", `Attempt ${run.attempt} started`);
 
     const beat = setInterval(async () => {
       try {
@@ -64,11 +70,13 @@ export function startWorker(opts: WorkerOptions) {
       // An executor that returns quietly after an abort is still classified by the abort reason.
       controller.signal.throwIfAborted();
       await finishRun(run.id, workerId, "completed");
+      await lifecycle("run.completed", "Run completed");
       log.info("Run completed");
     } catch (err) {
       const reason = controller.signal.aborted ? controller.signal.reason : null;
       if (reason === ABORT_CANCELLED) {
         await finishRun(run.id, workerId, "cancelled");
+        await lifecycle("run.cancelled", "Run cancelled by user", "warn");
         log.info("Run cancelled");
       } else if (reason === ABORT_SHUTDOWN) {
         // Hand the run straight back so a restarted worker resumes it without waiting.
@@ -79,6 +87,7 @@ export function startWorker(opts: WorkerOptions) {
       } else {
         const message = err instanceof Error ? err.message : String(err);
         await finishRun(run.id, workerId, "failed", message);
+        await lifecycle("run.failed", message, "error");
         log.error("Run failed", { error: message });
       }
     } finally {

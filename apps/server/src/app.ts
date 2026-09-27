@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { runsRouter } from "./api/runs.routes";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler, notFoundHandler } from "./middlewares/errorLogger";
 
@@ -17,6 +18,7 @@ export function createApp() {
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
+  app.use("/api/runs", runsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
