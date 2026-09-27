@@ -71,10 +71,20 @@ export async function discoverRecipe(
   return null;
 }
 
-/** A list page must yield several items, and every required field for nearly all of them. */
+/** Fields that identify a record; a recipe that cannot read them reliably is broken. */
+const IDENTIFYING = new Set(["title", "url"]);
+
+/**
+ * A recipe must read the page correctly, not prove the page has every value: identifying
+ * fields must be found for nearly all items, other required fields for at least some.
+ * (Pages legitimately omit values, e.g. no location on remote roles; those records are
+ * reported as incomplete downstream rather than failing the recipe.)
+ */
 export function acceptanceFor(fields: FieldSpec[]): Recipe["acceptance"] {
   return {
     minItems: 3,
-    minFill: Object.fromEntries(fields.filter((f) => f.required).map((f) => [f.name, 0.8])),
+    minFill: Object.fromEntries(
+      fields.filter((f) => f.required || IDENTIFYING.has(f.catalogKey)).map((f) => [f.name, IDENTIFYING.has(f.catalogKey) ? 0.8 : 0.25]),
+    ),
   };
 }

@@ -55,7 +55,7 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   }
 
   const candidates: SourceCandidate[] = selected
-    .filter(({ company }) => available.has(company.ats))
+    .filter(({ company }) => available.has(company.boardUrl ? "html_list" : company.ats))
     .map(({ company, reason }) => registryCandidate(company, reason));
 
   if (hints.includeCommunityBoards && available.has("hn_whoishiring")) {
@@ -88,8 +88,23 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   return { candidates, unmatchedCompanies: named.filter((n) => !n.match).map((n) => n.name) };
 }
 
-/** A registry company as a plannable source. */
+/**
+ * A registry company as a plannable source: its public board page (browser + recipe) when the
+ * registry lists one, otherwise its ATS API.
+ */
 export function registryCandidate(company: RegistryCompany, reason: string): SourceCandidate {
+  if (company.boardUrl) {
+    return {
+      ref: `html_list:${company.boardUrl}`,
+      adapter: "html_list",
+      label: company.name,
+      params: { url: company.boardUrl, company: company.name, tags: company.tags },
+      tags: company.tags,
+      jobCount: company.jobCount,
+      reason,
+      origin: "registry",
+    };
+  }
   return {
     ref: `${company.ats}:${company.slug}`,
     adapter: company.ats,

@@ -192,6 +192,8 @@ export const registryCompanies = pgTable(
     name: text("name").notNull(),
     ats: text("ats").$type<"greenhouse" | "ashby" | "lever" | "workable">().notNull(),
     slug: text("slug").notNull(),
+    /** Public board page to scrape (html_list) instead of the ATS API, when set. */
+    boardUrl: text("board_url"),
     tags: jsonb("tags").$type<string[]>().notNull().default([]),
     origin: text("origin").$type<"curated" | "auto_detected">().notNull(),
     jobCount: integer("job_count"),

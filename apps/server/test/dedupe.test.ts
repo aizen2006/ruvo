@@ -66,7 +66,7 @@ const offDecider = createDecider({ provider: null, mode: "off" });
 
   test("the same board collected twice yields one set of records seen on both sources", async () => {
     const run = await insertRun({ status: "running" });
-    const openai = { id: crypto.randomUUID(), name: "OpenAI", ats: "ashby", slug: "openai", tags: [], origin: "curated", jobCount: null, verifiedAt: null } satisfies RegistryCompany;
+    const openai = { id: crypto.randomUUID(), name: "OpenAI", ats: "ashby", slug: "openai", tags: [], boardUrl: null, origin: "curated", jobCount: null, verifiedAt: null } satisfies RegistryCompany;
     const ir = buildTemplateIr(DEMO_CONTRACT, [openai], {
       budgets: { maxPages: 10, maxBrowserPages: 0, maxLlmCalls: 0, maxDurationMs: 60_000, maxRecords: 100 },
       maxItemsPerSource: 40,

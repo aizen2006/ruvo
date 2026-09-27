@@ -22,8 +22,8 @@ beforeAll(async () => {
   const run = await insertRun({ status: "running" });
   runId = run.id;
   const companies = [
-    { id: crypto.randomUUID(), name: "OpenAI", ats: "ashby", slug: "openai", tags: ["ai_lab"], origin: "curated", jobCount: null, verifiedAt: null },
-    { id: crypto.randomUUID(), name: "Anthropic", ats: "greenhouse", slug: "anthropic", tags: ["ai_lab"], origin: "curated", jobCount: null, verifiedAt: null },
+    { id: crypto.randomUUID(), name: "OpenAI", ats: "ashby", slug: "openai", tags: ["ai_lab"], boardUrl: null, origin: "curated", jobCount: null, verifiedAt: null },
+    { id: crypto.randomUUID(), name: "Anthropic", ats: "greenhouse", slug: "anthropic", tags: ["ai_lab"], boardUrl: null, origin: "curated", jobCount: null, verifiedAt: null },
   ] satisfies RegistryCompany[];
   const contract = DEMO_CONTRACT;
   const ir = buildTemplateIr(contract, companies, {

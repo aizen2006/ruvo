@@ -1,0 +1,1 @@
+ALTER TABLE "registry_companies" ADD COLUMN "board_url" text;

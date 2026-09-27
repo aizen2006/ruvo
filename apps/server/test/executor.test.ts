@@ -26,7 +26,7 @@ const company = (name: string, ats: RegistryCompany["ats"], slug: string, tags: 
   ats,
   slug,
   tags,
-  origin: "curated",
+  boardUrl: null, origin: "curated",
   jobCount: null,
   verifiedAt: null,
 });

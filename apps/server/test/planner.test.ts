@@ -15,7 +15,7 @@ const company = (name: string, ats: RegistryCompany["ats"], slug: string): Regis
   ats,
   slug,
   tags: ["ai_lab"],
-  origin: "curated",
+  boardUrl: null, origin: "curated",
   jobCount: 100,
   verifiedAt: null,
 });

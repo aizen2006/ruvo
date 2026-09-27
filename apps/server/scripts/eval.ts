@@ -20,7 +20,7 @@ const criteria = (c: DatasetContract, kind: Criterion["kind"]) => c.criteria.fil
 const remoteCriterion = (c: DatasetContract) => criteria(c, "equals").find((k) => k.values.includes("remote"));
 const hasValue = (list: string[], pattern: RegExp) => list.some((v) => pattern.test(v));
 
-const registry: RegistryCompany[] = curatedCompanies().map((c) => ({ ...c, id: c.slug, origin: "curated", verifiedAt: new Date(c.verifiedAt) }));
+const registry: RegistryCompany[] = curatedCompanies().map((c) => ({ ...c, boardUrl: c.boardUrl ?? null, id: c.slug, origin: "curated", verifiedAt: new Date(c.verifiedAt) }));
 const discovered = (c: DatasetContract) => discoverSources(c, registry).candidates.map((s) => s.label);
 
 const CASES: EvalCase[] = [

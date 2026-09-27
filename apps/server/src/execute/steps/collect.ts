@@ -6,7 +6,7 @@ import type { StepFn } from "./types";
 export const collect: StepFn<"collect"> = async (ctx, branch, step) => {
   const adapter = getAdapter(step.adapter);
   const params = adapter.params.parse(step.params);
-  const items = await adapter.collect({ fetcher: ctx.fetcher, scope: ctx }, params);
+  const items = await adapter.collect({ fetcher: ctx.fetcher, scope: ctx, run: ctx }, params);
 
   ctx.emit({
     stage: "collecting",

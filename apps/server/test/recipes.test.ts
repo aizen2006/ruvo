@@ -53,6 +53,14 @@ describe("replayRecipe", () => {
     expect(acceptanceFailure(replayRecipe(html, URL_, withoutTitles), acceptanceFor(fields))).toMatchObject({ kind: "PARTIAL_FILL" });
   });
 
+  test("sparse optional values on the page do not fail a recipe that reads it correctly", () => {
+    const withLocation: FieldSpec[] = [...fields, { name: "location", catalogKey: "location", type: "string", required: true, description: "" }];
+    const recipe = { ...workableRecipe, fields: [...workableRecipe.fields, { name: "location", selector: '[data-ui="job-location"]', attr: "text", transform: "trim" as const }] };
+    const result = replayRecipe(html, URL_, recipe);
+    expect(result.fill.location).toBeLessThan(0.8);
+    expect(acceptanceFailure(result, acceptanceFor(withLocation))).toBeNull();
+  });
+
   test("an invalid selector matches nothing instead of throwing", () => {
     expect(replayRecipe(html, URL_, { ...workableRecipe, itemSelector: "li[[" }).itemCount).toBe(0);
   });

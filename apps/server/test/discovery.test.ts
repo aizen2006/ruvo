@@ -10,7 +10,7 @@ const company = (name: string, ats: RegistryCompany["ats"], slug: string, tags: 
   ats,
   slug,
   tags,
-  origin: "curated",
+  boardUrl: null, origin: "curated",
   jobCount: 10,
   verifiedAt: null,
 });
@@ -61,8 +61,14 @@ describe("discoverSources", () => {
     expect(discoverSources(contractWith({}, []), registry).candidates.map((c) => c.ref)).not.toContain("hn_whoishiring:latest");
   });
 
-  test("does not offer sources whose adapter is not implemented yet", () => {
+  test("user-supplied URLs become list-page sources", () => {
     const result = discoverSources(contractWith({ urls: ["https://example.com/jobs"] }, []), registry);
-    expect(result.candidates.some((c) => c.adapter === "html_list")).toBe(false);
+    expect(result.candidates.find((c) => c.adapter === "html_list")).toMatchObject({ params: { url: "https://example.com/jobs" }, origin: "user_url" });
+  });
+
+  test("registry companies with a board page are collected from it", () => {
+    const withBoard = [{ ...registry[0]!, boardUrl: "https://apply.workable.com/acme/" }];
+    const [candidate] = discoverSources(contractWith({ companyTags: ["ai_lab"] }, []), withBoard).candidates;
+    expect(candidate).toMatchObject({ adapter: "html_list", params: { url: "https://apply.workable.com/acme/", company: "Anthropic" } });
   });
 });

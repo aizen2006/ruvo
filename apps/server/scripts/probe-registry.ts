@@ -9,13 +9,14 @@ import { env } from "../src/config/env";
 import { findBoard } from "../src/plan/atsProbe";
 import type { COMPANY_TAGS, CuratedCompany } from "../src/plan/registry";
 
-type Candidate = { name: string; ats: Ats; slug: string; tags: Array<(typeof COMPANY_TAGS)[number]> };
+type Candidate = { name: string; ats: Ats; slug: string; boardUrl?: string; tags: Array<(typeof COMPANY_TAGS)[number]> };
 
 // Hand-picked AI, infrastructure and developer-tool companies. Slugs are guesses until probed.
 const CANDIDATES: Candidate[] = [
   { name: "Anthropic", ats: "greenhouse", slug: "anthropic", tags: ["ai_lab"] },
   { name: "OpenAI", ats: "ashby", slug: "openai", tags: ["ai_lab"] },
-  { name: "Hugging Face", ats: "workable", slug: "huggingface", tags: ["ai_lab", "open_source"] },
+  // Collected from its public board page (browser + recipe) to exercise that path.
+  { name: "Hugging Face", ats: "workable", slug: "huggingface", boardUrl: "https://apply.workable.com/huggingface/", tags: ["ai_lab", "open_source"] },
   { name: "Cohere", ats: "ashby", slug: "cohere", tags: ["ai_lab"] },
   { name: "Perplexity", ats: "ashby", slug: "perplexity", tags: ["ai_lab"] },
   { name: "Mistral AI", ats: "lever", slug: "mistral", tags: ["ai_lab", "open_source"] },

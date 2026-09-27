@@ -16,6 +16,8 @@ const CuratedCompany = z.object({
   name: z.string(),
   ats: z.enum(["greenhouse", "ashby", "lever", "workable"]),
   slug: z.string(),
+  /** Collect from this public board page with the browser/recipe path instead of the API. */
+  boardUrl: z.string().url().optional(),
   tags: z.array(z.enum(COMPANY_TAGS)),
   jobCount: z.number().int().nonnegative(),
   verifiedAt: z.string(),
@@ -32,6 +34,7 @@ export async function syncCuratedRegistry() {
     name: c.name,
     ats: c.ats,
     slug: c.slug,
+    boardUrl: c.boardUrl ?? null,
     tags: c.tags,
     origin: "curated" as const,
     jobCount: c.jobCount,
@@ -43,7 +46,7 @@ export async function syncCuratedRegistry() {
     .values(rows)
     .onConflictDoUpdate({
       target: [registryCompanies.ats, registryCompanies.slug],
-      set: { name: sql`excluded.name`, tags: sql`excluded.tags`, jobCount: sql`excluded.job_count`, verifiedAt: sql`excluded.verified_at` },
+      set: { name: sql`excluded.name`, boardUrl: sql`excluded.board_url`, tags: sql`excluded.tags`, jobCount: sql`excluded.job_count`, verifiedAt: sql`excluded.verified_at` },
     });
 }
 
