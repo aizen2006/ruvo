@@ -24,6 +24,19 @@ describe("run queue", () => {
     expect(results.filter(Boolean)).toHaveLength(1);
   });
 
+  test("claims runs awaiting preparation as compiling, only for workers that prepare", async () => {
+    const run = await insertRun({ status: "queued" });
+    expect(await claimNextRun("executor-only", ["queued_run"])).toBeNull();
+    expect((await claimNextRun("preparer"))?.status).toBe("compiling");
+    expect((await getRun(run.id)).workerId).toBe("preparer");
+  });
+
+  test("stale preparation goes back to the preparation queue", async () => {
+    const run = await insertRun({ status: "compiling", attempt: 1, heartbeatAt: new Date(Date.now() - 60_000), workerId: "dead" });
+    await recoverStaleRuns({ staleMs: 30_000, maxAttempts: 2 });
+    expect((await getRun(run.id)).status).toBe("queued");
+  });
+
   test("ignores runs that are not approved yet", async () => {
     await insertRun({ status: "awaiting_approval" });
     expect(await claimNextRun("w1")).toBeNull();

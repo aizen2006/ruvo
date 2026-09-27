@@ -3,6 +3,7 @@ import { bootstrap } from "./bootstrap";
 import { env } from "./config/env";
 import { logger } from "./libs/logger";
 import { runPipeline } from "./runs/pipeline";
+import { prepareRun } from "./runs/prepare";
 import { startWorker } from "./runs/worker";
 
 await bootstrap();
@@ -12,4 +13,4 @@ createApp().listen(env.PORT, () => {
 });
 
 // Single-process mode: run the worker loop alongside the API (see WORKER_INLINE).
-if (env.WORKER_INLINE) startWorker({ execute: runPipeline });
+if (env.WORKER_INLINE) startWorker({ execute: runPipeline, prepare: prepareRun });

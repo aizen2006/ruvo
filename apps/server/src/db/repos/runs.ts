@@ -5,6 +5,7 @@ import {
   type RunEvent,
   type RunStatus,
   type RunSummary,
+  type Stage,
 } from "@repo/contracts";
 import { and, desc, eq, gt } from "drizzle-orm";
 import { conflict, notFound } from "../../libs/errors";
@@ -68,11 +69,10 @@ export async function createRun(input: { prompt: string; autoStart: boolean; ide
       .insert(requests)
       .values({ prompt: input.prompt, idempotencyKey: input.idempotencyKey ?? null })
       .returning({ id: requests.id });
-    // Until the compiler exists (Phase 3), a run goes straight to approval or the queue.
-    const status: RunStatus = input.autoStart ? "queued_run" : "awaiting_approval";
+    // Every run starts in the preparation queue: a worker compiles and plans it next.
     const [run] = await tx
       .insert(runs)
-      .values({ requestId: request!.id, status, stage: "understanding", autoStart: input.autoStart, metrics: emptyMetrics() })
+      .values({ requestId: request!.id, status: "queued", stage: "understanding", autoStart: input.autoStart, metrics: emptyMetrics() })
       .returning({ runId: runs.id, status: runs.status });
     return run!;
   });
@@ -155,4 +155,38 @@ async function getStatus(runId: string) {
   const [row] = await db.select({ status: runs.status }).from(runs).where(eq(runs.id, runId));
   if (!row) throw notFound("Run");
   return row;
+}
+
+export async function setRunStage(runId: string, stage: Stage) {
+  await db.update(runs).set({ stage }).where(eq(runs.id, runId));
+}
+
+export async function getRequestPrompt(requestId: string): Promise<string> {
+  const [row] = await db.select({ prompt: requests.prompt }).from(requests).where(eq(requests.id, requestId));
+  if (!row) throw notFound("Request");
+  return row.prompt;
+}
+
+/**
+ * Runs a finished run's workflow again as a new run, skipping compile and plan.
+ * Recorded recipes and caches make the re-run cheap; comparing the two gives a diff.
+ */
+export async function rerunRun(runId: string) {
+  const [source] = await db.select().from(runs).where(eq(runs.id, runId));
+  if (!source) throw notFound("Run");
+  if (!isTerminal(source.status)) throw conflict(`Run is still ${source.status}`);
+  if (!source.workflowId) throw conflict("Run has no workflow to re-run");
+
+  const [run] = await db
+    .insert(runs)
+    .values({
+      requestId: source.requestId,
+      workflowId: source.workflowId,
+      status: "queued_run",
+      stage: "collecting",
+      autoStart: true,
+      metrics: emptyMetrics(),
+    })
+    .returning({ runId: runs.id, status: runs.status });
+  return run!;
 }

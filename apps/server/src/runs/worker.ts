@@ -1,12 +1,26 @@
-import { claimNextRun, finishRun, heartbeat, recoverStaleRuns, releaseRun, type ClaimedRun } from "../db/queue";
+import {
+  claimNextRun,
+  completePreparation,
+  finishRun,
+  heartbeat,
+  recoverStaleRuns,
+  releaseRun,
+  type ClaimedRun,
+  type QueuePhase,
+} from "../db/queue";
 import { logger } from "../libs/logger";
 import { appendEvent } from "./eventBus";
 
 /** Executes one claimed run. Must stop promptly when `signal` aborts. */
 export type RunExecutor = (run: ClaimedRun, signal: AbortSignal) => Promise<void>;
 
+/** Compiles and plans a run; returns whether it waits for approval or runs straight away. */
+export type RunPreparer = (run: ClaimedRun, signal: AbortSignal) => Promise<"awaiting_approval" | "queued_run">;
+
 export interface WorkerOptions {
   execute: RunExecutor;
+  /** Without a preparer the worker only picks up runs that are ready to execute. */
+  prepare?: RunPreparer;
   workerId?: string;
   pollMs?: number;
   heartbeatMs?: number;
@@ -30,6 +44,7 @@ export function startWorker(opts: WorkerOptions) {
   const heartbeatMs = opts.heartbeatMs ?? 5000;
   const staleMs = opts.staleMs ?? 30_000;
   const maxAttempts = opts.maxAttempts ?? 2;
+  const phases: QueuePhase[] = opts.prepare ? ["queued", "queued_run"] : ["queued_run"];
 
   let stopped = false;
   let current: AbortController | null = null;
@@ -47,13 +62,14 @@ export function startWorker(opts: WorkerOptions) {
   async function processRun(run: ClaimedRun) {
     const controller = new AbortController();
     current = controller;
-    const log = logger.child({ runId: run.id, workerId, attempt: run.attempt });
+    const preparing = run.status === "compiling";
+    const log = logger.child({ runId: run.id, workerId, attempt: run.attempt, phase: preparing ? "prepare" : "execute" });
     const lifecycle = (type: string, message: string, level: "info" | "warn" | "error" = "info") =>
       appendEvent(run.id, { stage: run.stage, type, message, level }).catch((err) =>
         log.warn("Could not record lifecycle event", { type, error: String(err) }),
       );
     log.info("Run claimed");
-    await lifecycle("run.claimed", `Attempt ${run.attempt} started`);
+    if (!preparing) await lifecycle("run.claimed", `Collection attempt ${run.attempt} started`);
 
     const beat = setInterval(async () => {
       try {
@@ -66,12 +82,19 @@ export function startWorker(opts: WorkerOptions) {
     }, heartbeatMs);
 
     try {
-      await opts.execute(run, controller.signal);
-      // An executor that returns quietly after an abort is still classified by the abort reason.
-      controller.signal.throwIfAborted();
-      await finishRun(run.id, workerId, "completed");
-      await lifecycle("run.completed", "Run completed");
-      log.info("Run completed");
+      if (preparing) {
+        const next = await opts.prepare!(run, controller.signal);
+        controller.signal.throwIfAborted();
+        await completePreparation(run.id, workerId, next);
+        log.info("Run prepared", { next });
+      } else {
+        await opts.execute(run, controller.signal);
+        // An executor that returns quietly after an abort is still classified by the abort reason.
+        controller.signal.throwIfAborted();
+        await finishRun(run.id, workerId, "completed");
+        await lifecycle("run.completed", "Run completed");
+        log.info("Run completed");
+      }
     } catch (err) {
       const reason = controller.signal.aborted ? controller.signal.reason : null;
       if (reason === ABORT_CANCELLED) {
@@ -97,13 +120,13 @@ export function startWorker(opts: WorkerOptions) {
   }
 
   const loop = (async () => {
-    logger.info("Worker started", { workerId });
+    logger.info("Worker started", { workerId, phases });
     while (!stopped) {
       try {
         const recovered = await recoverStaleRuns({ staleMs, maxAttempts });
         if (recovered.requeued || recovered.failed) logger.warn("Recovered stale runs", recovered);
 
-        const run = await claimNextRun(workerId);
+        const run = await claimNextRun(workerId, phases);
         if (run) await processRun(run);
         else await sleep(pollMs);
       } catch (err) {

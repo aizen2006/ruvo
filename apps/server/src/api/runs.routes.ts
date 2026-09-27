@@ -1,8 +1,10 @@
-import { CreateRunRequest, ListRecordsQuery } from "@repo/contracts";
+import { CreateRunRequest, DatasetContract, ListRecordsQuery } from "@repo/contracts";
 import { Router } from "express";
 import { z } from "zod";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
-import { createRun, getRunDetail, listEvents, listRuns, requestCancel, startRun } from "../db/repos/runs";
+import { createRun, getRunDetail, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
+import { getRunWorkflow } from "../db/repos/workflows";
+import { editRunContract } from "../runs/editContract";
 import { fieldNamesOf, parseId } from "./params";
 
 const EventsQuery = z.object({ after: z.coerce.number().int().nonnegative().default(0) });
@@ -49,4 +51,17 @@ runsRouter.get("/:id/records", async (req, res) => {
 
 runsRouter.get("/:id/evidence/:recordId", async (req, res) => {
   res.json(await getRecordWithEvidence(runId(req.params.id), parseId(req.params.recordId, "Record")));
+});
+
+runsRouter.get("/:id/workflow", async (req, res) => {
+  res.json(await getRunWorkflow(runId(req.params.id)));
+});
+
+runsRouter.patch("/:id/contract", async (req, res) => {
+  const contract = DatasetContract.parse(req.body?.contract);
+  res.json(await editRunContract(runId(req.params.id), contract));
+});
+
+runsRouter.post("/:id/rerun", async (req, res) => {
+  res.status(201).json(await rerunRun(runId(req.params.id)));
 });
