@@ -74,7 +74,10 @@ export function parseSalary(text: string): SalaryRange | null {
     const symbol = preSymbol ?? midSymbol;
     const currency = preCode ?? postCode ?? (symbol ? (CURRENCY_SYMBOLS[symbol] ?? null) : null);
     const after = clean.slice((m.index ?? 0) + raw.length, (m.index ?? 0) + raw.length + 20);
-    const period = periodFrom(after) ?? (max < 1000 ? "hour" : "year");
+    const statedPeriod = periodFrom(after);
+    // A lone small amount with no period ("a $100 stipend") is not a salary.
+    if (!a2 && !statedPeriod && max < 1000) continue;
+    const period = statedPeriod ?? (max < 1000 ? "hour" : "year");
     const scale = CURRENCY_SCALE[currency ?? ""] ?? 1;
     const [low, high] = PLAUSIBLE[period];
     if (min < low || max > high * scale) continue;

@@ -7,6 +7,8 @@ import type { SourceCandidate } from "./discovery";
 const GENERATED_FIELDS: ReadonlySet<CatalogKey> = new Set(["match_reason"]);
 
 const MAX_ITEMS_PER_SOURCE = 100;
+/** Posting pages each source may fetch to fill missing fields (JSON-LD, page text). */
+const ENRICH_PAGE_FETCHES = 15;
 /** Posts per free-text source that may use the LLM rung (the run's LLM budget still applies). */
 const TEXT_SOURCE_LLM_ITEMS = 30;
 const DEFAULT_ITEMS_PER_SOURCE = 40;
@@ -101,6 +103,19 @@ function buildBranch(
       keywordsAny: include.length ? [...include.flatMap((c) => c.values), ...plan.titleKeywords] : [],
       keywordsNone: exclude.flatMap((c) => c.values),
       fields: prefilterFields.length ? prefilterFields : ["title"],
+    });
+  }
+  // Fields this source doesn't provide are looked for in descriptions and posting pages.
+  const provided = new Set(Object.keys(getAdapter(candidate.adapter).provides));
+  const toEnrich = contract.fields.filter((f) => f.catalogKey !== "custom" && !GENERATED_FIELDS.has(f.catalogKey) && !provided.has(f.catalogKey));
+  if (toEnrich.length && adapterKind !== "text") {
+    steps.push({
+      id: `${id}.enrich`,
+      kind: "enrich",
+      fields: toEnrich.map((f) => f.name),
+      rungs: ["regex", "json_ld", ...(toEnrich.some((f) => f.required) ? (["llm"] as const) : [])],
+      fetch: "http",
+      maxFetches: ENRICH_PAGE_FETCHES,
     });
   }
   steps.push(

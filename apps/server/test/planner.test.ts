@@ -35,7 +35,9 @@ describe("compileIr", () => {
   test("builds one branch per included source with the canonical step order", () => {
     const ir = compileIr(DEMO_CONTRACT, draft(), candidates, { caps, provenance });
     expect(ir.sources.map((s) => s.id)).toEqual(["src_greenhouse_anthropic", "src_ashby_openai"]);
-    expect(ir.sources[0]!.steps.map((s) => s.kind)).toEqual(["collect", "prefilter", "match", "validate", "store"]);
+    // Greenhouse has no salary field, so its branch enriches before scoring.
+    expect(ir.sources[0]!.steps.map((s) => s.kind)).toEqual(["collect", "prefilter", "enrich", "match", "validate", "store"]);
+    expect(ir.sources[1]!.steps.map((s) => s.kind)).toEqual(["collect", "prefilter", "match", "validate", "store"]);
     expect(ir.sources[0]!.reason).toBe("Use Anthropic");
     expect(ir.provenance.warnings).toEqual([]);
   });

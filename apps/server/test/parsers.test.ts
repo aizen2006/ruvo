@@ -35,6 +35,7 @@ describe("parseSalary", () => {
     "We raised $300M in our Series C",
     "Join our team of 120-150 engineers",
     "Founded in 2019",
+    "Every employee gets a $100 monthly wellness stipend and $500 for books",
   ])("finds no salary in %p", (text) => {
     expect(parseSalary(text)).toBeNull();
   });

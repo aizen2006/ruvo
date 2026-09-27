@@ -2,9 +2,10 @@ import type { FieldSpec, Rung } from "@repo/contracts";
 import type { FieldValue } from "../adapters/types";
 import type { RunContext } from "../runs/runContext";
 
-/** What a rung can read: the source text and where it came from. */
+/** What a rung can read: the source text (and HTML, for page-based rungs) and where it came from. */
 export interface LadderInput {
   text: string;
+  html?: string;
   sourceUrl: string;
   pageId: string | null;
 }

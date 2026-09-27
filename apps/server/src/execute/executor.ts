@@ -5,6 +5,7 @@ import type { Candidate } from "./candidate";
 import { buildQualityReport } from "./quality";
 import { collect } from "./steps/collect";
 import { dedupeRun } from "./steps/dedupe";
+import { enrich } from "./steps/enrich";
 import { extractText } from "./steps/extractText";
 import { match } from "./steps/match";
 import { prefilter } from "./steps/prefilter";
@@ -84,14 +85,19 @@ function runStep(ctx: RunContext, branch: SourceBranch, step: Step, input: Candi
       return triage(ctx, branch, step, input);
     case "extract_text":
       return extractText(ctx, branch, step, input);
+    case "enrich":
+      return enrich(ctx, branch, step, input);
     case "match":
       return match(ctx, branch, step, input);
     case "validate":
       return validate(ctx, branch, step, input);
     case "store":
       return store(ctx, branch, step, input);
-    default:
-      throw new Error(`Step "${step.kind}" is not implemented yet`);
+    default: {
+      // Every Step kind is handled above; adding a kind makes this a compile error.
+      const unhandled: never = step;
+      throw new Error(`Unknown step ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
