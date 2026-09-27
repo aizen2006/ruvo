@@ -3,6 +3,7 @@ import { mapLimit } from "../libs/limit";
 import type { RunContext } from "../runs/runContext";
 import type { Candidate } from "./candidate";
 import { collect } from "./steps/collect";
+import { dedupeRun } from "./steps/dedupe";
 import { match } from "./steps/match";
 import { prefilter } from "./steps/prefilter";
 import { store } from "./steps/store";
@@ -23,11 +24,16 @@ export async function executeWorkflow(ctx: RunContext): Promise<void> {
   if (ctx.ir.sources.length > 0 && failed === ctx.ir.sources.length) {
     throw new Error("Every source failed; see the run events for details");
   }
+
+  await ctx.setStage("deduplicating");
+  const duplicates = await dedupeRun(ctx);
+  ctx.emit({ stage: "deduplicating", type: "dedupe.completed", message: `${duplicates} duplicate records merged` });
+
   const m = ctx.metrics.snapshot();
   ctx.emit({
     stage: "done",
     type: "run.summary",
-    message: `${m.validRecords} valid, ${m.incompleteRecords} incomplete, ${m.invalidRecords} rejected from ${ctx.ir.sources.length - failed} sources`,
+    message: `${m.validRecords} valid, ${m.incompleteRecords} incomplete, ${m.invalidRecords} rejected, ${m.duplicates} duplicates, from ${ctx.ir.sources.length - failed} sources`,
     data: { failedSources: failed },
   });
 }

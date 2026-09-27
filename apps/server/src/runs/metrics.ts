@@ -6,6 +6,8 @@ type DecisionTier = keyof RunMetrics["decisions"];
 /** In-memory run counters; snapshots are persisted to `runs.metrics` by the run context. */
 export interface Metrics {
   inc(key: CounterKey, n?: number): void;
+  /** Overwrites a counter with an authoritative value (e.g. recounted from the database). */
+  set(key: CounterKey, n: number): void;
   addCost(usd: number): void;
   method(method: EvidenceMethod, n?: number): void;
   decision(tier: DecisionTier): void;
@@ -17,6 +19,7 @@ export function createMetrics(initial: RunMetrics = emptyMetrics()): Metrics {
   const m: RunMetrics = structuredClone(initial);
   return {
     inc: (key, n = 1) => void (m[key] += n),
+    set: (key, n) => void (m[key] = n),
     addCost: (usd) => void (m.llmCostUsd += usd),
     method: (method, n = 1) => void (m.fieldsByMethod[method] = (m.fieldsByMethod[method] ?? 0) + n),
     decision: (tier) => void (m.decisions[tier] += 1),
