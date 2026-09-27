@@ -1,0 +1,66 @@
+import { z } from "zod";
+import { Rung } from "./plan";
+import { EvidenceMethod } from "./record";
+
+/**
+ * The compiled, executable workflow. Built by the server from a PlanDraft (never by the LLM
+ * directly), versioned, and re-runnable. Each source is an independent branch of steps.
+ */
+
+export const AdapterId = z.enum(["greenhouse", "ashby", "lever", "workable", "hn_whoishiring", "html_list"]);
+export type AdapterId = z.infer<typeof AdapterId>;
+
+export const FetchMode = z.enum(["auto", "http", "browser"]);
+export type FetchMode = z.infer<typeof FetchMode>;
+
+const base = { id: z.string() };
+
+export const Step = z.discriminatedUnion("kind", [
+  z.object({ ...base, kind: z.literal("collect"), adapter: AdapterId, params: z.unknown(), fetch: FetchMode, maxItems: z.number() }),
+  z.object({ ...base, kind: z.literal("prefilter"), keywordsAny: z.array(z.string()), keywordsNone: z.array(z.string()), fields: z.array(z.string()) }),
+  z.object({ ...base, kind: z.literal("triage"), task: z.enum(["RELEVANCE", "CRITERION"]), criterionId: z.string().nullable(), llmBudget: z.number() }),
+  z.object({ ...base, kind: z.literal("extract_text"), parser: z.literal("hn_header"), llmFallback: z.boolean(), llmBudget: z.number() }),
+  z.object({ ...base, kind: z.literal("enrich"), fields: z.array(z.string()), rungs: z.array(Rung), fetch: FetchMode, maxFetches: z.number() }),
+  z.object({ ...base, kind: z.literal("match"), criteria: z.array(z.string()) }),
+  z.object({ ...base, kind: z.literal("validate"), required: z.array(z.string()), requireEvidence: z.literal(true) }),
+  z.object({ ...base, kind: z.literal("store") }),
+]);
+export type Step = z.infer<typeof Step>;
+export type StepKind = Step["kind"];
+
+export const SourceBranch = z.object({
+  id: z.string(),
+  ref: z.string(),
+  label: z.string(),
+  reason: z.string(),
+  steps: z.array(Step),
+});
+export type SourceBranch = z.infer<typeof SourceBranch>;
+
+export const Budgets = z.object({
+  maxPages: z.number(),
+  maxBrowserPages: z.number(),
+  maxLlmCalls: z.number(),
+  maxDurationMs: z.number(),
+  maxRecords: z.number(),
+});
+export type Budgets = z.infer<typeof Budgets>;
+
+export const Provenance = z.object({
+  plannedBy: z.enum(["llm", "template", "memory", "repair", "user_edit"]),
+  model: z.string().nullable(),
+  reusedFrom: z.string().nullable(),
+  parentVersion: z.number().nullable(),
+  warnings: z.array(z.string()),
+});
+export type Provenance = z.infer<typeof Provenance>;
+
+export const WorkflowIR = z.object({
+  irVersion: z.literal(1),
+  entity: z.string(),
+  sources: z.array(SourceBranch),
+  dedupe: z.object({ keys: z.array(z.array(z.string())), prefer: z.array(EvidenceMethod) }),
+  budgets: Budgets,
+  provenance: Provenance,
+});
+export type WorkflowIR = z.infer<typeof WorkflowIR>;
