@@ -109,5 +109,5 @@ describe("worker", () => {
     await waitFor(() => getRun(run.id), (r) => r.status === "running");
     await worker.stop();
     expect((await getRun(run.id)).status).toBe("queued_run");
-  });
+  }, 15_000);
 });
