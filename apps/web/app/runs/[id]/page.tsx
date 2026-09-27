@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ContractView } from "@/components/contract/contract-view";
 import { DatasetView } from "@/components/dataset/dataset-view";
+import { QualityView } from "@/components/quality/quality-view";
 import { DecisionsView } from "@/components/run/decisions-view";
 import { EventFeed, LatestEvent } from "@/components/run/event-feed";
 import { MetricsLine } from "@/components/run/metrics-line";
@@ -58,8 +59,8 @@ export default function RunPage() {
         <TabPanel value="dataset">
           {run.contract ? <DatasetView run={run} /> : <p className="py-6 text-muted">Records appear here once the request is understood.</p>}
         </TabPanel>
-        <TabPanel value="quality" className="py-6 text-muted">
-          The quality report appears here.
+        <TabPanel value="quality">
+          <QualityView run={run} />
         </TabPanel>
         <TabPanel value="decisions">
           <DecisionsView run={run} />
