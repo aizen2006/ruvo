@@ -5,7 +5,7 @@ import { db } from "../src/db/client";
 import { evidence, records, runEvents } from "../src/db/schema";
 import { toCandidate, type Candidate } from "../src/execute/candidate";
 import { executeWorkflow } from "../src/execute/executor";
-import { match } from "../src/execute/steps/match";
+import { describeMatch, match } from "../src/execute/steps/match";
 import { validate } from "../src/execute/steps/validate";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import type { RegistryCompany } from "../src/plan/registry";
@@ -106,11 +106,30 @@ describe("match and validate", () => {
       candidate({ ...base, title: "Frontend Engineer" }),
     ]);
     expect(backend!.rejectReasons).toEqual([]);
-    expect(backend!.matchScore).toBeCloseTo(0.8);
+    // Both soft preferences (remote 0.5, company 0.3) are met: the full soft weight is earned.
+    expect(backend!.matchScore).toBe(1);
     expect(frontend!.rejectReasons).toEqual([
       "Backend / AI engineering role: not met",
       "Not a non-engineering or frontend role: not met",
     ]);
+  });
+
+  test("partial soft matches score proportionally", async () => {
+    const [onsite] = await match(ctx, {} as never, matchStep, [candidate({ ...base, title: "Backend Engineer", remote: "onsite" }, ["ai_lab"])]);
+    expect(onsite!.matchScore).toBeCloseTo(0.3 / 0.8);
+  });
+
+  test("derives match_reason from the signals when the contract asks for it", async () => {
+    const withReason = { ...DEMO_CONTRACT, fields: [...DEMO_CONTRACT.fields, { name: "why", catalogKey: "match_reason" as const, type: "string" as const, required: false, description: "" }] };
+    const [c] = await match({ contract: withReason } as never, {} as never, matchStep, [candidate({ ...base, title: "Backend Engineer", remote: "onsite" }, ["ai_lab"])]);
+    expect(c!.item.fields.why?.value).toBe(
+      "Matches: Backend / AI engineering role; Not a non-engineering or frontend role; AI / infra / devtools company. Not confirmed: Remote.",
+    );
+    expect(c!.item.fields.why?.evidence).toMatchObject({ method: "DERIVED", locator: { value: "match signals" } });
+  });
+
+  test("describeMatch handles no confirmed criteria", () => {
+    expect(describeMatch([])).toBe("No criteria confirmed.");
   });
 
   test("status reflects rejections and missing required fields", async () => {
