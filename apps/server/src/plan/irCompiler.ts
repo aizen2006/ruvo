@@ -86,8 +86,12 @@ function buildBranch(
     },
   ];
   // Free-text sources need their fields read from the text before any keyword gate can apply.
+  // Triage decides relevance first so LLM extraction is spent only on promising posts.
   if (adapterKind === "text") {
-    steps.push({ id: `${id}.extract_text`, kind: "extract_text", parser: "hn_header", llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS });
+    steps.push(
+      { id: `${id}.triage`, kind: "triage", task: "RELEVANCE", criterionId: null, llmBudget: TEXT_SOURCE_LLM_ITEMS },
+      { id: `${id}.extract_text`, kind: "extract_text", parser: "hn_header", llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS },
+    );
   }
   // The keyword gate only makes sense when the contract has keyword criteria to apply.
   if (include.length || exclude.length) {

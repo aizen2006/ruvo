@@ -9,6 +9,7 @@ import { extractText } from "./steps/extractText";
 import { match } from "./steps/match";
 import { prefilter } from "./steps/prefilter";
 import { store } from "./steps/store";
+import { triage } from "./steps/triage";
 import { validate } from "./steps/validate";
 
 /** How many source branches run at once; per-host politeness is enforced by the fetcher. */
@@ -79,6 +80,8 @@ function runStep(ctx: RunContext, branch: SourceBranch, step: Step, input: Candi
       return collect(ctx, branch, step, input);
     case "prefilter":
       return prefilter(ctx, branch, step, input);
+    case "triage":
+      return triage(ctx, branch, step, input);
     case "extract_text":
       return extractText(ctx, branch, step, input);
     case "match":

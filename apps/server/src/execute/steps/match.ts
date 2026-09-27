@@ -1,48 +1,94 @@
 import type { Criterion, DatasetContract, Signal } from "@repo/contracts";
 import type { FieldValue } from "../../adapters/types";
+import { noulBand, type DecisionRequest } from "../../decide/decider";
+import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
 import { itemKeyFor } from "../contractFields";
 import { compileKeywords } from "../keywords";
 import type { StepFn } from "./types";
 
 /**
- * Evaluates the contract's criteria against each candidate with deterministic rules.
+ * Evaluates the contract's criteria against each candidate.
+ * - rule-based criteria (keywords, equals, regex, company tags) are decided in code
+ * - semantic criteria go to the decision layer (Jev, then the LLM judge), but only for
+ *   candidates that have not already failed a hard rule; undecided ones stay null
  * - hard criteria that fail become reject reasons
  * - soft criteria earn their weight; matchScore is the share of soft weight earned (0..1)
- * - semantic criteria need the decision layer and stay undecided (passed: null) here
- * If the contract asks for a match_reason column, it is derived from the passing signals.
+ * If the contract asks for a match_reason column, it is derived from the signals.
  */
 export const match: StepFn<"match"> = async (ctx, _branch, step, input) => {
   const criteria = ctx.contract.criteria.filter((c) => step.criteria.includes(c.id));
   const evaluators = criteria.map((c) => ({ criterion: c, evaluate: compileCriterion(ctx.contract, c) }));
-  const softTotal = criteria.filter((c) => c.strength === "soft").reduce((sum, c) => sum + c.weight, 0);
-  const reasonField = ctx.contract.fields.find((f) => f.catalogKey === "match_reason");
 
-  return input.map((candidate) => {
-    const signals: Signal[] = evaluators.map(({ criterion, evaluate }) => ({
+  const evaluated = input.map((candidate) => ({
+    candidate,
+    signals: evaluators.map(({ criterion, evaluate }): Signal => ({
       criterionId: criterion.id,
       label: criterion.label,
       passed: evaluate(candidate),
       strength: criterion.strength,
       decidedBy: "RULES",
-    }));
-    const rejectReasons = [
-      ...candidate.rejectReasons,
-      ...signals.filter((s) => s.strength === "hard" && s.passed === false).map((s) => `${s.label}: not met`),
-    ];
-    const earned = criteria
-      .filter((c, i) => c.strength === "soft" && signals[i]!.passed)
-      .reduce((sum, c) => sum + c.weight, 0);
+    })),
+  }));
 
-    const next: Candidate = {
-      ...candidate,
-      signals: [...candidate.signals, ...signals],
-      rejectReasons,
-      matchScore: softTotal > 0 ? earned / softTotal : 1,
-    };
-    return reasonField ? withMatchReason(next, reasonField.name) : next;
-  });
+  await decideSemanticCriteria(ctx, criteria, evaluated);
+  return evaluated.map(({ candidate, signals }) => finalize(ctx.contract, criteria, candidate, signals));
 };
+
+type Evaluated = { candidate: Candidate; signals: Signal[] };
+
+async function decideSemanticCriteria(ctx: Parameters<StepFn<"match">>[0], criteria: Criterion[], evaluated: Evaluated[]) {
+  const failedHardRule = (e: Evaluated) => e.signals.some((s) => s.strength === "hard" && s.passed === false);
+  const jobs = criteria.flatMap((criterion, index) =>
+    criterion.kind !== "semantic"
+      ? []
+      : evaluated.filter((e) => !failedHardRule(e)).map((e) => ({ e, index, request: semanticRequest(ctx.contract, criterion, e.candidate) })),
+  );
+  if (jobs.length === 0) return;
+
+  const results = await ctx.decider.decideMany(ctx, jobs.map((j) => j.request));
+  jobs.forEach(({ e, index }, i) => {
+    const decision = results[i]!;
+    e.signals[index] = {
+      ...e.signals[index]!,
+      passed: decision.label === "unknown" ? null : decision.label === "yes",
+      decidedBy: decision.decidedBy,
+    };
+  });
+}
+
+/** The state the decision model sees: the facts that matter, without noise. */
+function semanticRequest(contract: DatasetContract, criterion: Criterion, candidate: Candidate): DecisionRequest<"yes" | "no" | "unknown"> {
+  const state = {
+    title: fieldText(candidate, "title"),
+    team: fieldText(candidate, "department") || String(candidate.item.meta.team ?? ""),
+    location: fieldText(candidate, "location"),
+    company: fieldText(candidate, "company"),
+    description: truncate(candidate.item.text?.plain ?? fieldText(candidate, "description"), 800),
+  };
+  return {
+    task: "CRITERION",
+    subject: state.title || candidate.key,
+    state,
+    question: { type: "noul", instructions: criterion.values[0] ?? criterion.label },
+    labels: ["yes", "no", "unknown"],
+    band: noulBand(0.8, 0.2),
+    defaultLabel: "unknown",
+  };
+}
+
+function finalize(contract: DatasetContract, criteria: Criterion[], candidate: Candidate, signals: Signal[]): Candidate {
+  const softTotal = criteria.filter((c) => c.strength === "soft").reduce((sum, c) => sum + c.weight, 0);
+  const earned = criteria.filter((c, i) => c.strength === "soft" && signals[i]!.passed).reduce((sum, c) => sum + c.weight, 0);
+  const next: Candidate = {
+    ...candidate,
+    signals: [...candidate.signals, ...signals],
+    rejectReasons: [...candidate.rejectReasons, ...signals.filter((s) => s.strength === "hard" && s.passed === false).map((s) => `${s.label}: not met`)],
+    matchScore: softTotal > 0 ? earned / softTotal : 1,
+  };
+  const reasonField = contract.fields.find((f) => f.catalogKey === "match_reason");
+  return reasonField ? withMatchReason(next, reasonField.name) : next;
+}
 
 /** "Matches: Backend / AI engineering role; Remote. Not confirmed: AI lab company." */
 export function describeMatch(signals: Signal[]): string {
