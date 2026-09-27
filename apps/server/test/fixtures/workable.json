@@ -1,0 +1,125 @@
+{
+  "url": "https://apply.workable.com/api/v1/widget/accounts/huggingface",
+  "data": {
+    "name": "Hugging Face",
+    "description": "Here at Hugging Face, we're on a journey to advance and democratize machine learning for everyone. Along the way, we contribute to the development of technology for the better. Over five thousand companies are using our technology in production, including leading AI organizations such as Google, Elastic, Salesforce, Algolia, and Grammarly.",
+    "jobs": [
+      {
+        "title": "Low-level Senior Software Engineer, Xet Storage - EMEA Remote",
+        "shortcode": "F4C096B22E",
+        "code": "",
+        "employment_type": "Full-time",
+        "telecommuting": true,
+        "department": "Product",
+        "url": "https://apply.workable.com/j/F4C096B22E",
+        "shortlink": "https://apply.workable.com/j/F4C096B22E",
+        "application_url": "https://apply.workable.com/j/F4C096B22E/apply",
+        "published_on": "2026-07-30",
+        "created_at": "2026-07-30",
+        "country": "France",
+        "city": "Paris",
+        "state": "Île-de-France",
+        "education": "Master's Degree",
+        "experience": "Mid-Senior level",
+        "function": "Engineering",
+        "industry": "Computer Software",
+        "locations": [
+          {
+            "country": "France",
+            "countryCode": "FR",
+            "city": "Paris",
+            "region": "Île-de-France",
+            "hidden": true
+          }
+        ]
+      },
+      {
+        "title": "Low-Level Senior Software Engineer, Xet Storage - US Remote",
+        "shortcode": "002470F128",
+        "code": "",
+        "employment_type": "Full-time",
+        "telecommuting": true,
+        "department": "Product",
+        "url": "https://apply.workable.com/j/002470F128",
+        "shortlink": "https://apply.workable.com/j/002470F128",
+        "application_url": "https://apply.workable.com/j/002470F128/apply",
+        "published_on": "2026-07-30",
+        "created_at": "2026-07-30",
+        "country": "United States",
+        "city": "New York",
+        "state": "New York",
+        "education": "Master's Degree",
+        "experience": "Mid-Senior level",
+        "function": "Engineering",
+        "industry": "Computer Software",
+        "locations": [
+          {
+            "country": "United States",
+            "countryCode": "US",
+            "city": "New York",
+            "region": "New York",
+            "hidden": true
+          }
+        ]
+      },
+      {
+        "title": "Open-Source Machine Learning Engineer - EMEA Remote",
+        "shortcode": "81B46579FE",
+        "code": "",
+        "employment_type": "Full-time",
+        "telecommuting": true,
+        "department": "Open Source",
+        "url": "https://apply.workable.com/j/81B46579FE",
+        "shortlink": "https://apply.workable.com/j/81B46579FE",
+        "application_url": "https://apply.workable.com/j/81B46579FE/apply",
+        "published_on": "2026-05-29",
+        "created_at": "2026-05-29",
+        "country": "France",
+        "city": "Paris",
+        "state": "Île-de-France",
+        "education": "",
+        "experience": "",
+        "function": "Engineering",
+        "industry": "Computer Software",
+        "locations": [
+          {
+            "country": "France",
+            "countryCode": "FR",
+            "city": "Paris",
+            "region": "Île-de-France",
+            "hidden": false
+          }
+        ]
+      },
+      {
+        "title": "Open-Source Machine Learning Engineer - US Remote",
+        "shortcode": "19A136F8E2",
+        "code": "",
+        "employment_type": "Full-time",
+        "telecommuting": true,
+        "department": "Open Source",
+        "url": "https://apply.workable.com/j/19A136F8E2",
+        "shortlink": "https://apply.workable.com/j/19A136F8E2",
+        "application_url": "https://apply.workable.com/j/19A136F8E2/apply",
+        "published_on": "2026-05-29",
+        "created_at": "2026-05-29",
+        "country": "United States",
+        "city": "New York",
+        "state": "New York",
+        "education": "",
+        "experience": "",
+        "function": "Engineering",
+        "industry": "Computer Software",
+        "locations": [
+          {
+            "country": "United States",
+            "countryCode": "US",
+            "city": "New York",
+            "region": "New York",
+            "hidden": false
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,257 @@
+{
+  "url": "https://api.ashbyhq.com/posting-api/job-board/openai?includeCompensation=true",
+  "data": {
+    "jobs": [
+      {
+        "id": "8fb1615c-34bf-47c4-a1d1-b7b2f836bbd3",
+        "title": "Technical Program Manager, Compute Infrastructure",
+        "department": "Technical Program Management",
+        "team": "Technical Program Management",
+        "employmentType": "FullTime",
+        "location": "San Francisco",
+        "shouldDisplayCompensationOnJobPostings": true,
+        "secondaryLocations": [],
+        "publishedAt": "2026-03-12T16:38:15.322+00:00",
+        "isListed": true,
+        "isRemote": null,
+        "workplaceType": null,
+        "address": {
+          "postalAddress": {
+            "addressRegion": "California",
+            "addressCountry": "United States",
+            "addressLocality": "San Francisco"
+          }
+        },
+        "jobUrl": "https://jobs.ashbyhq.com/openai/8fb1615c-34bf-47c4-a1d1-b7b2f836bbd3",
+        "applyUrl": "https://jobs.ashbyhq.com/openai/8fb1615c-34bf-47c4-a1d1-b7b2f836bbd3/application",
+        "descriptionHtml": "<h3><strong>About the Team</strong></h3><p style=\"min-height:1.5em\">The compute infrastructure team runs the GPU fleet and large-scale compute clusters that serve the models backing ChatGPT and the API, while also supporting training workloads for our next generation models. We operate a large, modern GPU fleet and provide a unified platform for other OpenAI teams to seamlessly run production Applied AI and Research training workloads.</p><p style=\"min-height:1.5em\">We seek to learn from deployment and distribute the benefits of AI, while ensuring that this powerful tool is used responsibly and safely. Safety is more important to us than unfettered growth.<br /></p><h3><strong>About the Role</strong></h3><p style=\"min-height:1.5em\">You will be part of an engineer-first TPM team as a Technical Program Manager for Compute Infrastructure who owns the end-to-end delivery of large-scale GPU clusters, partnering with engineers to bring clusters online across external providers and partners. You’ll run a broad, parallel portfolio spanning hardware, networking, power, and cooling—driving execution, risk management, and crisp alignment from working teams through leadership to deliver production-ready capacity at scale.</p><p style=\"min-height:1.5em\">This role is based in San Francisco, CA. We use a hybrid work model of 3 days in the office per week and offer relocation assistance to new employees.<br /></p><h3><strong>In this role, you will:</strong></h3><ul style=\"min-height:1.5em\"><…",
+        "descriptionPlain": "ABOUT THE TEAM\n\nThe compute infrastructure team runs the GPU fleet and large-scale compute clusters that serve the models backing ChatGPT and the API, while also supporting training workloads for our next generation models. We operate a large, modern GPU fleet and provide a unified platform for other OpenAI teams to seamlessly run production Applied AI and Research training workloads.\n\nWe seek to learn from deployment and distribute the benefits of AI, while ensuring that this powerful tool is used responsibly and safely. Safety is more important to us than unfettered growth.\n\n\n\nABOUT THE ROLE\n\nYou will be part of an engineer-first TPM team as a Technical Program Manager for Compute Infrastructure who owns the end-to-end delivery of large-scale GPU clusters, partnering with engineers to bring clusters online across external providers and partners. You’ll run a broad, parallel portfolio spanning hardware, networking, power, and cooling—driving execution, risk management, and crisp alignment from working teams through leadership to deliver production-ready capacity at scale.\n\nThis role is based in San Francisco, CA. We use a hybrid work model of 3 days in the office per week and offer relocation assistance to new employees.\n\n\n\nIN THIS ROLE, YOU WILL:\n\n - Lead end-to-end delivery of both New Compute SKUs and large-scale GPU clusters across an external partner ecosystem while supporting capacity planning for training and inference.\n\n - Ability to contextually drive multi-threaded…",
+        "compensation": {
+          "compensationTierSummary": "$257K – $335K • Offers Equity",
+          "scrapeableCompensationSalarySummary": "$257K - $335K",
+          "compensationTiers": [
+            {
+              "id": "33e464a3-4ff9-40a4-bbd6-6dcb65d23c43",
+              "tierSummary": "$257K – $335K • Offers Equity",
+              "title": null,
+              "additionalInformation": null,
+              "components": [
+                {
+                  "id": "daa3a561-a504-4bd5-99ac-3ed7fd060cf8",
+                  "summary": "$257K – $335K",
+                  "compensationType": "Salary",
+                  "interval": "1 YEAR",
+                  "currencyCode": "USD",
+                  "minValue": 257000,
+                  "maxValue": 335000
+                },
+                {
+                  "id": "ae7ec4d0-7ec6-4186-b4c2-e4b6753df9e7",
+                  "summary": "Offers Equity",
+                  "compensationType": "EquityCashValue",
+                  "interval": "1 YEAR",
+                  "currencyCode": "USD",
+                  "minValue": null,
+                  "maxValue": null
+                }
+              ]
+            }
+          ],
+          "summaryComponents": [
+            {
+              "compensationType": "Salary",
+              "interval": "1 YEAR",
+              "currencyCode": "USD",
+              "minValue": 257000,
+              "maxValue": 335000
+            },
+            {
+              "compensationType": "EquityCashValue",
+              "interval": "1 YEAR",
+              "currencyCode": "USD",
+              "minValue": null,
+              "maxValue": null
+            }
+          ]
+        }
+      },
+      {
+        "id": "240d459b-696d-43eb-8497-fab3e56ecd9b",
+        "title": "Research Engineer",
+        "department": "Research",
+        "team": "Research",
+        "employmentType": "FullTime",
+        "location": "San Francisco",
+        "shouldDisplayCompensationOnJobPostings": true,
+        "secondaryLocations": [],
+        "publishedAt": "2025-04-05T00:03:20.653+00:00",
+        "isListed": true,
+        "isRemote": null,
+        "workplaceType": null,
+        "address": {
+          "postalAddress": {
+            "addressRegion": "California",
+            "addressCountry": "United States",
+            "addressLocality": "San Francisco"
+          }
+        },
+        "jobUrl": "https://jobs.ashbyhq.com/openai/240d459b-696d-43eb-8497-fab3e56ecd9b",
+        "applyUrl": "https://jobs.ashbyhq.com/openai/240d459b-696d-43eb-8497-fab3e56ecd9b/application",
+        "descriptionHtml": "<p style=\"min-height:1.5em\">By applying to this role, you will be considered for Research Engineer roles across all teams at OpenAI.</p><p style=\"min-height:1.5em\"><strong>About the Role</strong></p><p style=\"min-height:1.5em\">As a Research Engineer here, you will be responsible for building AI systems that can perform previously impossible tasks or achieve unprecedented levels of performance. We're looking for people with solid engineering skills (for example designing, implementing, and improving a massive-scale distributed machine learning system), writing bug-free machine learning code, and building the science behind the algorithms employed. </p><p style=\"min-height:1.5em\">The most outstanding deep learning results are increasingly attained at a massive scale, and these results require engineers who are comfortable working in large distributed systems. We expect engineering to play a key role in most major advances in AI of the future.</p><p style=\"min-height:1.5em\"><strong>We expect you to:</strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Have strong programming skills</p></li><li><p style=\"min-height:1.5em\">Have experience working in large distributed systems</p></li><li><p style=\"min-height:1.5em\">Be excited about OpenAI’s approach to research </p></li></ul><p style=\"min-height:1.5em\"><strong>Nice to have: </strong></p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Interested in and thoughtful about the impacts of AI technology</p…",
+        "descriptionPlain": "By applying to this role, you will be considered for Research Engineer roles across all teams at OpenAI.\n\nAbout the Role\n\nAs a Research Engineer here, you will be responsible for building AI systems that can perform previously impossible tasks or achieve unprecedented levels of performance. We're looking for people with solid engineering skills (for example designing, implementing, and improving a massive-scale distributed machine learning system), writing bug-free machine learning code, and building the science behind the algorithms employed. \n\nThe most outstanding deep learning results are increasingly attained at a massive scale, and these results require engineers who are comfortable working in large distributed systems. We expect engineering to play a key role in most major advances in AI of the future.\n\nWe expect you to:\n\n - Have strong programming skills\n\n - Have experience working in large distributed systems\n\n - Be excited about OpenAI’s approach to research \n\nNice to have: \n\n - Interested in and thoughtful about the impacts of AI technology\n\n - Past experience in creating high-performance implementations of deep learning algorithms\n\n\n\nAbout OpenAI\n\nOpenAI is an AI research and deployment company dedicated to ensuring that general-purpose artificial intelligence benefits all of humanity. We push the boundaries of the capabilities of AI systems and seek to safely deploy them to the world through our products. AI is an extremely powerful tool that must be created with …",
+        "compensation": {
+          "compensationTierSummary": "$250K – $445K • Offers Equity",
+          "scrapeableCompensationSalarySummary": "$250K - $445K",
+          "compensationTiers": [
+            {
+              "id": "4747585e-c075-4d8e-8107-8903aa77f4a9",
+              "tierSummary": "San Francisco $250K – $445K • Offers Equity",
+              "title": null,
+              "additionalInformation": null,
+              "components": [
+                {
+                  "id": "c2046721-f7e5-4b2c-bf4e-aec9500cc38d",
+                  "summary": "Offers Equity",
+                  "compensationType": "EquityCashValue",
+                  "interval": "1 YEAR",
+                  "currencyCode": "USD",
+                  "minValue": null,
+                  "maxValue": null
+                },
+                {
+                  "id": "2e7143d4-d113-4484-94c8-9ce25f4d402c",
+                  "summary": "San Francisco $250K – $445K",
+                  "compensationType": "Salary",
+                  "interval": "1 YEAR",
+                  "currencyCode": "USD",
+                  "minValue": 250000,
+                  "maxValue": 445000
+                }
+              ]
+            }
+          ],
+          "summaryComponents": [
+            {
+              "compensationType": "EquityCashValue",
+              "interval": "1 YEAR",
+              "currencyCode": "USD",
+              "minValue": null,
+              "maxValue": null
+            },
+            {
+              "compensationType": "Salary",
+              "interval": "1 YEAR",
+              "currencyCode": "USD",
+              "minValue": 250000,
+              "maxValue": 445000
+            }
+          ]
+        }
+      },
+      {
+        "id": "18f58952-c242-4562-8732-073a0ae8029e",
+        "title": "Account Director, Large Enterprise - Tokyo",
+        "department": "Go To Market",
+        "team": "Sales",
+        "employmentType": "FullTime",
+        "location": "Tokyo, Japan",
+        "shouldDisplayCompensationOnJobPostings": false,
+        "secondaryLocations": [],
+        "publishedAt": "2026-01-23T00:17:18.483+00:00",
+        "isListed": true,
+        "isRemote": null,
+        "workplaceType": null,
+        "address": {
+          "postalAddress": {
+            "addressCountry": "Japan",
+            "addressLocality": "Tokyo"
+          }
+        },
+        "jobUrl": "https://jobs.ashbyhq.com/openai/18f58952-c242-4562-8732-073a0ae8029e",
+        "applyUrl": "https://jobs.ashbyhq.com/openai/18f58952-c242-4562-8732-073a0ae8029e/application",
+        "descriptionHtml": "<p style=\"min-height:1.5em\"><strong>About the team</strong></p><p style=\"min-height:1.5em\">OpenAI’s mission is to build safe artificial general intelligence (AGI) which benefits all of humanity. This long-term undertaking brings the world’s best scientists, engineers, and business professionals into one lab together to accomplish this.</p><p style=\"min-height:1.5em\">In pursuit of this mission, our Go To Market (GTM) team is responsible for helping customers learn how to leverage and deploy our highly capable AI products across their business. The team is made of Sales, Solutions, Support, Marketing, and Partnership professionals that work together to create valuable solutions that will help bring AI to as many users as possible.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\"><strong>About the role</strong></p><p style=\"min-height:1.5em\">Our Sales team has a unique mission to help customers understand the deep impact that highly capable AI models can bring to their business and users. This role is a mixture of technical understanding, vision, partnership, and value-driven strategy.</p><p style=\"min-height:1.5em\">You’ll be a key driver of opportunities through the entire sales cycle, from pipeline generation to closure. You’ll work with researchers, engineers, and solution strategists to help customers evolve their industry with AI.</p><p style=\"min-height:1.5em\"></p><p style=\"min-height:1.5em\">This role is based in Tokyo, Japan. We use a hybrid work model of 3 …",
+        "descriptionPlain": "About the team\n\nOpenAI’s mission is to build safe artificial general intelligence (AGI) which benefits all of humanity. This long-term undertaking brings the world’s best scientists, engineers, and business professionals into one lab together to accomplish this.\n\nIn pursuit of this mission, our Go To Market (GTM) team is responsible for helping customers learn how to leverage and deploy our highly capable AI products across their business. The team is made of Sales, Solutions, Support, Marketing, and Partnership professionals that work together to create valuable solutions that will help bring AI to as many users as possible.\n\n\n\nAbout the role\n\nOur Sales team has a unique mission to help customers understand the deep impact that highly capable AI models can bring to their business and users. This role is a mixture of technical understanding, vision, partnership, and value-driven strategy.\n\nYou’ll be a key driver of opportunities through the entire sales cycle, from pipeline generation to closure. You’ll work with researchers, engineers, and solution strategists to help customers evolve their industry with AI.\n\n\n\nThis role is based in Tokyo, Japan. We use a hybrid work model of 3 days in the office per week and offer relocation assistance to new employees.\n\n\n\nIn this role, you'll:\n\n - Manage ~dozen key accounts, developing and executing strategies for a comprehensive account plan\n\n - Lead our enterprise prospects’ journeys from consideration to succesful deployment\n\n - Partner…",
+        "compensation": {
+          "compensationTierSummary": null,
+          "scrapeableCompensationSalarySummary": null,
+          "compensationTiers": [],
+          "summaryComponents": []
+        }
+      },
+      {
+        "id": "7322d344-9325-4a92-8445-0a2c4e9272f8",
+        "title": "Research Engineer, Retrieval & Search, Applied Engineering",
+        "department": "Applied AI",
+        "team": "Applied AI Engineering",
+        "employmentType": "FullTime",
+        "location": "San Francisco",
+        "shouldDisplayCompensationOnJobPostings": true,
+        "secondaryLocations": [],
+        "publishedAt": "2024-03-20T21:33:20.763+00:00",
+        "isListed": true,
+        "isRemote": null,
+        "workplaceType": null,
+        "address": {
+          "postalAddress": {
+            "addressRegion": "California",
+            "addressCountry": "United States",
+            "addressLocality": "San Francisco"
+          }
+        },
+        "jobUrl": "https://jobs.ashbyhq.com/openai/7322d344-9325-4a92-8445-0a2c4e9272f8",
+        "applyUrl": "https://jobs.ashbyhq.com/openai/7322d344-9325-4a92-8445-0a2c4e9272f8/application",
+        "descriptionHtml": "<p style=\"min-height:1.5em\"><strong>About the Team</strong></p><p style=\"min-height:1.5em\">We bring OpenAI's technology to the world through products like ChatGPT and the OpenAI API.</p><p style=\"min-height:1.5em\">We seek to learn from deployment and distribute the benefits of AI, while ensuring that this powerful tool is used responsibly and safely. Safety is more important to us than unfettered growth.</p><p style=\"min-height:1.5em\"><strong>About the Role</strong></p><p style=\"min-height:1.5em\">We are looking for an experienced Research Engineer to work on retrieval &amp; search problems across our API and ChatGPT. As the AI landscape has evolved over the last few years, retrieval &amp; search have emerged as key use cases for our models, and we are investing in ensuring that we can offer these search-based product experiences for our users. You will be at the center of our retrieval &amp; search efforts as a company, and the progress you drive here will reach millions of end users.</p><p style=\"min-height:1.5em\">In this role, you will:</p><ul style=\"min-height:1.5em\"><li><p style=\"min-height:1.5em\">Work on retrieval &amp; search algorithms and methodologies in close collaboration with our research team, including problems in such domains as document search, enterprise search, knowledge retrieval, and web-scale search.</p></li><li><p style=\"min-height:1.5em\">Deploy these search methodologies into production in both the API and ChatGPT to be used by millions of end users.</p…",
+        "descriptionPlain": "About the Team\n\nWe bring OpenAI's technology to the world through products like ChatGPT and the OpenAI API.\n\nWe seek to learn from deployment and distribute the benefits of AI, while ensuring that this powerful tool is used responsibly and safely. Safety is more important to us than unfettered growth.\n\nAbout the Role\n\nWe are looking for an experienced Research Engineer to work on retrieval & search problems across our API and ChatGPT. As the AI landscape has evolved over the last few years, retrieval & search have emerged as key use cases for our models, and we are investing in ensuring that we can offer these search-based product experiences for our users. You will be at the center of our retrieval & search efforts as a company, and the progress you drive here will reach millions of end users.\n\nIn this role, you will:\n\n - Work on retrieval & search algorithms and methodologies in close collaboration with our research team, including problems in such domains as document search, enterprise search, knowledge retrieval, and web-scale search.\n\n - Deploy these search methodologies into production in both the API and ChatGPT to be used by millions of end users.\n\n - Explore novel research topics in retrieval & search that may inform our product strategy in the medium and long term.\n\n - Partner with researchers, engineers, product managers, and designers to bring new features and research capabilities to the world\n\nYou might thrive in this role if you:\n\n - Have extensive prior experi…",
+        "compensation": {
+          "compensationTierSummary": "$293K – $585K • Offers Equity",
+          "scrapeableCompensationSalarySummary": "$293K - $585K",
+          "compensationTiers": [
+            {
+              "id": "1333bd5c-bebf-4b1d-b7fe-d4c0dae5b670",
+              "tierSummary": "$293K – $585K • Offers Equity",
+              "title": null,
+              "additionalInformation": null,
+              "components": [
+                {
+                  "id": "b3b86784-0a2d-472a-9c35-381acd9c7f04",
+                  "summary": "Offers Equity",
+                  "compensationType": "EquityCashValue",
+                  "interval": "1 YEAR",
+                  "currencyCode": "USD",
+                  "minValue": null,
+                  "maxValue": null
+                },
+                {
+                  "id": "40bd5ec7-bc93-4b9f-a42d-d62767f03b79",
+                  "summary": "$293K – $585K",
+                  "compensationType": "Salary",
+                  "interval": "1 YEAR",
+                  "currencyCode": "USD",
+                  "minValue": 293000,
+                  "maxValue": 585000
+                }
+              ]
+            }
+          ],
+          "summaryComponents": [
+            {
+              "compensationType": "EquityCashValue",
+              "interval": "1 YEAR",
+              "currencyCode": "USD",
+              "minValue": null,
+              "maxValue": null
+            },
+            {
+              "compensationType": "Salary",
+              "interval": "1 YEAR",
+              "currencyCode": "USD",
+              "minValue": 293000,
+              "maxValue": 585000
+            }
+          ]
+        }
+      }
+    ],
+    "apiVersion": "1"
+  }
+}

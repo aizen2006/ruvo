@@ -1,0 +1,233 @@
+{
+  "url": "https://boards-api.greenhouse.io/v1/boards/anthropic/jobs?content=true",
+  "data": {
+    "jobs": [
+      {
+        "absolute_url": "https://job-boards.greenhouse.io/anthropic/jobs/4461450008",
+        "data_compliance": [
+          {
+            "type": "gdpr",
+            "requires_consent": false,
+            "requires_processing_consent": false,
+            "requires_retention_consent": false,
+            "retention_period": null,
+            "demographic_data_consent_applies": false
+          }
+        ],
+        "internal_job_id": 4147866008,
+        "location": {
+          "name": "New York City, NY; San Francisco, CA | New York City, NY"
+        },
+        "metadata": [
+          {
+            "id": 4036944008,
+            "name": "Location Type",
+            "value": "On-Site",
+            "value_type": "single_select"
+          }
+        ],
+        "id": 4461450008,
+        "updated_at": "2026-08-21T21:32:54-04:00",
+        "requisition_id": "3356",
+        "title": "Account Executive, AI Native",
+        "company_name": "Anthropic",
+        "first_published": "2024-12-20T13:53:38-05:00",
+        "language": "en",
+        "application_deadline": null,
+        "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;&lt;strong&gt;About Anthropic&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Anthropic’s mission is to create reliable, interpretable, and steerable AI systems. We want AI to be safe and beneficial for our users and for society as a whole. Our team is a quickly growing group of committed researchers, engineers, policy experts, and business leaders working together to build beneficial AI systems.&lt;/p&gt;&lt;/div&gt;&lt;div&gt;\n&lt;h2&gt;About the role&lt;/h2&gt;\n&lt;/div&gt;\n&lt;div&gt;As a AI Native Account Executive at Anthropic, you’ll drive adoption of safe, frontier AI by securing strategic deals with some of the fastest growing startups in the world. You’ll leverage your consultative sales expertise to propel revenue growth while becoming a trusted partner to customers, helping them embed and deploy AI while uncovering its full range of capabilities. In collaboration with GTM, product, and marketing teams, you’ll continuously refine our value proposition, sales methodology, and market positioning to ensure differentiated value across the landscape.&lt;/div&gt;\n&lt;div&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div&gt;The ideal candidate will have a passion for developing new market segments, pinpointing high-potential opportunities, and executing strategies to capture them. By driving deployment of Anthropic&#39;s emerging products, you will help enterprises obtain new capabilities while also advancing the ethical development of AI.&lt;/div&…",
+        "departments": [
+          {
+            "id": 4002062008,
+            "name": "Sales",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "offices": [
+          {
+            "id": 4001219008,
+            "name": "New York City, NY",
+            "location": "New York, New York, United States",
+            "child_ids": [],
+            "parent_id": null
+          },
+          {
+            "id": 4001218008,
+            "name": "San Francisco, CA",
+            "location": "San Francisco, California, United States",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "ai_disclaimer": null,
+        "include_ai_disclaimer": null,
+        "ai_opt_out_request_url": null
+      },
+      {
+        "absolute_url": "https://job-boards.greenhouse.io/anthropic/jobs/5391376008",
+        "data_compliance": [
+          {
+            "type": "gdpr",
+            "requires_consent": false,
+            "requires_processing_consent": false,
+            "requires_retention_consent": false,
+            "retention_period": null,
+            "demographic_data_consent_applies": false
+          }
+        ],
+        "internal_job_id": 4533087008,
+        "location": {
+          "name": "Singapore"
+        },
+        "metadata": [
+          {
+            "id": 4036944008,
+            "name": "Location Type",
+            "value": "On-Site",
+            "value_type": "single_select"
+          }
+        ],
+        "id": 5391376008,
+        "updated_at": "2026-08-28T16:47:28-04:00",
+        "requisition_id": "266765",
+        "title": "Account Executive - DNB",
+        "company_name": "Anthropic",
+        "first_published": "2026-08-20T16:34:11-04:00",
+        "language": "en",
+        "application_deadline": null,
+        "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;&lt;strong&gt;About Anthropic&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Anthropic’s mission is to create reliable, interpretable, and steerable AI systems. We want AI to be safe and beneficial for our users and for society as a whole. Our team is a quickly growing group of committed researchers, engineers, policy experts, and business leaders working together to build beneficial AI systems.&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;&lt;strong&gt;About the role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We are seeking an Enterprise Account Executive to serve as a founding member of our go-to-market expansion into Southeast Asia, based in Singapore. You will drive adoption of safe, frontier AI by securing strategic deals with the region&#39;s leading digital-native companies—from high-growth startups to established unicorns and super-apps—across Singapore, Indonesia, Vietnam, Thailand, Malaysia, and the Philippines. Owning the full sales cycle from first outbound to launch, you&#39;ll act as a trusted partner to customers as they embed Claude into their products and operations. As a first mover in ASEAN, you&#39;ll shape our regional strategy from the ground up, building the playbooks and market insight that will scale as our team grows.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Key responsibilities&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul&gt;\n&lt;li&gt;Win new business and drive revenue for Anthropic across ASEAN, owning the full sales cycle from prospecting through…",
+        "departments": [
+          {
+            "id": 4002062008,
+            "name": "Sales",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "offices": [
+          {
+            "id": 4063231008,
+            "name": "Singapore",
+            "location": "Singapore",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "ai_disclaimer": null,
+        "include_ai_disclaimer": null,
+        "ai_opt_out_request_url": null
+      },
+      {
+        "absolute_url": "https://job-boards.greenhouse.io/anthropic/jobs/5391381008",
+        "data_compliance": [
+          {
+            "type": "gdpr",
+            "requires_consent": false,
+            "requires_processing_consent": false,
+            "requires_retention_consent": false,
+            "retention_period": null,
+            "demographic_data_consent_applies": false
+          }
+        ],
+        "internal_job_id": 4533090008,
+        "location": {
+          "name": "Singapore"
+        },
+        "metadata": [
+          {
+            "id": 4036944008,
+            "name": "Location Type",
+            "value": "On-Site",
+            "value_type": "single_select"
+          }
+        ],
+        "id": 5391381008,
+        "updated_at": "2026-08-28T16:47:28-04:00",
+        "requisition_id": "266766",
+        "title": "Account Executive - Public Sector (ASEAN)",
+        "company_name": "Anthropic",
+        "first_published": "2026-08-20T16:55:45-04:00",
+        "language": "en",
+        "application_deadline": null,
+        "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;&lt;strong&gt;About Anthropic&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Anthropic’s mission is to create reliable, interpretable, and steerable AI systems. We want AI to be safe and beneficial for our users and for society as a whole. Our team is a quickly growing group of committed researchers, engineers, policy experts, and business leaders working together to build beneficial AI systems.&lt;/p&gt;&lt;/div&gt;&lt;h2&gt;&lt;strong&gt;About the role&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;We are seeking a Public Sector Account Executive to drive the adoption of safe, frontier AI across governments in Southeast Asia, establishing and growing Anthropic&#39;s presence in this strategic region. Based in Singapore, you&#39;ll leverage your consultative sales expertise and deep understanding of public sector landscapes across ASEAN markets to grow revenue while becoming a trusted partner to government customers, helping them embed and deploy AI and uncover its full range of capabilities. Working with ministries, statutory boards, and agencies across the region, you&#39;ll navigate diverse procurement, security, and compliance environments to build long-term strategic partnerships. In collaboration with GTM, product, policy, and marketing teams, you&#39;ll help define our market entry strategy and value proposition for public sector customers across ASEAN.&lt;/p&gt;\n&lt;h2&gt;&lt;strong&gt;Key responsibilities&lt;/strong&gt;&lt;/h2&gt;\n&lt;ul…",
+        "departments": [
+          {
+            "id": 4002062008,
+            "name": "Sales",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "offices": [
+          {
+            "id": 4063231008,
+            "name": "Singapore",
+            "location": "Singapore",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "ai_disclaimer": null,
+        "include_ai_disclaimer": null,
+        "ai_opt_out_request_url": null
+      },
+      {
+        "absolute_url": "https://job-boards.greenhouse.io/anthropic/jobs/5391313008",
+        "data_compliance": [
+          {
+            "type": "gdpr",
+            "requires_consent": false,
+            "requires_processing_consent": false,
+            "requires_retention_consent": false,
+            "retention_period": null,
+            "demographic_data_consent_applies": false
+          }
+        ],
+        "internal_job_id": 4533054008,
+        "location": {
+          "name": "Dublin, IE"
+        },
+        "metadata": [
+          {
+            "id": 4036944008,
+            "name": "Location Type",
+            "value": "On-Site",
+            "value_type": "single_select"
+          }
+        ],
+        "id": 5391313008,
+        "updated_at": "2026-09-07T12:12:06-04:00",
+        "requisition_id": "266750",
+        "title": "Account Executive, Startups",
+        "company_name": "Anthropic",
+        "first_published": "2026-09-07T12:12:06-04:00",
+        "language": "en",
+        "application_deadline": null,
+        "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;h2&gt;&lt;strong&gt;About Anthropic&lt;/strong&gt;&lt;/h2&gt;\n&lt;p&gt;Anthropic’s mission is to create reliable, interpretable, and steerable AI systems. We want AI to be safe and beneficial for our users and for society as a whole. Our team is a quickly growing group of committed researchers, engineers, policy experts, and business leaders working together to build beneficial AI systems.&lt;/p&gt;&lt;/div&gt;&lt;div&gt;\n&lt;h2&gt;About the role&lt;/h2&gt;\n&lt;/div&gt;\n&lt;div&gt;As one of the founding Startup Account Executives in EMEA, you’ll pioneer the adoption of safe, frontier AI across the region by securing strategic deals with some of the fastest growing technology companies in the world. You’ll leverage your consultative sales expertise to propel revenue growth while becoming a trusted partner to customers, helping them embed and deploy AI while uncovering its full range of capabilities. In collaboration with GTM, product, and marketing teams, you’ll build Anthropic&#39;s presence across EMEA&#39;s dynamic startup ecosystem, continuously refining our value proposition, sales methodology, and market positioning to ensure differentiated value across the landscape.&amp;nbsp;&lt;/div&gt;\n&lt;div&gt;&amp;nbsp;&lt;/div&gt;\n&lt;div&gt;The ideal candidate will have a passion for developing new market segments, pinpointing high-potential opportunities, and executing strategies to capture them. As an early member of our EMEA sal…",
+        "departments": [
+          {
+            "id": 4002062008,
+            "name": "Sales",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "offices": [
+          {
+            "id": 4006509008,
+            "name": "Dublin, IE",
+            "location": "Dublin, IE",
+            "child_ids": [],
+            "parent_id": null
+          }
+        ],
+        "ai_disclaimer": null,
+        "include_ai_disclaimer": null,
+        "ai_opt_out_request_url": null
+      }
+    ],
+    "meta": {
+      "total": 618
+    }
+  }
+}
