@@ -33,6 +33,7 @@ export function fixtureFetcher(routes: Record<string, string> | string) {
       fromCache: false,
       contentType: "application/json",
       body: JSON.stringify(loadFixture(name).data),
+      escalation: null,
     };
   };
 

@@ -1,6 +1,7 @@
 import { env } from "../config/env";
 import { createDecider } from "../decide/decider";
 import { createSystemOneClient } from "../decide/systemOneClient";
+import { createBrowserPool } from "../fetch/browser";
 import { createFetcher } from "../fetch/fetcher";
 import { createLlmClient } from "../llm/client";
 
@@ -8,7 +9,8 @@ import { createLlmClient } from "../llm/client";
  * Process-wide service instances shared by every run in this process, so robots.txt rules,
  * per-host rate limits and circuit breakers apply across runs.
  */
-export const fetcher = createFetcher({ userAgent: env.USER_AGENT, cacheMode: env.FETCH_CACHE_MODE });
+export const browser = createBrowserPool({ userAgent: env.USER_AGENT, maxPages: 2 });
+export const fetcher = createFetcher({ userAgent: env.USER_AGENT, cacheMode: env.FETCH_CACHE_MODE, browser });
 export const llm = createLlmClient({ env });
 
 /** Jev (hosted) or Laya (self-hosted) behind one client; null when the decision layer is off. */

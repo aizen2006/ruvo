@@ -1,17 +1,21 @@
 import type { RunContext } from "../runs/runContext";
 import { createCircuitBreaker, type CircuitBreaker } from "../libs/circuitBreaker";
 import { parseRetryAfter, withRetry } from "../libs/retry";
+import type { BrowserPool } from "./browser";
 import { FetchError } from "./errors";
 import { createHostLimiter, type HostLimiter } from "./hostLimiter";
-import { findCachedPage, savePage, type CacheMode } from "./pageCache";
+import { findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
 import { createRobots, type Robots } from "./robots";
 import { assertPublicUrl } from "./ssrf";
+import { assessHtml } from "./sufficiency";
 
 export interface FetchRequest {
   url: string;
   expect: "json" | "html" | "text";
   /** Short reason shown in logs/events, e.g. "greenhouse board". */
   purpose: string;
+  /** http: plain request; browser: render with Playwright; auto: http, then browser if the page is a JS shell. */
+  mode?: "http" | "browser" | "auto";
   maxBytes?: number;
 }
 
@@ -20,10 +24,12 @@ export interface FetchResult {
   url: string;
   finalUrl: string;
   status: number;
-  via: "http";
+  via: Via;
   fromCache: boolean;
   contentType: string | null;
   body: string;
+  /** Set when an auto fetch had to switch to the browser, with the reason. */
+  escalation: { reason: string; textLength: number } | null;
 }
 
 /** The slice of a run a fetch needs: cancellation, budget and counters. */
@@ -44,14 +50,18 @@ export interface FetcherOptions {
   robots?: Robots;
   limiter?: HostLimiter;
   breaker?: CircuitBreaker;
+  /** Needed for browser and auto fetches. */
+  browser?: BrowserPool;
 }
 
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 
+type BudgetKey = "pages" | "browserPages";
+
 /**
- * Polite, cached HTTP fetching. Order of checks for each request:
- * cache → SSRF guard → circuit breaker → robots.txt → page budget → rate-limited GET with retries.
+ * Polite, cached fetching over HTTP or a headless browser. Every request passes:
+ * cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
  */
 export function createFetcher(opts: FetcherOptions): Fetcher {
   const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent });
@@ -64,27 +74,32 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     if (!opts.allowPrivateNetwork) await assertPublicUrl(url);
   };
 
-  async function fetchPage(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
-    const cached = await findCachedPage(req.url, "http", opts.cacheMode, cacheTtlMs);
-    if (cached) {
-      scope.metrics.inc("cacheHits");
-      return { ...toResult(cached), fromCache: true };
-    }
-    if (opts.cacheMode === "cache_only") {
-      throw new FetchError("cache_miss", `Not in cache (cache_only mode): ${req.url}`, { url: req.url });
-    }
+  /** Stored copy of a page for this transport, honouring the cache mode. */
+  async function fromCache(scope: FetchScope, url: string, via: Via): Promise<FetchResult | null> {
+    const cached = await findCachedPage(url, via, opts.cacheMode, cacheTtlMs);
+    if (!cached) return null;
+    scope.metrics.inc("cacheHits");
+    return toResult(cached, true);
+  }
 
-    await guard(req.url);
-    const host = new URL(req.url).host;
-    if (breaker.isOpen(host)) {
-      throw new FetchError("circuit_open", `Skipping ${host}: too many recent failures`, { url: req.url });
-    }
-    const { allowed, crawlDelayMs } = await robots.check(req.url);
-    if (!allowed) throw new FetchError("robots_disallowed", `robots.txt disallows ${req.url}`, { url: req.url });
-    if (!scope.budget.take("pages")) {
-      throw new FetchError("budget_exhausted", "Page budget exhausted for this run", { url: req.url });
-    }
+  /** The checks every network request passes; returns the host and its crawl delay. */
+  async function preflight(scope: FetchScope, url: string, budget: BudgetKey[]) {
+    if (opts.cacheMode === "cache_only") throw new FetchError("cache_miss", `Not in cache (cache_only mode): ${url}`, { url });
+    await guard(url);
+    const host = new URL(url).host;
+    if (breaker.isOpen(host)) throw new FetchError("circuit_open", `Skipping ${host}: too many recent failures`, { url });
+    const { allowed, crawlDelayMs } = await robots.check(url);
+    if (!allowed) throw new FetchError("robots_disallowed", `robots.txt disallows ${url}`, { url });
+    const short = budget.find((key) => scope.budget.left(key) < 1);
+    if (short) throw new FetchError("budget_exhausted", `${short === "pages" ? "Page" : "Browser page"} budget exhausted for this run`, { url });
+    for (const key of budget) scope.budget.take(key);
+    return { host, crawlDelayMs };
+  }
 
+  async function fetchHttp(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
+    const cached = await fromCache(scope, req.url, "http");
+    if (cached) return cached;
+    const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages"]);
     try {
       const response = await withRetry(() => limiter.run(host, crawlDelayMs, () => httpGet(scope, req)), {
         retries: 2,
@@ -96,12 +111,55 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
       });
       breaker.recordSuccess(host);
       scope.metrics.inc("pagesVisited");
-      const page = await savePage({ url: req.url, via: "http", ...response });
-      return { ...toResult(page), fromCache: false };
+      return toResult(await savePage({ url: req.url, via: "http", ...response }), false);
     } catch (err) {
       if (err instanceof FetchError && (err.retryable || err.kind === "network")) breaker.recordFailure(host);
       throw err;
     }
+  }
+
+  async function fetchBrowser(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
+    if (!opts.browser) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
+    const cached = await fromCache(scope, req.url, "browser");
+    if (cached) return cached;
+    const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages", "browserPages"]);
+    try {
+      const rendered = await limiter.run(host, crawlDelayMs, () =>
+        opts.browser!.render(req.url, { signal: scope.signal, timeoutMs: timeoutMs + 10_000 }),
+      );
+      breaker.recordSuccess(host);
+      scope.metrics.inc("pagesVisited");
+      scope.metrics.inc("browserPages");
+      const page = await savePage({
+        url: req.url,
+        finalUrl: rendered.finalUrl,
+        via: "browser",
+        status: rendered.status,
+        contentType: "text/html",
+        body: rendered.html,
+      });
+      return toResult(page, false);
+    } catch (err) {
+      if (scope.signal.aborted) throw err;
+      breaker.recordFailure(host);
+      if (err instanceof FetchError) throw err;
+      throw new FetchError("network", `Browser could not load ${req.url}: ${(err as Error).message}`, { url: req.url });
+    }
+  }
+
+  async function fetchPage(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
+    const mode = req.mode ?? "http";
+    if (mode === "browser") return fetchBrowser(scope, req);
+    if (mode === "http") return fetchHttp(scope, req);
+
+    // auto: a rendered copy from an earlier escalation beats re-fetching the empty shell.
+    const rendered = await fromCache(scope, req.url, "browser");
+    if (rendered) return rendered;
+    const page = await fetchHttp(scope, req);
+    const verdict = assessHtml(page.body);
+    if (verdict.sufficient || !opts.browser) return page;
+    const escalated = await fetchBrowser(scope, req);
+    return { ...escalated, escalation: { reason: verdict.reason!, textLength: verdict.textLength } };
   }
 
   async function httpGet(scope: FetchScope, req: FetchRequest) {
@@ -194,14 +252,16 @@ async function readCapped(res: Response, maxBytes: number, url: string): Promise
   return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
-function toResult(page: { id: string; url: string; finalUrl: string; status: number; contentType: string | null; body: string }) {
+function toResult(page: PageRow, fromCache: boolean): FetchResult {
   return {
     pageId: page.id,
     url: page.url,
     finalUrl: page.finalUrl,
     status: page.status,
-    via: "http" as const,
+    via: page.via,
+    fromCache,
     contentType: page.contentType,
     body: page.body,
+    escalation: null,
   };
 }
