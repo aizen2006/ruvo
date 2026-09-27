@@ -192,14 +192,15 @@ async function findCached(hashes: string[]) {
 
 async function record<L extends string>(scope: DecisionScope, requests: DecisionRequest<L>[], final: Decision<L>[], hashes: string[]) {
   const rows = final
+    // Cached answers are recorded too, so every run's decision log is complete.
     .map((d, i) => ({ d, r: requests[i]!, hash: hashes[i]! }))
-    .filter(({ d }) => !d.cached)
     .map(({ d, r, hash }) => ({
       runId: scope.runId,
       task: r.task,
       subject: r.subject.slice(0, 300),
       inputHash: hash,
-      state: typeof r.state === "string" ? { text: r.state } : r.state,
+      // The question is stored with the input so the decision can be read on its own later.
+      state: { ...(typeof r.state === "string" ? { text: r.state } : r.state), question: r.question.instructions },
       label: d.label,
       confidence: d.confidence,
       decidedBy: d.decidedBy,

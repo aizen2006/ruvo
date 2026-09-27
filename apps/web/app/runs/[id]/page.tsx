@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ContractView } from "@/components/contract/contract-view";
 import { DatasetView } from "@/components/dataset/dataset-view";
+import { DecisionsView } from "@/components/run/decisions-view";
 import { EventFeed, LatestEvent } from "@/components/run/event-feed";
 import { MetricsLine } from "@/components/run/metrics-line";
 import { RunHeader } from "@/components/run/run-header";
@@ -44,6 +45,7 @@ export default function RunPage() {
             { value: "workflow", label: "Workflow" },
             { value: "dataset", label: "Dataset", hint: recordCount ? formatNumber(recordCount) : undefined },
             { value: "quality", label: "Quality" },
+            { value: "decisions", label: "Decisions" },
             { value: "activity", label: "Activity", hint: events.length ? formatNumber(events.length) : undefined },
           ]}
         />
@@ -58,6 +60,9 @@ export default function RunPage() {
         </TabPanel>
         <TabPanel value="quality" className="py-6 text-muted">
           The quality report appears here.
+        </TabPanel>
+        <TabPanel value="decisions">
+          <DecisionsView run={run} />
         </TabPanel>
         <TabPanel value="activity" className="py-4">
           <EventFeed events={events} />

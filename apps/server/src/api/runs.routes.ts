@@ -1,6 +1,7 @@
 import { CreateRunRequest, DatasetContract, ListRecordsQuery } from "@repo/contracts";
 import { Router } from "express";
 import { z } from "zod";
+import { getDecisionSummary } from "../db/repos/decisions";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
 import { createRun, getQualityReport, getRunDetail, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
 import { getRunWorkflow } from "../db/repos/workflows";
@@ -68,4 +69,8 @@ runsRouter.post("/:id/rerun", async (req, res) => {
 
 runsRouter.get("/:id/quality", async (req, res) => {
   res.json(await getQualityReport(runId(req.params.id)));
+});
+
+runsRouter.get("/:id/decisions", async (req, res) => {
+  res.json(await getDecisionSummary(runId(req.params.id)));
 });

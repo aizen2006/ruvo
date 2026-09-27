@@ -17,6 +17,7 @@ export const runKeys = {
   records: (id: string, filters: RecordFilters) => ["runs", id, "records", filters] as const,
   evidence: (id: string, recordId: string) => ["runs", id, "evidence", recordId] as const,
   quality: (id: string) => ["runs", id, "quality"] as const,
+  decisions: (id: string) => ["runs", id, "decisions"] as const,
 };
 
 export const useRuns = () => useQuery({ queryKey: runKeys.all, queryFn: api.listRuns, refetchInterval: 5_000 });
@@ -94,3 +95,11 @@ export function useRunAction<T>(id: string, action: () => Promise<T>) {
     onSuccess: () => client.invalidateQueries({ queryKey: runKeys.run(id) }),
   });
 }
+
+export const useDecisions = (id: string, status: RunStatus | undefined) =>
+  useQuery({
+    queryKey: runKeys.decisions(id),
+    queryFn: () => api.getDecisions(id),
+    enabled: status === "running" || Boolean(status && isTerminal(status)),
+    refetchInterval: status === "running" ? 3_000 : false,
+  });

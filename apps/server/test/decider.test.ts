@@ -102,7 +102,7 @@ describe("decider tiers", () => {
     const [again] = await decider.decideMany(scope(), [request("Inference Engineer")]);
     expect(again).toMatchObject({ label: "yes", decidedBy: "DECIDER", cached: true });
     expect(asked).toHaveLength(1);
-    expect(await db.select().from(decisions)).toHaveLength(1);
+    expect(await db.select().from(decisions)).toHaveLength(2);
   });
 });
 

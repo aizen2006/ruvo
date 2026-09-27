@@ -1,6 +1,7 @@
 import type {
   CreateRunResponse,
   DatasetContract,
+  DecisionSummary,
   Evidence,
   Page,
   PlanDraft,
@@ -86,6 +87,7 @@ export const api = {
   getEvidence: (id: string, recordId: string) =>
     request<{ record: RecordDTO; evidence: Evidence[] }>(`/api/runs/${id}/evidence/${recordId}`),
   getQuality: (id: string) => request<QualityReport>(`/api/runs/${id}/quality`),
+  getDecisions: (id: string) => request<DecisionSummary>(`/api/runs/${id}/decisions`),
   exportUrl: (id: string, format: "csv" | "json", scope: "valid" | "all") =>
     `${API_URL}/api/datasets/${id}/export${query({ format, scope })}`,
 };
