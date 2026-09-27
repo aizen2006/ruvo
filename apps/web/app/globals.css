@@ -67,3 +67,15 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* The evidence panel slides in from the right when opened. */
+@keyframes slide-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
