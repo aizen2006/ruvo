@@ -9,6 +9,7 @@ import { MetricsLine } from "@/components/run/metrics-line";
 import { RunHeader } from "@/components/run/run-header";
 import { StageTimeline } from "@/components/run/stage-timeline";
 import { TabList, TabPanel, Tabs } from "@/components/ui/tabs";
+import { WorkflowView } from "@/components/workflow/workflow-view";
 import { formatNumber } from "@/lib/format";
 import { useRun, useRunEvents } from "@/lib/queries";
 
@@ -48,8 +49,8 @@ export default function RunPage() {
         <TabPanel value="contract">
           <ContractView run={run} />
         </TabPanel>
-        <TabPanel value="workflow" className="py-6 text-muted">
-          The workflow appears here.
+        <TabPanel value="workflow">
+          <WorkflowView run={run} events={events} />
         </TabPanel>
         <TabPanel value="dataset" className="py-6 text-muted">
           Records appear here.
