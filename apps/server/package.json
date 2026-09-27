@@ -1,21 +1,31 @@
 {
   "name": "server",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "start:worker": "bun src/worker.ts",
+    "test": "bun test",
+    "check-types": "tsc --noEmit",
+    "db:push": "drizzle-kit push",
+    "browsers": "playwright install chromium",
+    "smoke": "bun scripts/smoke.ts",
+    "eval": "bun scripts/eval.ts",
+    "e2e": "bun scripts/e2e.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/helmet": "^4.0.0",
-    "@types/winston": "^2.4.4"
+    "concurrently": "^10.0.5"
   },
   "peerDependencies": {
     "typescript": "^7"
   },
   "dependencies": {
     "cors": "^2.8.6",
-    "dotenv": "^18.0.4",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "winston": "^3.19.0"
