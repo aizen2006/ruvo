@@ -32,6 +32,7 @@
     "@repo/contracts": "*",
     "cheerio": "^1.2.0",
     "cors": "^2.8.6",
+    "domhandler": "^6.0.1",
     "drizzle-orm": "^0.45.3",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
