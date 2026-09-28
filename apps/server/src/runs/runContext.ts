@@ -6,7 +6,7 @@ import type { Fetcher } from "../fetch/fetcher";
 import type { LlmClient } from "../llm/client";
 import { runs } from "../db/schema";
 import { logger, type Logger } from "../libs/logger";
-import { createBudget, type Budget } from "./budget";
+import { createBudget, type Budget, type BudgetKey } from "./budget";
 import { createEventBus, nextEventSeq, type EmitInput } from "./eventBus";
 import { createMetrics, type Metrics } from "./metrics";
 
@@ -48,6 +48,13 @@ export interface OwnedRunContext extends RunContext {
   dispose(): Promise<void>;
 }
 
+/** What running out of each budget means for the rest of the run. */
+const BUDGET_MESSAGE: Record<BudgetKey, (limit: number) => string> = {
+  pages: (n) => `Page budget used up (${n} pages); remaining pages are skipped`,
+  browserPages: (n) => `Browser budget used up (${n} pages); pages that need a browser are skipped`,
+  llmCalls: (n) => `AI call budget used up (${n} calls); remaining steps continue without AI`,
+};
+
 export async function createRunContext(args: {
   runId: string;
   signal: AbortSignal;
@@ -65,6 +72,7 @@ export async function createRunContext(args: {
   const saveMetrics = async () => {
     await db.update(runs).set({ metrics: metrics.snapshot() }).where(eq(runs.id, runId));
   };
+  let currentStage: Stage = "collecting";
   const metricsTimer = setInterval(() => void saveMetrics().catch(() => {}), 1000);
 
   return {
@@ -72,7 +80,9 @@ export async function createRunContext(args: {
     signal: args.signal,
     contract: args.contract,
     ir: args.ir,
-    budget: createBudget(args.budgets ?? args.ir.budgets),
+    budget: createBudget(args.budgets ?? args.ir.budgets, (key, limit) =>
+      bus.emit({ stage: currentStage, type: "budget.exhausted", level: "warn", message: BUDGET_MESSAGE[key](limit), data: { key, limit } }),
+    ),
     metrics,
     fetcher: args.fetcher,
     llm: args.llm,
@@ -81,6 +91,7 @@ export async function createRunContext(args: {
     repairs: [],
     emit: bus.emit,
     async setStage(stage) {
+      currentStage = stage;
       await db.update(runs).set({ stage }).where(eq(runs.id, runId));
       bus.emit({ stage, type: "stage.started", message: `Stage: ${stage}` });
     },

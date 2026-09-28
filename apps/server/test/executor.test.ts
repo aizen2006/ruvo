@@ -15,6 +15,7 @@ import { insertRun, resetDb } from "./helpers/db";
 import { createDecider } from "../src/decide/decider";
 import { fakeLlm } from "./helpers/fakeLlm";
 import { fixtureFetcher } from "./helpers/fixtures";
+import type { Fetcher, FetchScope } from "../src/fetch/fetcher";
 
 beforeEach(resetDb);
 
@@ -33,15 +34,21 @@ const company = (name: string, ats: RegistryCompany["ats"], slug: string, tags: 
 
 const budgets = { maxPages: 50, maxBrowserPages: 0, maxLlmCalls: 0, maxDurationMs: 60_000, maxRecords: 500 };
 
-async function runWith(companies: RegistryCompany[], contract: DatasetContract = DEMO_CONTRACT) {
+async function runWith(companies: RegistryCompany[], contract: DatasetContract = DEMO_CONTRACT, limits = budgets, slow = false) {
   const run = await insertRun({ status: "running" });
-  const ir = buildTemplateIr(contract, companies, { budgets, maxItemsPerSource: 40 });
-  const { fetcher } = fixtureFetcher({ "greenhouse.io": "greenhouse", "ashbyhq.com": "ashby", "lever.co": "lever" });
+  const ir = buildTemplateIr(contract, companies, { budgets: limits, maxItemsPerSource: 40 });
+  const { fetcher: fixtures } = fixtureFetcher({ "greenhouse.io": "greenhouse", "ashbyhq.com": "ashby", "lever.co": "lever" });
+  const fetcher = slow ? neverAnswers : fixtures;
   const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract, ir, fetcher, llm: fakeLlm(), decider: offDecider });
   await executeWorkflow(ctx);
   await ctx.dispose();
   return { run, ctx };
 }
+
+/** A source that never answers until the request is aborted. */
+const hang = (scope: FetchScope): Promise<never> =>
+  new Promise((_, reject) => scope.signal.addEventListener("abort", () => reject(scope.signal.reason), { once: true }));
+const neverAnswers: Fetcher = { fetch: (scope) => hang(scope), json: (scope) => hang(scope) };
 
 const recordsOf = (runId: string) => db.select().from(records).where(eq(records.runId, runId));
 
@@ -67,11 +74,18 @@ describe("executeWorkflow", () => {
     const { run } = await runWith([company("Missing Co", "workable", "missing", []), company("OpenAI", "ashby", "openai", ["ai_lab"])]);
     expect((await recordsOf(run.id)).length).toBe(2);
     const events = await db.select().from(runEvents).where(eq(runEvents.runId, run.id));
-    expect(events.find((e) => e.type === "source.failed")?.message).toContain("Missing Co failed at collect");
+    expect(events.find((e) => e.type === "source.failed")?.message).toContain("Missing Co could not be collected");
+  });
+
+  test("the run time limit stops slow work without failing the run", async () => {
+    const { run } = await runWith([company("OpenAI", "ashby", "openai", ["ai_lab"])], DEMO_CONTRACT, { ...budgets, maxDurationMs: 50 }, true);
+    const events = await db.select().from(runEvents).where(eq(runEvents.runId, run.id));
+    expect(events.find((e) => e.type === "source.time_limit")?.message).toContain("time limit was reached");
+    expect(events.some((e) => e.type === "source.failed")).toBe(false);
   });
 
   test("fails the run when every source fails", async () => {
-    await expect(runWith([company("Missing Co", "workable", "missing", [])])).rejects.toThrow("Every source failed");
+    await expect(runWith([company("Missing Co", "workable", "missing", [])])).rejects.toThrow("Missing Co could not be collected");
   });
 
   test("re-executing a run upserts instead of duplicating", async () => {

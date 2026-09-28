@@ -3,6 +3,7 @@ import { mapLimit } from "../libs/limit";
 import type { RunContext } from "../runs/runContext";
 import type { Candidate } from "./candidate";
 import { buildRunDiff } from "./diff";
+import { explainFailure } from "../repair/classify";
 import { buildQualityReport } from "./quality";
 import { collect } from "./steps/collect";
 import { dedupeRun } from "./steps/dedupe";
@@ -23,11 +24,14 @@ const BRANCH_CONCURRENCY = 3;
  */
 export async function executeWorkflow(ctx: RunContext): Promise<void> {
   await ctx.setStage("collecting");
-  const outcomes = await mapLimit(ctx.ir.sources, BRANCH_CONCURRENCY, (branch) => runBranch(ctx, branch));
+  // The run's time limit stops slow work (collection, enrichment) but still saves what was gathered.
+  const deadline = AbortSignal.timeout(ctx.ir.budgets.maxDurationMs);
+  const outcomes = await mapLimit(ctx.ir.sources, BRANCH_CONCURRENCY, (branch) => runBranch(ctx, branch, deadline));
 
-  const failed = outcomes.filter((ok) => !ok).length;
+  const failures = outcomes.filter((reason): reason is string => reason !== null);
+  const failed = failures.length;
   if (ctx.ir.sources.length > 0 && failed === ctx.ir.sources.length) {
-    throw new Error("Every source failed; see the run events for details");
+    throw new Error(failed === 1 ? failures[0] : `None of the ${failed} sources could be collected; the Workflow tab shows why for each`);
   }
 
   await ctx.setStage("deduplicating");
@@ -54,26 +58,54 @@ export async function executeWorkflow(ctx: RunContext): Promise<void> {
   });
 }
 
-/** Returns false if the branch failed (the error is recorded as an event). */
-async function runBranch(ctx: RunContext, branch: SourceBranch): Promise<boolean> {
+/** Steps that turn what was already gathered into saved records; they still run after the time limit. */
+const FINISHING_STEPS: ReadonlySet<Step["kind"]> = new Set(["prefilter", "match", "validate", "store"]);
+
+/**
+ * Runs one source's steps. Returns why the source failed (also recorded as an event), or null. Once
+ * the run's time limit passes, slow steps are skipped and the rest save what was gathered.
+ */
+async function runBranch(ctx: RunContext, branch: SourceBranch, deadline: AbortSignal): Promise<string | null> {
+  const timed: RunContext = { ...ctx, signal: AbortSignal.any([ctx.signal, deadline]) };
   let candidates: Candidate[] = [];
+  let outOfTime = false;
+  const stopSlowWork = (step: Step) => {
+    outOfTime = true;
+    ctx.emit({
+      stage: stageOf(step),
+      type: "source.time_limit",
+      level: "warn",
+      sourceId: branch.id,
+      message: `${branch.label}: the run's ${Math.round(ctx.ir.budgets.maxDurationMs / 60_000)}-minute time limit was reached; saving what was gathered`,
+      data: { stepId: step.id, kind: step.kind },
+    });
+  };
+
   for (const step of branch.steps) {
     ctx.signal.throwIfAborted();
+    if (!outOfTime && deadline.aborted) stopSlowWork(step);
+    if (outOfTime && !FINISHING_STEPS.has(step.kind)) continue;
     const started = Date.now();
     try {
-      candidates = await runStep(ctx, branch, step, candidates);
+      candidates = await runStep(outOfTime ? ctx : timed, branch, step, candidates);
     } catch (err) {
       if (ctx.signal.aborted) throw err;
-      const message = err instanceof Error ? err.message : String(err);
+      if (deadline.aborted && !outOfTime) {
+        // The limit interrupted this step; keep its input and finish with the saving steps.
+        stopSlowWork(step);
+        continue;
+      }
+      const reason = `${branch.label} could not be collected: ${explainFailure(err)}`;
+      const detail = err instanceof Error ? err.message : String(err);
       ctx.emit({
         stage: stageOf(step),
         type: "source.failed",
         level: "error",
         sourceId: branch.id,
-        message: `${branch.label} failed at ${step.kind}: ${message}`,
-        data: { stepId: step.id, kind: step.kind, error: message, errorKind: (err as { kind?: string }).kind ?? null },
+        message: reason,
+        data: { stepId: step.id, kind: step.kind, error: detail, errorKind: (err as { kind?: string }).kind ?? null },
       });
-      return false;
+      return reason;
     }
     ctx.emit({
       stage: stageOf(step),
@@ -83,7 +115,7 @@ async function runBranch(ctx: RunContext, branch: SourceBranch): Promise<boolean
       data: { stepId: step.id, kind: step.kind, count: candidates.length, ms: Date.now() - started },
     });
   }
-  return true;
+  return null;
 }
 
 function runStep(ctx: RunContext, branch: SourceBranch, step: Step, input: Candidate[]): Promise<Candidate[]> {

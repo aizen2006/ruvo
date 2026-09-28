@@ -31,10 +31,15 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...init,
-    headers: { "content-type": "application/json", ...init?.headers },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      ...init,
+      headers: { "content-type": "application/json", ...init?.headers },
+    });
+  } catch {
+    throw new ApiError(0, `Can't reach the RUVO API at ${API_URL}. Check that the server is running.`);
+  }
   const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
     const error = (body as { error?: string; details?: unknown } | null) ?? {};

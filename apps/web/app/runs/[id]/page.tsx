@@ -11,6 +11,7 @@ import { EventFeed, LatestEvent } from "@/components/run/event-feed";
 import { MetricsLine } from "@/components/run/metrics-line";
 import { RunHeader } from "@/components/run/run-header";
 import { StageTimeline } from "@/components/run/stage-timeline";
+import { PageNotice } from "@/components/ui/notice";
 import { TabList, TabPanel, Tabs } from "@/components/ui/tabs";
 import { WorkflowView } from "@/components/workflow/workflow-view";
 import { formatNumber } from "@/lib/format";
@@ -23,7 +24,7 @@ export default function RunPage() {
   const [tab, setTab] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-muted">Loading run…</p>;
-  if (error || !run) return <p className="text-danger">{error?.message ?? "Run not found"}</p>;
+  if (error || !run) return <PageNotice error={error} what="run" />;
 
   // Open where the user can act: the contract while reviewing, the dataset once records exist.
   const defaultTab = run.status === "awaiting_approval" || !run.contract ? "contract" : "dataset";

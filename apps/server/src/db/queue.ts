@@ -72,11 +72,14 @@ export async function completePreparation(runId: string, workerId: string, next:
     .where(owned(runId, workerId));
 }
 
-/** Marks a run finished, but only if this worker still owns it. */
+/**
+ * Marks a run finished, but only if this worker still owns it. A failed or cancelled run keeps
+ * the stage it stopped at, so the dashboard shows where it ended.
+ */
 export async function finishRun(runId: string, workerId: string, status: FinalStatus, error?: string) {
   await db
     .update(runs)
-    .set({ status, error: error ?? null, finishedAt: new Date(), stage: "done" })
+    .set({ status, error: error ?? null, finishedAt: new Date(), ...(status === "completed" ? { stage: "done" as const } : {}) })
     .where(owned(runId, workerId));
 }
 
@@ -104,7 +107,7 @@ export async function recoverStaleRuns(opts: { staleMs: number; maxAttempts: num
 
   const failed = await db
     .update(runs)
-    .set({ status: "failed", error: "Worker stopped responding too many times", finishedAt: new Date(), stage: "done" })
+    .set({ status: "failed", error: "Worker stopped responding too many times", finishedAt: new Date() })
     .where(and(stale, gte(runs.attempt, opts.maxAttempts)))
     .returning({ id: runs.id });
 

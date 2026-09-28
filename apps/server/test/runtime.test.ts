@@ -25,12 +25,17 @@ describe("budget", () => {
     expect(budget.left("pages")).toBe(2);
   });
 
-  test("expires after the wall-clock allowance", () => {
-    let now = 0;
-    const budget = createBudget(limits, () => now);
-    expect(budget.expired()).toBe(false);
-    now = 1001;
-    expect(budget.expired()).toBe(true);
+  test("announces each exhausted budget once", () => {
+    const announced: Array<[string, number]> = [];
+    const budget = createBudget(limits, (key, limit) => announced.push([key, limit]));
+    budget.take("pages", 2);
+    budget.take("pages");
+    budget.take("pages");
+    budget.take("llmCalls");
+    expect(announced).toEqual([
+      ["pages", 2],
+      ["llmCalls", 0],
+    ]);
   });
 });
 

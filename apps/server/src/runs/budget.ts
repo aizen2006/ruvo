@@ -3,32 +3,45 @@ import type { Budgets } from "@repo/contracts";
 export type BudgetKey = "pages" | "browserPages" | "llmCalls";
 
 /**
- * Per-run spending caps. Callers ask before spending (`take`) and degrade gracefully
+ * Per-run spending caps (the time limit is enforced by the executor). Callers ask before spending (`take`) and degrade gracefully
  * when refused, e.g. "salary: not attempted (LLM budget)", instead of failing the run.
  */
 export interface Budget {
   take(key: BudgetKey, n?: number): boolean;
   left(key: BudgetKey): number;
-  /** True once the run has exceeded its wall-clock allowance. */
-  expired(): boolean;
 }
 
-export function createBudget(limits: Budgets, now: () => number = Date.now): Budget {
+const LIMIT_OF: Record<BudgetKey, (b: Budgets) => number> = {
+  pages: (b) => b.maxPages,
+  browserPages: (b) => b.maxBrowserPages,
+  llmCalls: (b) => b.maxLlmCalls,
+};
+
+/**
+ * @param onExhausted called once per budget, the first time a request is refused, so the run
+ *   can tell the user what was skipped.
+ */
+export function createBudget(limits: Budgets, onExhausted?: (key: BudgetKey, limit: number) => void): Budget {
   const remaining: Record<BudgetKey, number> = {
     pages: limits.maxPages,
     browserPages: limits.maxBrowserPages,
     llmCalls: limits.maxLlmCalls,
   };
-  const deadline = now() + limits.maxDurationMs;
+  const announced = new Set<BudgetKey>();
 
   return {
     take(key, n = 1) {
-      if (remaining[key] < n) return false;
+      if (remaining[key] < n) {
+        if (!announced.has(key)) {
+          announced.add(key);
+          onExhausted?.(key, LIMIT_OF[key](limits));
+        }
+        return false;
+      }
       remaining[key] -= n;
       return true;
     },
     left: (key) => remaining[key],
-    expired: () => now() > deadline,
   };
 }
 

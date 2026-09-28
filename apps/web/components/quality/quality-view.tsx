@@ -33,6 +33,14 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
 export function QualityView({ run }: { run: RunDetail }) {
   const { data: q, isLoading, error } = useQuality(run.id, run.status);
 
+  if (run.status === "failed" || run.status === "cancelled") {
+    return (
+      <p className="py-6 text-muted">
+        This run {run.status === "failed" ? "failed" : "was cancelled"} before its quality report was built. The Activity tab shows what happened;
+        Run again to try once more.
+      </p>
+    );
+  }
   if (run.status !== "completed") return <p className="py-6 text-muted">The quality report is ready when the run completes.</p>;
   if (isLoading) return <p className="py-6 text-muted">Loading the quality report…</p>;
   if (error || !q) return <p className="py-6 text-danger">{error?.message ?? "No quality report for this run."}</p>;

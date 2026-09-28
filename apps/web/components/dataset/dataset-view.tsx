@@ -7,6 +7,7 @@ import { api, type RecordFilters } from "@/lib/api";
 import { formatNumber } from "@/lib/format";
 import { useRecords, useWorkflow } from "@/lib/queries";
 import { useDebounced } from "@/lib/use-debounced";
+import { Button } from "../ui/button";
 import { EvidenceSheet } from "./evidence-sheet";
 import { STATUS_STYLE, STATUS_TEXT } from "./status";
 
@@ -85,6 +86,17 @@ export function DatasetView({ run }: { run: RunDetail }) {
   const hasRemote = contract.fields.some((f) => f.catalogKey === "remote");
   const hasSalary = contract.fields.some((f) => f.catalogKey === "salary");
   const total = data?.total ?? 0;
+  const kept = run.metrics.validRecords + run.metrics.incompleteRecords;
+  const onlyDefaultFilter = status === "valid" && !search && !remote && !salary && !source && !minConfidence;
+  const clearFilters = () => {
+    setSearch("");
+    setStatus("");
+    setRemote("");
+    setSalary("");
+    setSource("");
+    setMinConfidence("");
+    setPage(1);
+  };
   const first = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const last = Math.min(page * PAGE_SIZE, total);
 
@@ -195,7 +207,25 @@ export function DatasetView({ run }: { run: RunDetail }) {
           </tbody>
         </table>
         {data && data.items.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted">No records match these filters.</p>
+          <div className="space-y-3 py-10 text-center text-sm text-muted">
+            {run.status === "running" ? (
+              <p>No records yet. They appear here as each source finishes.</p>
+            ) : kept === 0 ? (
+              <p>This run kept no records. The Quality tab shows why records were set aside, and Activity lists any sources that failed.</p>
+            ) : onlyDefaultFilter && run.metrics.incompleteRecords > 0 ? (
+              <>
+                <p>
+                  No record has every required value; {formatNumber(run.metrics.incompleteRecords)} are missing at least one.
+                </p>
+                <Button onClick={() => setStatus("incomplete")}>Show incomplete records</Button>
+              </>
+            ) : (
+              <>
+                <p>No records match these filters.</p>
+                <Button onClick={clearFilters}>Clear filters</Button>
+              </>
+            )}
+          </div>
         )}
       </div>
 
