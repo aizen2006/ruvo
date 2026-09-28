@@ -85,7 +85,7 @@ const checks: Check[] = [
     },
   },
   {
-    name: `playwright (${env.BROWSER_MODE})`,
+    name: "playwright",
     run: async () => {
       const browser = await chromium.launch();
       const page = await browser.newPage();
