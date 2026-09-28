@@ -16,7 +16,8 @@
     "probe:registry": "bun scripts/probe-registry.ts",
     "eval": "bun scripts/eval.ts",
     "calibrate": "bun scripts/calibrate-decider.ts",
-    "e2e": "bun scripts/e2e.ts"
+    "e2e": "bun scripts/e2e.ts",
+    "seed:demo": "bun scripts/seed-demo.ts"
   },
   "devDependencies": {
     "@types/bun": "latest",
