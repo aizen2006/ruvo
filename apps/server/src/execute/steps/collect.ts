@@ -12,7 +12,7 @@ export const collect: StepFn<"collect"> = async (ctx, branch, step) => {
     stage: "collecting",
     type: "source.collected",
     sourceId: branch.id,
-    message: `${branch.label}: ${items.length} postings found`,
+    message: `${branch.label}: ${items.length} ${ctx.contract.entity === "job_posting" ? "postings" : "items"} found`,
     data: { count: items.length },
   });
   return items.map((item) => toCandidate(branch.id, item));

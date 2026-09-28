@@ -73,6 +73,17 @@ export async function planForContract(
   signal?: AbortSignal,
   remembered?: Recalled | null,
 ): Promise<PlanResult> {
+  if (candidates.length === 0) {
+    // Nothing to choose between (e.g. a non-job request with no linked page yet): skip the planner.
+    const draft = templateDraft(candidates, 40);
+    const ir = compileIr(contract, draft, candidates, {
+      caps,
+      provenance: { plannedBy: "template", model: null, reusedFrom: null, parentVersion: null },
+    });
+    ir.provenance.warnings.unshift("No sources to collect from yet");
+    return { ir, draft, reused: null };
+  }
+
   if (remembered && sourceOverlap(remembered.draft, candidates) >= REUSE_MIN_SOURCE_OVERLAP) {
     const ir = compileIr(contract, remembered.draft, candidates, {
       caps,

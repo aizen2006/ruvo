@@ -71,7 +71,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
             itemKeyFor(run.contract, f.name),
             domField(
               row[f.name] ?? null,
-              catalogKeyOf(run, f.name),
+              fieldOf(run, f.name),
               `${recipe.def.itemSelector} ${f.selector || ":scope"} @${f.attr}`,
               sourceUrl,
               read.page.pageId,
@@ -149,20 +149,31 @@ async function discoverOrThrow(run: RunContext, page: FetchedPage, fields: Field
 }
 
 /**
- * A value read from the page. Arrangement and salary are normalized like every other source
- * ("Remote" → "remote"); the snippet keeps the page's original text.
+ * A value read from the page. Arrangement, salary and numbers are normalized like every other
+ * source ("Remote" → "remote", "1,204 points" → "1204"); the snippet keeps the page's original text.
  */
-function domField(raw: string | null, catalogKey: string, locator: string, sourceUrl: string, pageId: string | null): FieldValue | undefined {
+function domField(raw: string | null, field: FieldSpec | undefined, locator: string, sourceUrl: string, pageId: string | null): FieldValue | undefined {
   if (!raw) return undefined;
+  const catalogKey = field?.catalogKey ?? "custom";
   const salary = catalogKey === "salary" ? parseSalary(raw) : null;
-  const value = catalogKey === "remote" ? (detectArrangement(raw) ?? raw.toLowerCase()) : salary ? formatSalary(salary) : raw;
+  const value =
+    catalogKey === "remote"
+      ? (detectArrangement(raw) ?? raw.toLowerCase())
+      : salary
+        ? formatSalary(salary)
+        : field?.type === "number"
+          ? (firstNumber(raw) ?? raw)
+          : raw;
   return {
     value,
     evidence: { method: "DOM", sourceUrl, pageId, snippet: truncate(raw, 300), locator: { kind: "css", value: locator }, verified: true },
   };
 }
 
-const catalogKeyOf = (run: RunContext, name: string) => run.contract.fields.find((f) => f.name === name)?.catalogKey ?? "custom";
+const fieldOf = (run: RunContext, name: string) => run.contract.fields.find((f) => f.name === name);
+
+/** The first number in a text, as a plain numeric string ("1,204 points" → "1204"). */
+const firstNumber = (text: string) => /-?\d[\d,]*(?:\.\d+)?/.exec(text)?.[0].replace(/,/g, "") ?? null;
 
 const averageFill = (r: ReplayResult) => {
   const values = Object.values(r.fill);

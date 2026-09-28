@@ -8,6 +8,7 @@ import { runKeys, useRunAction } from "@/lib/queries";
 import { Button } from "../ui/button";
 import { AnnotatedRequest } from "./annotated-request";
 import { CriteriaList } from "./criteria-list";
+import { SourcePages } from "./source-pages";
 
 /**
  * The Dataset Contract: what RUVO understood from the request. While the run awaits
@@ -80,6 +81,12 @@ export function ContractView({ run }: { run: RunDetail }) {
           </tbody>
         </table>
       </section>
+
+      <SourcePages
+        urls={draft.sourceHints.urls}
+        needed={draft.entity !== "job_posting"}
+        onChange={editable ? (urls) => update({ sourceHints: { ...draft.sourceHints, urls } }) : undefined}
+      />
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">How records are judged</h2>

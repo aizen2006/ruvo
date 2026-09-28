@@ -45,7 +45,10 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   ]);
 
   let selected: Array<{ company: RegistryCompany; reason: string }>;
-  if (named.some((n) => n.match)) {
+  if (contract.entity !== "job_posting") {
+    // The registry and community boards only hold job postings; other data comes from linked pages.
+    selected = [];
+  } else if (named.some((n) => n.match)) {
     selected = named.filter((n) => n.match).map((n) => ({ company: n.match!, reason: `Named in the request` }));
   } else if (hints.urls.length > 0) {
     // "Jobs listed on <url>" means that page; adding the registry would only dilute it.
@@ -77,7 +80,7 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
       .map(({ company, reason }) => registryCandidate(company, reason)),
   );
 
-  if (hints.includeCommunityBoards && available.has("hn_whoishiring")) {
+  if (contract.entity === "job_posting" && hints.includeCommunityBoards && available.has("hn_whoishiring")) {
     candidates.push({
       ref: "hn_whoishiring:latest",
       adapter: "hn_whoishiring",

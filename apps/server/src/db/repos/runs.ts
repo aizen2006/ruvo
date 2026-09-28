@@ -10,7 +10,7 @@ import {
 import { and, desc, eq, gt } from "drizzle-orm";
 import { conflict, notFound } from "../../libs/errors";
 import { db } from "../client";
-import { datasetContracts, requests, runEvents, runs } from "../schema";
+import { datasetContracts, requests, runEvents, runs, workflows } from "../schema";
 
 /** Data access for runs and their events. Routes call these; they never write SQL themselves. */
 
@@ -99,6 +99,16 @@ export async function getRunDetail(runId: string): Promise<RunDetail> {
 
 /** Approves a run that is waiting for review, handing it to the worker queue. */
 export async function startRun(runId: string): Promise<RunStatus> {
+  // A workflow with no sources would complete with nothing; ask for a source instead.
+  const [planned] = await db
+    .select({ ir: workflows.ir })
+    .from(runs)
+    .innerJoin(workflows, eq(runs.workflowId, workflows.id))
+    .where(eq(runs.id, runId));
+  if (planned && planned.ir.sources.length === 0) {
+    throw conflict("This workflow has no sources yet. Add the address of a page that lists these records to the contract, then save.");
+  }
+
   const [updated] = await db
     .update(runs)
     .set({ status: "queued_run" })

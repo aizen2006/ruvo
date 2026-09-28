@@ -58,7 +58,9 @@ export const createPreparer = ({ llm, memory }: { llm: LlmClient; memory?: Workf
       level: discovery.candidates.length ? "info" : "warn",
       message: discovery.candidates.length
         ? `${discovery.candidates.length} candidate sources`
-        : "No supported sources match this request",
+        : contract.entity === "job_posting"
+          ? "No supported sources match this request"
+          : "No page to read yet: add the address of a page that lists these records to the contract",
       data: { candidates: discovery.candidates.map((c) => c.ref), unmatchedCompanies: discovery.unmatchedCompanies },
     });
 

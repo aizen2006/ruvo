@@ -12,6 +12,10 @@ const ENRICH_PAGE_FETCHES = 15;
 /** Posts per free-text source that may use the LLM rung (the run's LLM budget still applies). */
 const TEXT_SOURCE_LLM_ITEMS = 30;
 const DEFAULT_ITEMS_PER_SOURCE = 40;
+/** LLM calls a list page may need to discover (or rediscover) its recipe: one proposal plus one retry. */
+const RECIPE_DISCOVERY_CALLS = 2;
+/** Records the LLM judge decides per call. */
+const JUDGE_BATCH = 20;
 
 export interface CompileOptions {
   /** Hard caps from the environment; planned budgets are clamped to these. */
@@ -43,9 +47,14 @@ export function compileIr(contract: DatasetContract, draft: PlanDraft, candidate
   const required = effectiveRequiredFields(contract, chosen.map((c) => c.candidate), warnings);
   const sources = chosen.map(({ candidate, plan }) => buildBranch(contract, candidate, plan, required));
 
+  // The planner estimates LLM use; never plan below what the compiled steps need to work.
+  const floor = llmFloor(contract, sources);
+  if (draft.llmBudget < floor) {
+    warnings.push(`Raised the LLM budget from ${draft.llmBudget} to ${floor} calls to cover page recipes and judged criteria`);
+  }
   const budgets: Budgets = {
     ...opts.caps,
-    maxLlmCalls: clamp(draft.llmBudget, 0, opts.caps.maxLlmCalls),
+    maxLlmCalls: clamp(Math.max(draft.llmBudget, floor), 0, opts.caps.maxLlmCalls),
     maxRecords: clamp(contract.maxRecords, 1, opts.caps.maxRecords),
   };
 
@@ -57,6 +66,24 @@ export function compileIr(contract: DatasetContract, draft: PlanDraft, candidate
     budgets,
     provenance: { ...opts.provenance, warnings },
   };
+}
+
+/**
+ * The fewest LLM calls the compiled steps need to work: recipe discovery for list pages,
+ * the judge for semantic criteria the decision layer cannot settle, and LLM enrichment.
+ * Free-text steps have their own caps and degrade to parsers, so they add nothing here.
+ */
+function llmFloor(contract: DatasetContract, sources: SourceBranch[]): number {
+  const semantic = contract.criteria.some((c) => c.kind === "semantic");
+  let calls = 0;
+  for (const branch of sources) {
+    for (const step of branch.steps) {
+      if (step.kind === "collect" && step.adapter === "html_list") calls += RECIPE_DISCOVERY_CALLS;
+      if (step.kind === "collect" && semantic) calls += Math.ceil(step.maxItems / JUDGE_BATCH);
+      if (step.kind === "enrich" && step.rungs.includes("llm")) calls += 2;
+    }
+  }
+  return calls;
 }
 
 /** A plan that simply includes a candidate with defaults (template planning and fallbacks). */

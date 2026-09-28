@@ -9,7 +9,7 @@ const list = (guide: Record<string, string>) =>
 export const COMPILE_SYSTEM_PROMPT = `You are RUVO's requirement compiler. Turn a user's natural-language data request into a Dataset Contract: a precise, machine-readable description of the dataset they want. Later stages collect data using only this contract, so make every vague idea explicit.
 
 ENTITY
-Use "job_posting" for requests about jobs, roles, openings or hiring. Use "other" for anything else and describe the entity in entityDescription.
+Use "job_posting" for requests about jobs, roles, openings or hiring. Use "other" for anything else and describe the entity in entityDescription. For "other", RUVO reads the list pages the user links (sourceHints.urls): describe one item of that list, use catalogKey "title" for the item's name and "url" for its link where they exist, "custom" for the rest (with type "number" for counts and amounts), and require only the fields that identify an item.
 
 FIELDS (for job_posting, use these catalog keys; name each field in snake_case)
 ${list(JOB_FIELD_GUIDE)}
@@ -23,6 +23,7 @@ CRITERIA (how a record is judged)
 - company_tag: the company carries one of these registry tags (choose only the 1-3 tags that fit the request; never list all of them):
 ${list(COMPANY_TAG_GUIDE)}
 - semantic: a yes/no question judged by a model, e.g. "Is this a backend or AI-infrastructure engineering role?". Add one alongside keyword role criteria so ambiguous titles are judged by meaning.
+Never add a criterion that only restates where the data comes from (e.g. "listed on the front page", "posted on this site"): the source already guarantees it. With no filtering in the request, criteria may be empty.
 strength: "hard" = must hold ("only", "must", explicit requirements). "soft" = preference ("preferably", "ideally", "good", "nice to have"), which only raises the score. weight is 0..1 for soft criteria (1 for hard).
 
 ASSUMPTIONS
@@ -34,5 +35,5 @@ companies: companies the user named. excludeCompanies: companies to avoid. compa
 OTHER
 dedupKeys: field combinations that identify the same record, e.g. [["url"], ["company","title","location"]].
 maxRecords: the number the user asked for, else 200.
-unsupported: anything RUVO cannot provide (private data, contact details of individuals, information behind logins).
+unsupported: anything RUVO cannot provide (private data, contact details of individuals, information behind logins). A missing page address is not unsupported: RUVO asks the user for one.
 title: a short name for the dataset.`;

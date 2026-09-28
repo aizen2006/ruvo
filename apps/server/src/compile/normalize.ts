@@ -26,9 +26,12 @@ export function normalizeContract(input: DatasetContract, prompt: string): { con
     .map((key) => key.filter((f) => fieldNames.has(f)))
     .filter((key) => key.length > 0);
 
+  const urls = normalizeUrls(input.sourceHints.urls, warnings);
+
   return {
     contract: {
       ...input,
+      sourceHints: { ...input.sourceHints, urls },
       fields,
       criteria,
       assumptions,
@@ -37,6 +40,22 @@ export function normalizeContract(input: DatasetContract, prompt: string): { con
     },
     warnings,
   };
+}
+
+/** Linked pages: absolute http(s) URLs only, each once ("example.com/jobs" gets https://). */
+function normalizeUrls(urls: string[], warnings: string[]): string[] {
+  const kept = new Set<string>();
+  for (const raw of urls) {
+    const trimmed = raw.trim();
+    try {
+      const url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`);
+      if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("unsupported protocol");
+      kept.add(url.href);
+    } catch {
+      warnings.push(`Ignored "${trimmed}": not a web page address`);
+    }
+  }
+  return [...kept];
 }
 
 const REQUIRED_JOB_FIELDS: FieldSpec[] = [

@@ -63,7 +63,7 @@ export function CriteriaList({ criteria, edits }: { criteria: Criterion[]; edits
             <p className="text-sm text-muted">{group.hint}</p>
           </header>
           {group.items.length === 0 && <p className="text-sm text-faint">None</p>}
-          <ul className="divide-y divide-rule border-y border-rule">
+          <ul className={group.items.length ? "divide-y divide-rule border-y border-rule" : "hidden"}>
             {group.items.map((c) => (
               <li key={c.id} className="space-y-2 py-3">
                 <div className="flex items-baseline justify-between gap-3">
