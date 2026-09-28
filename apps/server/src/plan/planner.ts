@@ -2,6 +2,7 @@ import { PlanDraft, type Budgets, type DatasetContract, type WorkflowIR } from "
 import { getAdapter } from "../adapters";
 import type { LlmClient } from "../llm/client";
 import { logger } from "../libs/logger";
+import type { Recalled } from "../memory/workflowMemory";
 import type { SourceCandidate } from "./discovery";
 import { compileIr } from "./irCompiler";
 import { templateDraft } from "./templates";
@@ -52,11 +53,17 @@ export async function draftPlan(llm: LlmClient, contract: DatasetContract, candi
 export interface PlanResult {
   ir: WorkflowIR;
   draft: PlanDraft;
+  /** Set when a remembered plan was reused instead of calling the planner. */
+  reused: Recalled | null;
 }
 
+/** Share of a remembered plan's chosen sources that must still be candidates for it to be reused. */
+const REUSE_MIN_SOURCE_OVERLAP = 0.8;
+
 /**
- * Plans a contract: an LLM draft when possible, otherwise the template plan, then the
- * IR compiler in both cases. Planning never fails a run; the fallback is noted in provenance.
+ * Plans a contract: a remembered plan when a similar request produced a good dataset,
+ * otherwise an LLM draft, otherwise the template plan; the IR compiler runs in every case.
+ * Planning never fails a run; the path taken is recorded in provenance.
  */
 export async function planForContract(
   llm: LlmClient,
@@ -64,14 +71,24 @@ export async function planForContract(
   candidates: SourceCandidate[],
   caps: Budgets,
   signal?: AbortSignal,
+  remembered?: Recalled | null,
 ): Promise<PlanResult> {
+  if (remembered && sourceOverlap(remembered.draft, candidates) >= REUSE_MIN_SOURCE_OVERLAP) {
+    const ir = compileIr(contract, remembered.draft, candidates, {
+      caps,
+      provenance: { plannedBy: "memory", model: null, reusedFrom: remembered.runId, parentVersion: null },
+    });
+    ir.provenance.reuseScore = remembered.score;
+    return { ir, draft: remembered.draft, reused: remembered };
+  }
+
   try {
     const { data: draft, model } = await draftPlan(llm, contract, candidates, signal);
     const ir = compileIr(contract, draft, candidates, {
       caps,
       provenance: { plannedBy: "llm", model, reusedFrom: null, parentVersion: null },
     });
-    return { ir, draft };
+    return { ir, draft, reused: null };
   } catch (err) {
     if (signal?.aborted) throw err;
     const reason = err instanceof Error ? err.message : String(err);
@@ -82,6 +99,14 @@ export async function planForContract(
       provenance: { plannedBy: "template", model: null, reusedFrom: null, parentVersion: null },
     });
     ir.provenance.warnings.unshift(`Planner unavailable (${reason}); used the template plan`);
-    return { ir, draft };
+    return { ir, draft, reused: null };
   }
+}
+
+/** How many of the plan's included sources are still available (0..1). */
+function sourceOverlap(draft: PlanDraft, candidates: SourceCandidate[]): number {
+  const included = draft.sources.filter((s) => s.include);
+  if (included.length === 0) return 0;
+  const refs = new Set(candidates.map((c) => c.ref));
+  return included.filter((s) => refs.has(s.ref)).length / included.length;
 }

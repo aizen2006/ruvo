@@ -4,6 +4,10 @@ import { createSystemOneClient } from "../decide/systemOneClient";
 import { createBrowserPool } from "../fetch/browser";
 import { createFetcher } from "../fetch/fetcher";
 import { createLlmClient } from "../llm/client";
+import { logger } from "../libs/logger";
+import { createEmbedder } from "../memory/embeddings";
+import { createQdrant } from "../memory/qdrant";
+import { createWorkflowMemory } from "../memory/workflowMemory";
 
 /**
  * Process-wide service instances shared by every run in this process, so robots.txt rules,
@@ -25,3 +29,10 @@ const provider =
     ? null
     : createSystemOneClient({ baseUrl: env.DECIDER_BASE_URL, model: env.DECIDER_MODEL, apiKey: env.TYPESAFE_API_KEY });
 export const decider = createDecider({ provider, mode: env.DECIDER_MODE });
+
+/** Plans that worked, in Qdrant, so paraphrased requests can reuse them. */
+export const memory = createWorkflowMemory({
+  embed: createEmbedder(env),
+  store: createQdrant({ url: env.QDRANT_URL }),
+  log: logger.child({ component: "memory" }),
+});

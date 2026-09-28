@@ -6,18 +6,19 @@ import { attachWorkflow, saveContract, saveWorkflow } from "../db/repos/workflow
 import { autoDetectCompanies } from "../plan/atsDetect";
 import { discoverSources } from "../plan/discovery";
 import type { LlmClient } from "../llm/client";
+import type { WorkflowMemory } from "../memory/workflowMemory";
 import { planForContract } from "../plan/planner";
 import { listRegistry } from "../plan/registry";
 import { budgetsFromEnv } from "./budget";
 import { createEventBus, nextEventSeq, type EmitInput } from "./eventBus";
-import { llm } from "./services";
+import { llm, memory } from "./services";
 import type { RunPreparer } from "./worker";
 
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
  * Ends in review (awaiting_approval) unless the run was created with autoStart.
  */
-export const createPreparer = ({ llm }: { llm: LlmClient }): RunPreparer => async (run, signal) => {
+export const createPreparer = ({ llm, memory }: { llm: LlmClient; memory?: WorkflowMemory }): RunPreparer => async (run, signal) => {
   const bus = createEventBus(run.id, { startSeq: await nextEventSeq(run.id) });
   const stage = async (s: Stage, event: Omit<EmitInput, "stage">) => {
     await setRunStage(run.id, s);
@@ -61,8 +62,18 @@ export const createPreparer = ({ llm }: { llm: LlmClient }): RunPreparer => asyn
       data: { candidates: discovery.candidates.map((c) => c.ref), unmatchedCompanies: discovery.unmatchedCompanies },
     });
 
-    const { ir, draft } = await planForContract(llm, contract, discovery.candidates, budgetsFromEnv(env, contract.maxRecords), signal);
-    const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft });
+    const remembered = (await memory?.recall(contract, signal)) ?? null;
+    const caps = budgetsFromEnv(env, contract.maxRecords);
+    const { ir, draft, reused } = await planForContract(llm, contract, discovery.candidates, caps, signal, remembered);
+    const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft, reusedFromWorkflowId: reused?.workflowId ?? null });
+    if (reused) {
+      bus.emit({
+        stage: "planning",
+        type: "plan.reused",
+        message: `Reused the plan of an earlier run for a similar request (similarity ${reused.score.toFixed(2)}); no planner call needed`,
+        data: { runId: reused.runId, workflowId: reused.workflowId, score: reused.score },
+      });
+    }
     await attachWorkflow(run.id, workflow.id);
     bus.emit({
       stage: "planning",
@@ -77,4 +88,4 @@ export const createPreparer = ({ llm }: { llm: LlmClient }): RunPreparer => asyn
   }
 };
 
-export const prepareRun = createPreparer({ llm });
+export const prepareRun = createPreparer({ llm, memory });

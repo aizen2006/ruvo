@@ -49,7 +49,10 @@ export type Budgets = z.infer<typeof Budgets>;
 export const Provenance = z.object({
   plannedBy: z.enum(["llm", "template", "memory", "repair", "user_edit"]),
   model: z.string().nullable(),
+  /** Run whose plan was reused (plannedBy "memory"). */
   reusedFrom: z.string().nullable(),
+  /** Similarity between this request and the reused one (0..1). */
+  reuseScore: z.number().optional(),
   parentVersion: z.number().nullable(),
   warnings: z.array(z.string()),
   /** What self-repair changed, oldest first (set on versions planned by "repair"). */

@@ -52,7 +52,7 @@ export async function attachWorkflow(runId: string, workflowId: string) {
 /** The contract and IR a run executes, or null if it hasn't been planned yet. */
 export async function loadRunWorkflow(runId: string) {
   const [row] = await db
-    .select({ workflowId: workflows.id, ir: workflows.ir, contract: datasetContracts.contract })
+    .select({ workflowId: workflows.id, ir: workflows.ir, planDraft: workflows.planDraft, contract: datasetContracts.contract })
     .from(runs)
     .innerJoin(workflows, eq(runs.workflowId, workflows.id))
     .innerJoin(datasetContracts, eq(workflows.contractId, datasetContracts.id))

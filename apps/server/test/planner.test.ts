@@ -7,7 +7,7 @@ import { compileIr } from "../src/plan/irCompiler";
 import { planForContract } from "../src/plan/planner";
 import type { RegistryCompany } from "../src/plan/registry";
 import { resetDb } from "./helpers/db";
-import { fakeResponses } from "./helpers/fakeLlm";
+import { fakeLlm, fakeResponses } from "./helpers/fakeLlm";
 
 const company = (name: string, ats: RegistryCompany["ats"], slug: string): RegistryCompany => ({
   id: crypto.randomUUID(),
@@ -93,5 +93,27 @@ describe("planForContract", () => {
     expect(ir.provenance.plannedBy).toBe("template");
     expect(ir.provenance.warnings[0]).toContain("Planner unavailable");
     expect(ir.sources).toHaveLength(2);
+  });
+});
+
+describe("planForContract with workflow memory", () => {
+  beforeEach(resetDb);
+  const remembered = (d: PlanDraft) => ({ workflowId: crypto.randomUUID(), runId: "run-1", score: 0.93, draft: d });
+
+  test("reuses a remembered plan without calling the planner", async () => {
+    const llm = fakeLlm();
+    const { ir, reused } = await planForContract(llm, DEMO_CONTRACT, candidates, caps, undefined, remembered(draft()));
+    expect(llm.calls).toHaveLength(0);
+    expect(reused?.score).toBe(0.93);
+    expect(ir.provenance).toMatchObject({ plannedBy: "memory", reusedFrom: "run-1", reuseScore: 0.93 });
+    expect(ir.sources).toHaveLength(2);
+  });
+
+  test("plans afresh when the remembered plan's sources are mostly gone", async () => {
+    const stale = draft({ sources: [{ ...draft().sources[0]!, ref: "lever:gone" }, draft().sources[1]!] });
+    const llm = fakeLlm({ plan_draft: draft() });
+    const { ir, reused } = await planForContract(llm, DEMO_CONTRACT, candidates, caps, undefined, remembered(stale));
+    expect(reused).toBeNull();
+    expect(ir.provenance.plannedBy).toBe("llm");
   });
 });

@@ -1,7 +1,7 @@
 import { loadRunWorkflow, saveRepairedWorkflow } from "../db/repos/workflows";
 import { executeWorkflow } from "../execute/executor";
 import { createRunContext, type RunContext } from "./runContext";
-import { decider, fetcher, llm } from "./services";
+import { decider, fetcher, llm, memory } from "./services";
 import type { RunExecutor } from "./worker";
 
 /** Execution phase of a run: runs its compiled WorkflowIR. */
@@ -13,6 +13,17 @@ export const runPipeline: RunExecutor = async (run, signal) => {
   try {
     await executeWorkflow(ctx);
     await recordRepairs(ctx);
+    // A plan that produced a good dataset is remembered for similar requests.
+    if (planned.planDraft) {
+      const stored = await memory.remember({
+        workflowId: planned.workflowId,
+        runId: run.id,
+        contract: planned.contract,
+        draft: planned.planDraft,
+        validRecords: ctx.metrics.snapshot().validRecords,
+      });
+      if (stored) ctx.emit({ stage: "done", type: "memory.stored", message: "Remembered this plan for similar requests" });
+    }
   } finally {
     await ctx.dispose();
   }
