@@ -1,4 +1,4 @@
-import type { Budgets, DatasetContract, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
+import type { Budgets, DatasetContract, Recipe, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../db/client";
 import type { Decider } from "../decide/decider";
@@ -26,9 +26,19 @@ export interface RunContext {
   llm: LlmClient;
   decider: Decider;
   log: Logger;
+  /** Recipe repairs made during the run; they become a new workflow version when it ends. */
+  repairs: RepairNote[];
   emit(event: EmitInput): void;
   /** Moves the run to a new user-facing stage (persisted and announced). */
   setStage(stage: Stage): Promise<void>;
+}
+
+export interface RepairNote {
+  host: string;
+  fromVersion: number;
+  toVersion: number;
+  origin: Recipe["origin"];
+  failure: string;
 }
 
 export interface OwnedRunContext extends RunContext {
@@ -68,6 +78,7 @@ export async function createRunContext(args: {
     llm: args.llm,
     decider: args.decider,
     log: logger.child({ runId }),
+    repairs: [],
     emit: bus.emit,
     async setStage(stage) {
       await db.update(runs).set({ stage }).where(eq(runs.id, runId));

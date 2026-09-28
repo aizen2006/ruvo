@@ -16,6 +16,8 @@ export interface FetchRequest {
   purpose: string;
   /** http: plain request; browser: render with Playwright; auto: http, then browser if the page is a JS shell. */
   mode?: "http" | "browser" | "auto";
+  /** Skip stored copies and fetch again (the new copy is still stored). Used when retrying a failure. */
+  fresh?: boolean;
   maxBytes?: number;
 }
 
@@ -46,7 +48,7 @@ export interface FetcherOptions {
   cacheTtlMs?: number;
   /** Only for tests: skips the SSRF guard for every URL. */
   allowPrivateNetwork?: boolean;
-  /** Origins exempt from the SSRF guard, e.g. RUVO's own demo site on localhost. */
+  /** Origins exempt from the SSRF guard and the page cache, e.g. RUVO's own demo site on localhost. */
   trustedOrigins?: string[];
   timeoutMs?: number;
   robots?: Robots;
@@ -80,6 +82,8 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
 
   /** Stored copy of a page for this transport, honouring the cache mode. */
   async function fromCache(scope: FetchScope, url: string, via: Via): Promise<FetchResult | null> {
+    // Trusted origins are local (the demo site), cheap to fetch, and change on purpose; never reuse them.
+    if (trusted.has(new URL(url).origin) && opts.cacheMode !== "cache_only") return null;
     const cached = await findCachedPage(url, via, opts.cacheMode, cacheTtlMs);
     if (!cached) return null;
     scope.metrics.inc("cacheHits");
@@ -101,7 +105,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   }
 
   async function fetchHttp(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
-    const cached = await fromCache(scope, req.url, "http");
+    const cached = req.fresh ? null : await fromCache(scope, req.url, "http");
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages"]);
     try {
@@ -124,7 +128,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
 
   async function fetchBrowser(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
     if (!opts.browser) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
-    const cached = await fromCache(scope, req.url, "browser");
+    const cached = req.fresh ? null : await fromCache(scope, req.url, "browser");
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages", "browserPages"]);
     try {
@@ -157,7 +161,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     if (mode === "http") return fetchHttp(scope, req);
 
     // auto: a rendered copy from an earlier escalation beats re-fetching the empty shell.
-    const rendered = await fromCache(scope, req.url, "browser");
+    const rendered = req.fresh ? null : await fromCache(scope, req.url, "browser");
     if (rendered) return rendered;
     const page = await fetchHttp(scope, req);
     const verdict = assessHtml(page.body);

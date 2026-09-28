@@ -38,18 +38,19 @@ const v2 = () =>
     </article>`,
   ).join("\n");
 
-const page = () => `<!doctype html>
+/** The careers page as it looks in a given site version (exported for tests). */
+export const careersPage = (v: 1 | 2 = version) => `<!doctype html>
 <html><head><title>Northwind Labs careers (RUVO demo site)</title></head>
 <body>
-  <header><h1>Northwind Labs</h1><p>A fictional company used to demonstrate RUVO's self-repair. Site version ${version}.</p></header>
-  <main><h2>Open roles</h2><section class="jobs">${version === 1 ? v1() : v2()}</section></main>
+  <header><h1>Northwind Labs</h1><p>A fictional company used to demonstrate RUVO's self-repair. Site version ${v}.</p></header>
+  <main><h2>Open roles</h2><section class="jobs">${v === 1 ? v1() : v2()}</section></main>
   <footer><p>${"We build reliable AI infrastructure for developers. ".repeat(8)}</p></footer>
 </body></html>`;
 
 export const careersSite = Router();
 
 careersSite.get("/careers", (_req, res) => {
-  res.type("html").send(page());
+  res.type("html").send(careersPage());
 });
 
 careersSite.get("/careers/jobs/:id", (req, res) => {

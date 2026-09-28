@@ -1,9 +1,11 @@
 import type { FieldSpec, Recipe } from "@repo/contracts";
 import { z } from "zod";
+import type { FetchResult } from "../fetch/fetcher";
 import { toPageState } from "../page/pageState";
 import { discoverRecipe } from "../recipes/discover";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
 import { findActiveRecipe, recordRecipeUse } from "../recipes/store";
+import { repairRecipe, type FetchedPage, type RepairInput } from "../repair/repairRecipe";
 import { itemKeyFor } from "../execute/contractFields";
 import { detectArrangement } from "../extract/parsers/remote";
 import { formatSalary, parseSalary } from "../extract/parsers/salary";
@@ -48,10 +50,15 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
 
     // A company's own board doesn't repeat the company name per item; the registry supplies it.
     const fields = run.contract.fields.filter((f) => LIST_FIELDS.has(f.catalogKey) && !(company && f.catalogKey === "company"));
-    const { recipe, result } = await readWithRecipe(run, page.body, url, fields);
+    const refetch = async (mode: "http" | "browser"): Promise<FetchedPage> => {
+      const again = await fetcher.fetch(scope, { url, expect: "html", purpose: "list page (retry)", mode, fresh: true });
+      return toFetched(again);
+    };
+    const read = await readWithRecipe(run, toFetched(page), fields, refetch);
+    const { recipe, result } = read;
 
     return result.rows.map((row, i): Item => {
-      const sourceUrl = page.finalUrl;
+      const sourceUrl = read.page.finalUrl;
       const values = compactFields(
         Object.fromEntries(
           recipe.def.fields.map((f) => [
@@ -61,12 +68,12 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
               catalogKeyOf(run, f.name),
               `${recipe.def.itemSelector} ${f.selector || ":scope"} @${f.attr}`,
               sourceUrl,
-              page.pageId,
+              read.page.pageId,
             ),
           ]),
         ),
       );
-      if (!values.company && company) values.company = derived(company, new URL(url).host, "registry board owner", sourceUrl, page.pageId)!;
+      if (!values.company && company) values.company = derived(company, new URL(url).host, "registry board owner", sourceUrl, read.page.pageId)!;
       return {
         externalId: row[fields.find((f) => f.catalogKey === "url")?.name ?? "url"] ?? `${url}#${i}`,
         fields: values,
@@ -77,49 +84,52 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
   },
 };
 
-/** Replays the active recipe; discovers (and records) a new one when there is none or it fails. */
-async function readWithRecipe(run: RunContext, html: string, url: string, fields: FieldSpec[]) {
-  const host = new URL(url).host;
-  const existing = await findActiveRecipe(url);
-  if (existing) {
-    const result = replayRecipe(html, url, existing.def);
-    const failure = acceptanceFailure(result, existing.acceptance);
-    await recordRecipeUse(existing.id, { ok: !failure, fill: averageFill(result) });
-    if (!failure) {
-      run.emit({
-        stage: "extracting",
-        type: "recipe.replayed",
-        message: `${host}: replayed recipe v${existing.version}, ${result.itemCount} items, no LLM needed`,
-        data: { recipeId: existing.id, version: existing.version, items: result.itemCount },
-      });
-      return { recipe: existing, result };
-    }
-    run.emit({
-      stage: "extracting",
-      type: "recipe.failed",
-      level: "warn",
-      message: `${host}: recipe v${existing.version} no longer fits the page (${failure.kind}: ${failure.detail})`,
-      data: { recipeId: existing.id, failure },
-    });
-    return discoverOrThrow(run, html, url, fields, existing, `${failure.kind}: ${failure.detail}`);
-  }
-  return discoverOrThrow(run, html, url, fields, null);
+/**
+ * Replays the active recipe. When it no longer fits the page, the repair policy fixes it
+ * (refetch, local selector repair or LLM rediscovery); with no recipe yet, one is discovered.
+ */
+/** The recipe that read the page, its rows, and the page it read (a repair may have refetched it). */
+interface RecipeRead {
+  recipe: Recipe;
+  result: ReplayResult;
+  page: FetchedPage;
 }
 
-async function discoverOrThrow(
-  run: RunContext,
-  html: string,
-  url: string,
-  fields: FieldSpec[],
-  parent: Recipe | null,
-  failureReport?: string,
-): Promise<{ recipe: Recipe; result: ReplayResult }> {
+async function readWithRecipe(run: RunContext, page: FetchedPage, fields: FieldSpec[], refetch: RepairInput["refetch"]): Promise<RecipeRead> {
+  const { html, url } = page;
   const host = new URL(url).host;
-  const discovered = await discoverRecipe(run, { html, url, state: toPageState(html, url) }, fields, {
-    origin: parent ? "llm_repair" : "llm_discovery",
-    parent,
-    failureReport,
+  const existing = await findActiveRecipe(url);
+  if (!existing) return discoverOrThrow(run, page, fields);
+
+  const result = replayRecipe(html, url, existing.def);
+  const failure = acceptanceFailure(result, existing.acceptance);
+  await recordRecipeUse(existing.id, { ok: !failure, fill: averageFill(result) });
+  if (!failure) {
+    run.emit({
+      stage: "extracting",
+      type: "recipe.replayed",
+      message: `${host}: replayed recipe v${existing.version}, ${result.itemCount} items, no LLM needed`,
+      data: { recipeId: existing.id, version: existing.version, items: result.itemCount },
+    });
+    return { recipe: existing, result, page };
+  }
+
+  run.emit({
+    stage: "extracting",
+    type: "recipe.failed",
+    level: "warn",
+    message: `${host}: recipe v${existing.version} no longer fits the page (${failure.kind}: ${failure.detail})`,
+    data: { recipeId: existing.id, failure },
   });
+  const repaired = await repairRecipe(run, { page, recipe: existing, result, failure, fields, refetch });
+  if (!repaired) throw new Error(`Could not repair the recipe for ${host}`);
+  return repaired;
+}
+
+async function discoverOrThrow(run: RunContext, page: FetchedPage, fields: FieldSpec[]): Promise<RecipeRead> {
+  const { html, url } = page;
+  const host = new URL(url).host;
+  const discovered = await discoverRecipe(run, { html, url, state: toPageState(html, url) }, fields, { origin: "llm_discovery" });
   if (!discovered) throw new Error(`Could not find a reliable way to read ${host}`);
   run.emit({
     stage: "extracting",
@@ -127,7 +137,7 @@ async function discoverOrThrow(
     message: `${host}: recorded recipe v${discovered.recipe.version} (${discovered.result.itemCount} items, ${discovered.attempts} LLM attempt${discovered.attempts > 1 ? "s" : ""}); later runs replay it`,
     data: { recipeId: discovered.recipe.id, version: discovered.recipe.version, def: discovered.recipe.def },
   });
-  return discovered;
+  return { recipe: discovered.recipe, result: discovered.result, page };
 }
 
 /**
@@ -150,3 +160,5 @@ const averageFill = (r: ReplayResult) => {
   const values = Object.values(r.fill);
   return values.length ? values.reduce((a, b) => a + b, 0) / values.length : 0;
 };
+
+const toFetched = (r: FetchResult): FetchedPage => ({ html: r.body, url: r.url, finalUrl: r.finalUrl, pageId: r.pageId, via: r.via });

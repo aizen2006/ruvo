@@ -94,3 +94,31 @@ export async function getRunWorkflow(runId: string) {
     })),
   };
 }
+
+/**
+ * Records recipe repairs as a new workflow version (plannedBy "repair") and moves the run
+ * onto it, so the lineage shows when and why the workflow changed and re-runs start from it.
+ * The steps are unchanged: recipes are looked up by URL pattern, so the fix is already live.
+ */
+export async function saveRepairedWorkflow(runId: string, notes: string[]) {
+  const [current] = await db
+    .select({ workflow: workflows })
+    .from(runs)
+    .innerJoin(workflows, eq(runs.workflowId, workflows.id))
+    .where(eq(runs.id, runId));
+  if (!current) throw notFound("Workflow for this run");
+  const { workflow } = current;
+  const ir: WorkflowIR = {
+    ...workflow.ir,
+    provenance: {
+      ...workflow.ir.provenance,
+      plannedBy: "repair",
+      model: null,
+      parentVersion: workflow.version,
+      warnings: [...workflow.ir.provenance.warnings, ...notes],
+    },
+  };
+  const saved = await saveWorkflow({ contractId: workflow.contractId, ir, planDraft: workflow.planDraft, parentWorkflowId: workflow.id });
+  await attachWorkflow(runId, saved.id);
+  return saved;
+}
