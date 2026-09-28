@@ -115,7 +115,7 @@ export async function saveRepairedWorkflow(runId: string, notes: string[]) {
       plannedBy: "repair",
       model: null,
       parentVersion: workflow.version,
-      warnings: [...workflow.ir.provenance.warnings, ...notes],
+      repairs: [...(workflow.ir.provenance.repairs ?? []), ...notes],
     },
   };
   const saved = await saveWorkflow({ contractId: workflow.contractId, ir, planDraft: workflow.planDraft, parentWorkflowId: workflow.id });

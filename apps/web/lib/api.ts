@@ -6,6 +6,7 @@ import type {
   Page,
   PlanDraft,
   QualityReport,
+  Recipe,
   RecordDTO,
   RunDetail,
   RunEvent,
@@ -88,6 +89,9 @@ export const api = {
     request<{ record: RecordDTO; evidence: Evidence[] }>(`/api/runs/${id}/evidence/${recordId}`),
   getQuality: (id: string) => request<QualityReport>(`/api/runs/${id}/quality`),
   getDecisions: (id: string) => request<DecisionSummary>(`/api/runs/${id}/decisions`),
+  listRecipes: () => request<Recipe[]>("/api/recipes"),
+  simulateDrift: (recipeId: string, mode: "minor" | "major") =>
+    request<Recipe>(`/api/recipes/${recipeId}/simulate-drift`, { method: "POST", body: JSON.stringify({ mode }) }),
   exportUrl: (id: string, format: "csv" | "json", scope: "valid" | "all") =>
     `${API_URL}/api/datasets/${id}/export${query({ format, scope })}`,
 };

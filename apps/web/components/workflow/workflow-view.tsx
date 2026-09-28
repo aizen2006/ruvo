@@ -4,6 +4,7 @@ import type { RunDetail, RunEvent, SourceBranch, Step } from "@repo/contracts";
 import clsx from "clsx";
 import { useWorkflow } from "@/lib/queries";
 import { formatNumber, timeAgo } from "@/lib/format";
+import { RecipeLineage } from "./recipe-lineage";
 
 const STEP_LABEL: Record<Step["kind"], string> = {
   collect: "Fetch",
@@ -25,6 +26,8 @@ const PLANNED_BY = {
 } as const;
 
 type StepResult = { count: number; ms: number };
+
+const seconds = (ms: number) => `${(ms / 1000).toFixed(ms < 10_000 ? 1 : 0)}s`;
 
 /** Step outcomes and source failures, read from the run's events. */
 function outcomesFrom(events: RunEvent[]) {
@@ -48,6 +51,7 @@ function StepChain({ branch, steps }: { branch: SourceBranch; steps: Map<string,
             {i > 0 && <span className="text-faint" aria-hidden>→</span>}
             <span className={result ? "text-ink" : "text-muted"}>{STEP_LABEL[step.kind]}</span>
             {result && step.kind !== "store" && <span className="font-medium text-accent">{formatNumber(result.count)}</span>}
+            {result && result.ms >= 100 && <span className="text-xs text-faint">{seconds(result.ms)}</span>}
           </li>
         );
       })}
@@ -67,6 +71,11 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
   const { ir, planDraft } = workflow;
   const { steps, failures } = outcomesFrom(events);
   const collectOf = (branch: SourceBranch) => branch.steps.find((s): s is Extract<Step, { kind: "collect" }> => s.kind === "collect");
+  const pageHosts = ir.sources.flatMap((b) => {
+    const step = collectOf(b);
+    const url = step?.adapter === "html_list" ? (step.params as { url?: string }).url : undefined;
+    return url ? [new URL(url).host] : [];
+  });
 
   return (
     <div className="space-y-10 py-6">
@@ -76,6 +85,16 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
           {ir.provenance.model ? ` (${ir.provenance.model})` : ""}. Version {workflow.version} of this workflow.
         </p>
         {planDraft?.rationale && <p className="font-serif text-lg leading-relaxed">{planDraft.rationale}</p>}
+        {ir.provenance.repairs && ir.provenance.repairs.length > 0 && (
+          <div className="space-y-1">
+            <p className="text-sm font-medium">What self-repair changed</p>
+            <ul className="space-y-1 border-l-2 border-accent pl-3 text-sm">
+              {ir.provenance.repairs.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
+            </ul>
+          </div>
+        )}
         {ir.provenance.warnings.length > 0 && (
           <ul className="space-y-1 border-l-2 border-pattern pl-3 text-sm text-pattern">
             {ir.provenance.warnings.map((w) => (
@@ -125,6 +144,8 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
           </table>
         )}
       </section>
+
+      <RecipeLineage run={run} hosts={pageHosts} />
 
       {workflow.versions.length > 1 && (
         <section className="space-y-2">

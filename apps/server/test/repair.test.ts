@@ -172,7 +172,7 @@ describe("repaired workflow version", () => {
     const wf = await getRunWorkflow(runRow.id);
     expect(wf.version).toBe(2);
     expect(wf.ir.provenance).toMatchObject({ plannedBy: "repair", parentVersion: 1 });
-    expect(wf.ir.provenance.warnings.at(-1)).toContain("Repaired recipe for localhost:3000: v1 → v2 (local selector fix)");
+    expect(wf.ir.provenance.repairs?.at(-1)).toContain("Repaired recipe for localhost:3000: v1 → v2 (local selector fix)");
     expect(wf.versions.map((v) => v.plannedBy)).toEqual(["repair", "template"]);
     expect(events.map((e) => e.type)).toEqual(["workflow.repaired"]);
   });

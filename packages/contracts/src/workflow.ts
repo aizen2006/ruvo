@@ -52,6 +52,8 @@ export const Provenance = z.object({
   reusedFrom: z.string().nullable(),
   parentVersion: z.number().nullable(),
   warnings: z.array(z.string()),
+  /** What self-repair changed, oldest first (set on versions planned by "repair"). */
+  repairs: z.array(z.string()).optional(),
 });
 export type Provenance = z.infer<typeof Provenance>;
 
