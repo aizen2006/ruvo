@@ -9,6 +9,7 @@ import type {
   Recipe,
   RecordDTO,
   RunDetail,
+  RunDiff,
   RunEvent,
   RunStatus,
   RunSummary,
@@ -88,6 +89,7 @@ export const api = {
   getEvidence: (id: string, recordId: string) =>
     request<{ record: RecordDTO; evidence: Evidence[] }>(`/api/runs/${id}/evidence/${recordId}`),
   getQuality: (id: string) => request<QualityReport>(`/api/runs/${id}/quality`),
+  getDiff: (id: string) => request<RunDiff>(`/api/runs/${id}/diff`),
   getDecisions: (id: string) => request<DecisionSummary>(`/api/runs/${id}/decisions`),
   listRecipes: () => request<Recipe[]>("/api/recipes"),
   simulateDrift: (recipeId: string, mode: "minor" | "major") =>

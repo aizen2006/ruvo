@@ -2,6 +2,7 @@
 
 import type { RunDetail, RunEvent, SourceBranch, Step } from "@repo/contracts";
 import clsx from "clsx";
+import Link from "next/link";
 import { useWorkflow } from "@/lib/queries";
 import { formatNumber, timeAgo } from "@/lib/format";
 import { RecipeLineage } from "./recipe-lineage";
@@ -84,6 +85,19 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
           Planned by {PLANNED_BY[ir.provenance.plannedBy]}
           {ir.provenance.model ? ` (${ir.provenance.model})` : ""}. Version {workflow.version} of this workflow.
         </p>
+        {ir.provenance.plannedBy === "memory" && ir.provenance.reusedFrom && (
+          <p className="inline-flex flex-wrap items-baseline gap-x-2 rounded-(--radius-control) bg-accent-wash px-3 py-1.5 text-sm">
+            <span className="font-medium text-accent">Reused workflow</span>
+            <span>
+              This request matches{" "}
+              <Link href={`/runs/${ir.provenance.reusedFrom}`} className="underline underline-offset-2">
+                an earlier run
+              </Link>
+              {ir.provenance.reuseScore !== undefined && ` (${Math.round(ir.provenance.reuseScore * 100)}% similar)`}, so its plan was
+              reused without calling the planner.
+            </span>
+          </p>
+        )}
         {planDraft?.rationale && <p className="font-serif text-lg leading-relaxed">{planDraft.rationale}</p>}
         {ir.provenance.repairs && ir.provenance.repairs.length > 0 && (
           <div className="space-y-1">

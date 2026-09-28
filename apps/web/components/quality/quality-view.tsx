@@ -5,6 +5,7 @@ import { formatNumber } from "@/lib/format";
 import { useQuality } from "@/lib/queries";
 import { methodLabel } from "../method-badge";
 import { BarList } from "./bar-list";
+import { DiffPanel } from "./diff-panel";
 
 /** Extraction methods grouped by how much they can be trusted, most trustworthy first. */
 const TIERS: Array<{ label: string; methods: EvidenceMethod[] }> = [
@@ -47,72 +48,75 @@ export function QualityView({ run }: { run: RunDetail }) {
   const evidenceTotal = Object.values(q.methodMix).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="grid gap-12 py-6 lg:grid-cols-2">
-      <Section title="From postings to dataset" hint="Each step keeps fewer records; hover a bar for detail.">
-        <BarList ariaLabel="Record funnel" bars={funnel.map((f) => ({ ...f, display: formatNumber(f.value) }))} labelWidth="11rem" />
-      </Section>
+    <div className="space-y-10 py-6">
+      <DiffPanel run={run} />
+      <div className="grid gap-12 lg:grid-cols-2">
+        <Section title="From postings to dataset" hint="Each step keeps fewer records; hover a bar for detail.">
+          <BarList ariaLabel="Record funnel" bars={funnel.map((f) => ({ ...f, display: formatNumber(f.value) }))} labelWidth="11rem" />
+        </Section>
 
-      <Section title="How complete each column is" hint="Share of kept records with a value.">
-        <BarList
-          ariaLabel="Completeness per column"
-          max={1}
-          labelWidth="9rem"
-          bars={q.completeness.map((c) => ({
-            label: c.field.replace(/_/g, " "),
-            value: c.rate,
-            display: pct(c.rate),
-            detail: `${formatNumber(c.filled)} of ${formatNumber(c.total)} records`,
-          }))}
-        />
-      </Section>
-
-      <Section
-        title="Where the values came from"
-        hint={`${formatNumber(evidenceTotal)} values, ${pct(q.verificationRate)} verified against their source.`}
-      >
-        <div className="space-y-4">
-          {TIERS.map((tier) => {
-            const bars = tier.methods
-              .map((m) => ({ label: methodLabel(m), value: q.methodMix[m] ?? 0 }))
-              .filter((b) => b.value > 0)
-              .map((b) => ({ ...b, display: formatNumber(b.value), detail: evidenceTotal ? `${pct(b.value / evidenceTotal)} of all values` : undefined }));
-            if (bars.length === 0) return null;
-            return (
-              <div key={tier.label} className="space-y-1.5">
-                <p className="text-xs text-muted">{tier.label}</p>
-                <BarList ariaLabel={tier.label} bars={bars} max={Math.max(1, ...Object.values(q.methodMix))} labelWidth="9rem" />
-              </div>
-            );
-          })}
-        </div>
-      </Section>
-
-      <Section title="How confident RUVO is" hint="Each record's confidence is that of its least certain required value.">
-        <BarList
-          ariaLabel="Record confidence distribution"
-          labelWidth="9rem"
-          bars={[...q.confidenceHistogram].reverse().map((b) => ({
-            label: b.min === 0 ? "Below 50%" : b.max >= 1 ? `${pct(b.min)} or more` : `${pct(b.min)} to ${pct(b.max)}`,
-            value: b.count,
-            display: formatNumber(b.count),
-          }))}
-        />
-      </Section>
-
-      {q.rejectReasons.length > 0 && (
-        <Section title="Why records were set aside" hint="Rejected and incomplete records, by reason.">
+        <Section title="How complete each column is" hint="Share of kept records with a value.">
           <BarList
-            ariaLabel="Reasons records were set aside"
-            tone="neutral"
-            labelWidth="16rem"
-            bars={q.rejectReasons.map((r) => ({ label: r.reason, value: r.count, display: formatNumber(r.count) }))}
+            ariaLabel="Completeness per column"
+            max={1}
+            labelWidth="9rem"
+            bars={q.completeness.map((c) => ({
+              label: c.field.replace(/_/g, " "),
+              value: c.rate,
+              display: pct(c.rate),
+              detail: `${formatNumber(c.filled)} of ${formatNumber(c.total)} records`,
+            }))}
           />
         </Section>
-      )}
 
-      <Section title="By source">
-        <SourceTable report={q} />
-      </Section>
+        <Section
+          title="Where the values came from"
+          hint={`${formatNumber(evidenceTotal)} values, ${pct(q.verificationRate)} verified against their source.`}
+        >
+          <div className="space-y-4">
+            {TIERS.map((tier) => {
+              const bars = tier.methods
+                .map((m) => ({ label: methodLabel(m), value: q.methodMix[m] ?? 0 }))
+                .filter((b) => b.value > 0)
+                .map((b) => ({ ...b, display: formatNumber(b.value), detail: evidenceTotal ? `${pct(b.value / evidenceTotal)} of all values` : undefined }));
+              if (bars.length === 0) return null;
+              return (
+                <div key={tier.label} className="space-y-1.5">
+                  <p className="text-xs text-muted">{tier.label}</p>
+                  <BarList ariaLabel={tier.label} bars={bars} max={Math.max(1, ...Object.values(q.methodMix))} labelWidth="9rem" />
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section title="How confident RUVO is" hint="Each record's confidence is that of its least certain required value.">
+          <BarList
+            ariaLabel="Record confidence distribution"
+            labelWidth="9rem"
+            bars={[...q.confidenceHistogram].reverse().map((b) => ({
+              label: b.min === 0 ? "Below 50%" : b.max >= 1 ? `${pct(b.min)} or more` : `${pct(b.min)} to ${pct(b.max)}`,
+              value: b.count,
+              display: formatNumber(b.count),
+            }))}
+          />
+        </Section>
+
+        {q.rejectReasons.length > 0 && (
+          <Section title="Why records were set aside" hint="Rejected and incomplete records, by reason.">
+            <BarList
+              ariaLabel="Reasons records were set aside"
+              tone="neutral"
+              labelWidth="16rem"
+              bars={q.rejectReasons.map((r) => ({ label: r.reason, value: r.count, display: formatNumber(r.count) }))}
+            />
+          </Section>
+        )}
+
+        <Section title="By source">
+          <SourceTable report={q} />
+        </Section>
+      </div>
     </div>
   );
 }

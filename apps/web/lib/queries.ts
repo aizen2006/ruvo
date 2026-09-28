@@ -17,6 +17,7 @@ export const runKeys = {
   records: (id: string, filters: RecordFilters) => ["runs", id, "records", filters] as const,
   evidence: (id: string, recordId: string) => ["runs", id, "evidence", recordId] as const,
   quality: (id: string) => ["runs", id, "quality"] as const,
+  diff: (id: string) => ["runs", id, "diff"] as const,
   decisions: (id: string) => ["runs", id, "decisions"] as const,
 };
 
@@ -121,3 +122,6 @@ export function useSimulateDrift() {
     onSuccess: () => client.invalidateQueries({ queryKey: recipeKeys.all }),
   });
 }
+
+export const useDiff = (id: string, status: RunStatus | undefined) =>
+  useQuery({ queryKey: runKeys.diff(id), queryFn: () => api.getDiff(id), enabled: status === "completed" });
