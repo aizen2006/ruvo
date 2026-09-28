@@ -13,13 +13,14 @@ import { createWorkflowMemory } from "../memory/workflowMemory";
  * Process-wide service instances shared by every run in this process, so robots.txt rules,
  * per-host rate limits and circuit breakers apply across runs.
  */
-export const browser = createBrowserPool({ userAgent: env.USER_AGENT, maxPages: 2 });
+// RUVO's own demo site (see fixtures/careersSite) is reachable despite the private-network guards.
+const trustedOrigins = [`http://localhost:${env.PORT}`];
+export const browser = createBrowserPool({ userAgent: env.USER_AGENT, maxPages: 2, trustedOrigins });
 export const fetcher = createFetcher({
   userAgent: env.USER_AGENT,
   cacheMode: env.FETCH_CACHE_MODE,
   browser,
-  // RUVO's own demo site (see fixtures/careersSite) is reachable despite the SSRF guard.
-  trustedOrigins: [`http://localhost:${env.PORT}`],
+  trustedOrigins,
 });
 export const llm = createLlmClient({ env });
 

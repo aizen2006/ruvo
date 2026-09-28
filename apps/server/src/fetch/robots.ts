@@ -1,10 +1,12 @@
 import robotsParser from "robots-parser";
+import { resolvesInternally } from "./ssrf";
 
 type RobotsRules = { isAllowed(url: string): boolean; crawlDelayMs: number };
 
 const ALLOW_ALL: RobotsRules = { isAllowed: () => true, crawlDelayMs: 0 };
 const DENY_ALL: RobotsRules = { isAllowed: () => false, crawlDelayMs: 0 };
 const CACHE_TTL_MS = 60 * 60 * 1000;
+const MAX_CRAWL_DELAY_MS = 10_000;
 
 /**
  * robots.txt handling per RFC 9309: a 4xx response (including 401/403) means no rules,
@@ -15,8 +17,18 @@ export function createRobots(opts: { userAgent: string; fetchText?: (url: string
   const fetchText =
     opts.fetchText ??
     (async (url: string) => {
-      const res = await fetch(url, { headers: { "user-agent": opts.userAgent }, signal: AbortSignal.timeout(5000) });
-      return { status: res.status, text: res.ok ? await res.text() : "" };
+      // Redirects are followed by hand (up to 5, per RFC 9309) so none can lead to an internal address.
+      let target = url;
+      for (let hop = 0; hop <= 5; hop++) {
+        const res = await fetch(target, { headers: { "user-agent": opts.userAgent }, redirect: "manual", signal: AbortSignal.timeout(5000) });
+        const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
+        if (!location) return { status: res.status, text: res.ok ? await res.text() : "" };
+        const next = new URL(location, target);
+        if (next.origin !== new URL(url).origin && (await resolvesInternally(next.hostname))) break;
+        target = next.href;
+      }
+      // Too many redirects, or one into a private network: treat robots.txt as unavailable.
+      return { status: 404, text: "" };
     });
   const cache = new Map<string, { rules: RobotsRules; expiresAt: number }>();
 
@@ -34,7 +46,8 @@ export function createRobots(opts: { userAgent: string; fetchText?: (url: string
         const parsed = robotsParser(robotsUrl, text);
         rules = {
           isAllowed: (target) => parsed.isAllowed(target, opts.userAgent) !== false,
-          crawlDelayMs: (parsed.getCrawlDelay(opts.userAgent) ?? 0) * 1000,
+          // Honoured up to a cap: an hour-long Crawl-delay would stall the shared worker.
+          crawlDelayMs: Math.min((parsed.getCrawlDelay(opts.userAgent) ?? 0) * 1000, MAX_CRAWL_DELAY_MS),
         };
       }
     } catch {

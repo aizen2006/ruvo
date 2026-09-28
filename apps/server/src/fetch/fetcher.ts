@@ -109,7 +109,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages"]);
     try {
-      const response = await withRetry(() => limiter.run(host, crawlDelayMs, () => httpGet(scope, req)), {
+      const response = await withRetry(() => limiter.run(host, crawlDelayMs, () => httpGet(scope, req), scope.signal), {
         retries: 2,
         baseMs: 500,
         maxDelayMs: 30_000,
@@ -132,8 +132,11 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages", "browserPages"]);
     try {
-      const rendered = await limiter.run(host, crawlDelayMs, () =>
-        opts.browser!.render(req.url, { signal: scope.signal, timeoutMs: timeoutMs + 10_000 }),
+      const rendered = await limiter.run(
+        host,
+        crawlDelayMs,
+        () => opts.browser!.render(req.url, { signal: scope.signal, timeoutMs: timeoutMs + 10_000 }),
+        scope.signal,
       );
       breaker.recordSuccess(host);
       scope.metrics.inc("pagesVisited");

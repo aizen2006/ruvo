@@ -18,7 +18,17 @@ describe("ssrf guard", () => {
     ["fd00::1", true],
     ["fe80::1", true],
     ["::ffff:10.0.0.1", true],
+    // IPv4 hidden in IPv6, in the forms URL parsers produce ([::ffff:169.254.169.254] → ::ffff:a9fe:a9fe)
+    ["::ffff:a9fe:a9fe", true],
+    ["::ffff:7f00:1", true],
+    ["::7f00:1", true],
+    ["64:ff9b::a9fe:a9fe", true],
+    ["2002:7f00:1::", true],
+    ["ff02::1", true],
+    ["not-an-address", true],
     ["8.8.8.8", false],
+    ["::ffff:8.8.8.8", false],
+    ["64:ff9b::808:808", false],
     ["2606:4700::1111", false],
   ])("%s internal=%p", (address, internal) => {
     expect(isInternalAddress(address)).toBe(internal);

@@ -1,7 +1,6 @@
 import { chromium, type Browser } from "playwright";
-import { isIP } from "node:net";
 import { createSemaphore } from "../libs/limit";
-import { isInternalAddress } from "./ssrf";
+import { resolvesInternally } from "./ssrf";
 
 export interface RenderResult {
   html: string;
@@ -22,7 +21,14 @@ const BLOCKED_RESOURCES = new Set(["image", "font", "media"]);
  * crashes. Each page gets its own browser context (no shared cookies or storage).
  * The pool only turns a URL into rendered HTML; extraction happens on that HTML elsewhere.
  */
-export function createBrowserPool(opts: { userAgent: string; maxPages?: number; allowPrivateNetwork?: boolean }): BrowserPool {
+export function createBrowserPool(opts: {
+  userAgent: string;
+  maxPages?: number;
+  allowPrivateNetwork?: boolean;
+  /** Origins the page may load even though they are local, e.g. RUVO's own demo site. */
+  trustedOrigins?: string[];
+}): BrowserPool {
+  const trusted = new Set(opts.trustedOrigins ?? []);
   const limit = createSemaphore(opts.maxPages ?? 2);
   let browser: Promise<Browser> | null = null;
 
@@ -42,13 +48,17 @@ export function createBrowserPool(opts: { userAgent: string; maxPages?: number; 
         signal?.addEventListener("abort", abort, { once: true });
         try {
           const page = await context.newPage();
-          await page.route("**/*", (route) => {
+          // Every request the page makes (navigations, redirects, scripts, XHR) must stay on the
+          // public internet: a rendered page could otherwise reach localhost or cloud metadata.
+          const verdicts = new Map<string, Promise<boolean>>();
+          await page.route("**/*", async (route) => {
             const request = route.request();
             if (BLOCKED_RESOURCES.has(request.resourceType())) return route.abort();
-            // Keep rendered pages from reaching internal addresses written as IP literals.
-            const host = new URL(request.url()).hostname.replace(/^\[|\]$/g, "");
-            if (!opts.allowPrivateNetwork && isIP(host) && isInternalAddress(host)) return route.abort();
-            return route.continue();
+            const target = new URL(request.url());
+            if (opts.allowPrivateNetwork || trusted.has(target.origin)) return route.continue();
+            if (target.protocol !== "http:" && target.protocol !== "https:") return route.abort();
+            if (!verdicts.has(target.hostname)) verdicts.set(target.hostname, resolvesInternally(target.hostname));
+            return (await verdicts.get(target.hostname)) ? route.abort("blockedbyclient") : route.continue();
           });
 
           const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });

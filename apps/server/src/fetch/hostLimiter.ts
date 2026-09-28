@@ -12,7 +12,7 @@ export function createHostLimiter(opts: { maxConcurrent: number; minDelayMs: num
     return state;
   };
 
-  async function acquire(host: string, delayMs: number) {
+  async function acquire(host: string, delayMs: number, signal?: AbortSignal) {
     const state = stateFor(host);
     while (state.active >= opts.maxConcurrent) {
       await new Promise<void>((resolve) => state.waiters.push(resolve));
@@ -22,7 +22,13 @@ export function createHostLimiter(opts: { maxConcurrent: number; minDelayMs: num
     const startAt = Math.max(Date.now(), state.nextStartAt);
     state.nextStartAt = startAt + Math.max(delayMs, opts.minDelayMs);
     const wait = startAt - Date.now();
-    if (wait > 0) await Bun.sleep(wait);
+    if (wait <= 0) return;
+    try {
+      await sleep(wait, signal);
+    } catch (err) {
+      release(host);
+      throw err;
+    }
   }
 
   function release(host: string) {
@@ -32,9 +38,9 @@ export function createHostLimiter(opts: { maxConcurrent: number; minDelayMs: num
   }
 
   return {
-    /** Runs `task` once a slot for `host` is free and its crawl delay has passed. */
-    async run<T>(host: string, delayMs: number, task: () => Promise<T>): Promise<T> {
-      await acquire(host, delayMs);
+    /** Runs `task` once a slot for `host` is free and its crawl delay has passed; `signal` cancels the wait. */
+    async run<T>(host: string, delayMs: number, task: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+      await acquire(host, delayMs, signal);
       try {
         return await task();
       } finally {
@@ -45,3 +51,19 @@ export function createHostLimiter(opts: { maxConcurrent: number; minDelayMs: num
 }
 
 export type HostLimiter = ReturnType<typeof createHostLimiter>;
+
+/** Waits `ms`, or rejects with the signal's reason as soon as it aborts. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) return reject(signal.reason);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal!.reason);
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
