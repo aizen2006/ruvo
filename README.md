@@ -1,104 +1,156 @@
 # RUVO
 
-RUVO turns a plain-language data request into a clean, structured dataset where every value
-can be traced back to its source.
+**Ask for a dataset in plain words. Get one back with receipts.**
 
-> "Find me backend + AI engineering roles, preferably remote, from good technology companies.
-> Return company, title, location, salary if available, job URL, and why the role matches."
+You write something like
 
-RUVO does not simply ask a model to write a table. It works through the request in stages:
+> Find me backend + AI engineering roles, preferably remote, from good technology companies.
+> Return company, title, location, salary if available, job URL, and why the role matches.
 
-1. It compiles the request into a **dataset contract**: the columns, which of them are required, how each record is judged, and the assumptions it made. You can review and edit the contract before anything is collected.
-2. It plans a **workflow** you can inspect: which sources to use, the steps for each, and the budgets.
-3. It collects from permitted sources: public job-board APIs, rendered web pages, and free-text threads. It uses plain HTTP first and a headless browser only when a page needs one.
-4. It extracts every field with **evidence**: the method, source URL, snippet, locator and a confidence score. A value an AI model extracted is kept only if the model's quoted source text is found on the page.
-5. It validates, deduplicates and scores the records, then reports on quality and on what changed since the last run.
+and RUVO returns a table of a few hundred postings. The difference from asking a chatbot is
+that no cell is taken on faith. Every value carries a receipt: where it came from, how it was
+read, and how sure RUVO is. Here is one row from a real run:
 
-Work RUVO has done once is reused:
+```
+Research Engineer, Life Sciences at Anthropic
+────────────────────────────────────────────────────────────────────────────────────────
+title     Research Engineer, Life Sciences   API     0.99   $.jobs[365].title
+location  San Francisco, CA                  API     0.99   $.jobs[365].location.name
+remote    onsite                             API     0.99   $.jobs[365].metadata[0].value
+salary    USD 350,000–500,000 / year         REGEX   0.80   "$350,000—$500,000 USD", chars 2815–2836
+why       Matches: backend or AI engineering title; relevant engineering work;
+          relevant technology company. Not confirmed: remote preferred.
+source    https://job-boards.greenhouse.io/anthropic/jobs/5265365008
+```
 
-- **Page recipes** record how to read a page, so the next run replays them without AI.
-- When a site changes, RUVO **repairs** the recipe and saves it as a new version.
-- A plan that produced a good dataset is **remembered**, so a rephrased request reuses it.
+Values that came straight from an API get 0.99. A salary pulled out of the description by a
+pattern gets 0.80, with the exact characters it was read from. A value the AI extracted is kept
+only if its quote is found on the page and actually states that value. Anything unverified is
+dropped, not guessed.
 
-## What is in the box
+## What happens between the prompt and the table
 
-| | |
-|---|---|
-| **Dataset contract** | Compiled by `gpt-6-sol`, then checked and normalized by deterministic code. Vague phrases such as "good companies" become assumptions you can see and edit. |
-| **Workflow IR** | The LLM proposes a small plan. A compiler checks it, clamps the budgets, and expands it into typed steps. The template planner is the fallback. |
-| **Sources** | Greenhouse, Ashby, Lever and Workable APIs; Workable boards rendered in a browser; Hacker News "Who is hiring?"; and any list page you link. Job boards are auto-detected for companies you name. |
-| **Record and replay** | An AI model proposes CSS selectors. RUVO runs them on the page and saves them only if they pass acceptance checks. Later runs replay them with cheerio and no AI. |
-| **Self-repair** | When a recipe stops fitting its page, RUVO works out what failed and picks an action: retry, switch to the browser, fix the selectors locally, or rediscover the recipe with the LLM. Each fix is saved as a new recipe version and a new workflow version. |
-| **Evidence** | Every value records how it was found. Confidence starts from a per-method baseline (API 0.99 down to a quote-verified LLM value at 0.75). Unverified values are dropped. |
-| **Decision layer** | Judgement calls go through tiers in order: rules, then cached answers, then [Jev](https://typesafe.ai) (TypeSafe's System One API), then a batched LLM judge, then a fixed default. The Decisions tab shows which tier decided what, and what it cost. |
-| **Workflow memory** | Qdrant stores plans whose runs produced at least 20 valid records. A request that means the same thing reuses the stored plan without a planner call. |
-| **Run diff** | Each re-run shows new, removed and changed records compared with the previous run. |
-| **Dashboard** | Next.js with tabs for the contract (editable), the workflow (including recipe versions), the dataset with its evidence, quality, decisions and live activity. |
+1. **The request becomes a contract.** An LLM drafts the columns, which ones are required, how
+   each record is judged, and the assumptions it made ("good companies" → companies tagged as AI
+   labs or dev tools). Code checks it. You review and edit it before anything is collected.
+2. **The contract becomes a plan you can read.** It lists the sources, why each was chosen, the
+   steps per source, and the page, browser and AI-call budgets. The LLM proposes the plan;
+   a compiler checks it, clamps the budgets, and turns it into typed steps.
+3. **Sources are collected politely.** Greenhouse, Ashby, Lever and Workable APIs, the Hacker
+   News hiring thread, and any list page you link. Plain HTTP comes first. A headless browser is
+   used only when a page is an empty JavaScript shell. robots.txt is obeyed, and blocks are never
+   worked around.
+4. **Web pages are read with recorded recipes.** The first time RUVO sees a list page, an LLM
+   proposes CSS selectors. RUVO runs them on the page and keeps them only if they pass
+   acceptance checks. Every later run replays them with no AI at all.
+5. **Records are judged, checked and merged.** Clear cases are settled by rules. Ambiguous
+   titles go to [Jev](https://typesafe.ai), a small decision model, and only what Jev is unsure
+   about reaches an LLM judge. Duplicates across sources are merged, keeping the best evidence.
+6. **The run leaves something behind.** A quality report, a diff against the previous run,
+   repaired recipes, and a remembered plan. The next similar request reuses that plan without
+   calling the planner.
 
-How it fits together: [docs/architecture.md](docs/architecture.md). Walkthrough: [docs/demo-script.md](docs/demo-script.md).
+When a site changes and a recipe stops fitting, RUVO works out what broke. It then retries,
+switches to the browser, patches the selectors locally, or asks the LLM to rediscover the
+recipe. The fix is saved as a new version next to the old one, so you can see what changed and
+why.
 
-## Quick start
+## Run it
 
-Requirements: [Bun](https://bun.sh) 1.4.2 or later, Docker, an OpenAI API key, and optionally a TypeSafe API key for Jev.
+You need **Bun 1.4.2+**, **Node 24+**, **Docker**, and an **OpenAI API key**. A TypeSafe key for
+Jev is optional; without one, rules and the LLM judge make the calls.
 
 ```bash
-docker compose up -d                       # Postgres 17 and Qdrant
+git clone https://github.com/aizen2006/ruvo && cd ruvo
 bun install
-cp apps/server/.env.example apps/server/.env
-#   then set OPENAI_API_KEY (and TYPESAFE_API_KEY, or DECIDER_PROVIDER=off)
-cd apps/server
-bun run db:migrate                         # create the tables
-bun run browsers                           # install Chromium for Playwright
-bun run smoke                              # check every external dependency
-cd ../..
-bun run dev                                # API :3000, worker, dashboard :3001
+docker compose up -d --wait                         # Postgres 17 and Qdrant
+
+cp apps/server/.env.example apps/server/.env        # set OPENAI_API_KEY (and TYPESAFE_API_KEY)
+cp apps/web/.env.example apps/web/.env.local
+
+bun run --filter server db:migrate                  # create the tables
+bun run --filter server browsers                    # Chromium for Playwright
+bun run --filter server smoke                       # optional: checks every dependency
+
+bun run dev                                         # API :3000, worker, dashboard :3001
 ```
 
-Open http://localhost:3001, describe the data you need, review the contract, and start collecting.
+Open **http://localhost:3001** and pick one of the example requests. Read the contract RUVO
+compiled and change anything that's wrong. Press **Start collecting** and watch the Activity
+tab. When the run finishes, click any row in the Dataset tab to see its receipts.
 
-To prepare a demo, run `bun run seed:demo` in `apps/server` while `bun run dev` is running.
+To rehearse a full demo, including a live self-repair on a bundled fake careers site, follow
+[docs/demo-script.md](docs/demo-script.md).
 
-## Scripts (in `apps/server`)
+## The few settings that matter
 
-| Script | What it does |
-|---|---|
-| `dev` | API and worker, both in watch mode (`bun run dev` at the root also starts the dashboard) |
-| `test` / `check-types` | Unit and integration tests (they create their own `ruvo_test` database) / TypeScript |
-| `smoke` | Checks Postgres, Qdrant, OpenAI, the decision provider and Playwright |
-| `eval` | Golden prompts with checks on each compiled contract; run it after changing a prompt |
-| `e2e` | The demo request end to end against the running stack, plus a re-run |
-| `seed:demo` | Warms the caches with the demo requests and resets the demo site |
-| `calibrate` | Chooses the decision layer's confidence bands from labelled samples |
-| `probe:registry` | Checks that every curated company's job board still answers |
+All settings live in `apps/server/.env`. The template lists every variable with its default.
 
-## Configuration
-
-All settings live in `apps/server/.env` (see `.env.example`). The ones worth knowing:
-
-| Variable | Default | Meaning |
+| Setting | Default | Change it when |
 |---|---|---|
-| `FETCH_CACHE_MODE` | `ttl` | `prefer_cache` for repeatable demos; `cache_only` for fully offline replays |
-| `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from the `llm_calls` table |
-| `DECIDER_PROVIDER` / `DECIDER_MODE` | `jev` / `active` | `off` uses rules and the LLM judge only; `shadow` records Jev's answers without acting on them |
-| `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 150, 10, 60, 4 min | Caps on each run's budgets; plans are clamped to these |
-| `WORKER_INLINE` | `false` | Runs the worker inside the API process (one process instead of two) |
+| `OPENAI_API_KEY` | — | Always. Compiling, planning, recipe discovery and the judge use it. |
+| `TYPESAFE_API_KEY`, `DECIDER_PROVIDER` | unset, `jev` | You have Jev access. `off` uses rules and the LLM judge only. For a self-hosted Laya, run `docker compose --profile laya up -d` and set `laya` with `DECIDER_BASE_URL=http://localhost:8000`. |
+| `FETCH_CACHE_MODE` | `ttl` | You want repeatable demos (`prefer_cache`) or no network at all (`cache_only`). |
+| `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. Use `cache_only` for offline replays. |
+| `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 150, 10, 60, 4 min | You want bigger or cheaper runs. Plans are clamped to these limits. |
+| `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
 
-## Project layout
+## Commands
+
+Run these from the repo root, or drop the `--filter server` inside `apps/server`.
+
+| Command | What it does |
+|---|---|
+| `bun run dev` | API, worker and dashboard, with reload |
+| `bun run check-types` | TypeScript across every package |
+| `cd apps/server && bun test` | 330+ tests against a throwaway `ruvo_test` database (Postgres must be up). Run it from `apps/server` so `.env.test` applies. |
+| `bun run --filter server eval` | Golden prompts with checks on each compiled contract; run it after changing a prompt |
+| `bun run --filter server e2e` | The example request end to end against the running stack, then a re-run |
+| `bun run --filter server seed:demo` | Warms the caches with the demo requests and resets the demo site |
+| `bun run --filter server calibrate` | Re-derives Jev's confidence bands from a finished run (writes `src/decide/calibration.json`) |
+| `bun run --filter server probe:registry` | Re-verifies the curated job boards (rewrites `src/plan/data/companies.json`) |
+
+## How it's built
 
 ```
-apps/server        Express 5 API and run worker (Bun, Drizzle, Playwright, cheerio)
-apps/web           Next.js 16 dashboard (Tailwind v4, Radix, TanStack Query)
-packages/contracts zod schemas shared by both: contract, plan, workflow IR, records, runs
-docker-compose.yml Postgres and Qdrant (plus an optional self-hosted Laya decider)
+apps/server         Bun + Express 5 API and a separate run worker. Drizzle on Postgres
+                    (including the job queue), Playwright, cheerio, OpenAI, Jev.
+apps/web            Next.js 16 dashboard: Tailwind v4, Radix, TanStack Query.
+packages/contracts  zod schemas both sides share: contract, plan, workflow IR, records, runs.
+docs/               architecture.md explains the whole path through the code;
+                    demo-script.md is an 8-minute walkthrough.
 ```
 
-## Limitations
+A few rules shaped the code:
 
-- **Jobs are the one fully built domain.** Other kinds of data work only from list pages you link. RUVO reads one page per link: it does not follow pagination, click, or log in.
-- **Some sites refuse automated access.** RUVO respects robots.txt and stops on a 403; it never works around a block. For example, lib.rs refuses RUVO's crawler.
-- **Enrichment is shallow.** Detail pages are read for JSON-LD and with regex and the LLM, capped at 15 fetches per source. Embedded app state (`__NEXT_DATA__` and similar) is not mapped yet.
-- **The AI judge makes mistakes.** Semantic checks sometimes reject a good match. One observed case: "Senior Member of Technical Staff, Multimodal AI" was judged not to be an AI role. Rules settle the clear cases first, so the judge only sees ambiguous ones.
-- **Run metrics miss some LLM cost.** The LLM calls made while compiling and planning are logged in `llm_calls` but not counted in the run's metrics.
-- **Memory thresholds are hand-tuned.** The 0.9 similarity threshold comes from a handful of measured requests (a paraphrase scored 0.98; an unrelated job request scored 0.80).
-- **Parsers are heuristic.** Salary parsing handles common formats, lakh grouping and currency scaling, but does no currency conversion. Number columns are stored as numeric strings.
-- **No accounts.** The API has no authentication and is meant for a local, single-user setup.
+- **The model proposes; code decides.** An LLM writes small typed drafts: a contract, a plan,
+  a recipe. Deterministic code checks each draft and runs it. If a draft fails, the fallback is
+  a template, not another prompt.
+- **Postgres is the only source of truth.** It holds the queue, the page cache, the LLM cache,
+  the decision cache and the evidence. Qdrant and Jev only speed things up; when they fail,
+  RUVO skips them.
+- **Everything nondeterministic is cached.** That makes re-runs reproducible, lets a crashed run
+  resume by replaying, and lets a demo run fully offline.
+- **Budgets degrade a run instead of failing it.** When the AI budget runs out, remaining steps
+  carry on without AI and the run says so. At the time limit, slow steps stop and what was
+  gathered is still saved.
+
+## Limits, honestly
+
+- **Jobs are the deep domain.** Other kinds of data work only from list pages you link. RUVO
+  reads one page per link: it does not paginate, click, or log in.
+- **Some sites say no.** lib.rs, for example, refuses RUVO's crawler, and RUVO stops there.
+  `Crawl-delay` is honoured up to 10 seconds.
+- **The AI judge can be wrong.** It once rejected "Senior Member of Technical Staff, Multimodal
+  AI" as not an AI role. Rules settle the clear cases first, so the judge only sees ambiguous ones.
+- **The private-network guard checks DNS before fetching, not at connect time.** A hostile DNS
+  server could still rebind a name between the two lookups. Run RUVO where that matters.
+- **Some numbers are approximate.** The LLM cost of compiling and planning is logged but not
+  counted in a run's metrics. The workflow-memory threshold (0.9 similarity) is tuned on a
+  handful of requests.
+- **There are no accounts.** The API has no authentication. It is built for one person on one
+  machine.
+
+## License
+
+No license has been chosen yet, so all rights are reserved by the author for now.

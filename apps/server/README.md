@@ -6,8 +6,8 @@ overview and quick start; [docs/architecture.md](../../docs/architecture.md) exp
 ## Setup
 
 ```bash
-docker compose up -d              # from the repo root: postgres + qdrant
-cp .env.example .env              # then set OPENAI_API_KEY and TYPESAFE_API_KEY (or DECIDER_PROVIDER=off)
+docker compose up -d --wait       # from the repo root: postgres + qdrant
+cp .env.example .env              # then set OPENAI_API_KEY (TYPESAFE_API_KEY is optional)
 bun install
 bun run db:migrate                # create or update the tables
 bun run browsers                  # installs Chromium for Playwright

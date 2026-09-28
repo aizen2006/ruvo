@@ -11,7 +11,7 @@ unless noted.
 3. **Every AI step has a fallback**: the template planner, a rules-only decider, parsers for Hacker News posts, and local selector repair before LLM rediscovery.
 4. **Everything nondeterministic is cached.** That covers pages (per URL and transport), LLM calls (per input hash) and decisions (per task and state hash). Re-runs are therefore reproducible, a crashed run can resume by replaying from the caches, and demos can run offline.
 5. **Postgres is the only source of truth, including the job queue.** Qdrant and the decision provider are accelerators: when they fail, RUVO skips them.
-6. **Fetching is polite and safe.** RUVO sends an honest User-Agent, follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is), applies per-host rate limits and circuit breakers, blocks requests to private networks, and caps response size. It never uses stealth techniques or solves captchas.
+6. **Fetching is polite and safe.** RUVO sends an honest User-Agent, follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is; `Crawl-delay` is honoured up to 10 s), applies per-host rate limits and circuit breakers, blocks requests to private networks, and caps response size. It never uses stealth techniques or solves captchas.
 
 ## From request to dataset
 
@@ -27,8 +27,8 @@ prompt ─ compile (gpt-6-sol) ─▶ DatasetContract ─ user edits while revie
 ### Run lifecycle (`db/queue.ts`, `runs/worker.ts`)
 
 ```
-queued → compiling → awaiting_approval ─start─▶ queued_run → running → completed | failed | cancelled
-                    (or straight to queued_run when the run was created with autoStart)
+queued → compiling → planning → awaiting_approval ─start─▶ queued_run → running → completed | failed | cancelled
+                    (or straight to queued_run when the run was created with autoStart and has sources)
 ```
 
 - **API process** (`index.ts`): it only reads and writes rows.
@@ -53,7 +53,10 @@ Edits made during review go through the same normalization. They produce a new c
 
 **Discovery order:**
 1. Pages the user linked.
-2. Then, for job requests only, registry companies: the ones named in the request, otherwise those whose tags match.
+2. For job requests only, registry companies: the ones named in the request (suffixes such as "Inc" are ignored); otherwise, unless the user linked pages, those whose tags match.
+3. For job requests that ask for startups or broad coverage, the Hacker News "Who is hiring?" thread.
+
+Requests for any other kind of data use linked pages only; without one, the run stops for review and asks for a page.
 
 **Auto-detection:** a named company missing from the registry is looked up by probing slug variants on Greenhouse, Ashby, Lever and Workable. A board with postings is added to the registry.
 
@@ -90,9 +93,9 @@ Every change the compiler makes is recorded in `provenance.warnings`.
 **Fetch modes:**
 - `http`: plain request.
 - `browser`: Playwright render.
-- `auto`: plain request first. The page is rendered in the browser if it has too little text, shows SPA markers, or has no repeated groups of links (`sufficiency.ts`).
+- `auto`: plain request first. The page is rendered in the browser if it has under 500 characters of text, or shows single-page-app markers with under 2,000 (`sufficiency.ts`).
 
-**Browser pool:** each run gets its own context. Images and fonts are blocked, and the pool waits for the text to stop changing rather than for network idle. It returns HTML only.
+**Browser pool:** each page gets its own browser context. Images, fonts and media are blocked, and every request the page makes has its host resolved and checked against private networks. The pool waits for the text to stop changing rather than for network idle, and returns HTML only.
 
 ### Pages and recipes (`page/`, `recipes/`)
 
@@ -102,17 +105,16 @@ Every change the compiler makes is recorded in `provenance.warnings`.
 - discovered by the LLM,
 - **executed and checked before saving**: at least 3 items; title and url filled for at least 80% of items; other required fields for at least 25%,
 - stored per host and URL pattern (`apply.workable.com/*`),
-- replayed with cheerio on later runs.
+- replayed with cheerio on later runs, unless it does not read a field the current request requires (then a new one is recorded).
 
 ### Extraction and evidence (`extract/`)
 
-For fields an adapter did not fill, the ladder tries rungs in order and stops at the first verified value:
-1. Recipe
-2. JSON-LD
-3. Regex (salary)
-4. LLM
+Adapters fill what their source states directly (API fields, or the recorded recipe on a list page). The enrich step then fills the gaps, stopping per field at the first verified value:
+1. Regex on the text already collected (salary, arrangement)
+2. The posting's detail page: JSON-LD, then regex (at most 15 pages per source)
+3. LLM, for required fields that are still missing
 
-The LLM rung must return a verbatim quote, which `verifyQuote` checks against the stored page text.
+The LLM rung must return a verbatim quote. `verifyQuote` checks that it is on the stored page, and the value is kept only if the quote actually states it (salary and arrangement are compared after parsing).
 
 **Confidence baselines by method:**
 
@@ -120,7 +122,7 @@ The LLM rung must return a verbatim quote, which `verifyQuote` checks against th
 |---|---|
 | API | 0.99 |
 | JSON-LD | 0.95 |
-| Embedded JSON | 0.93 |
+| Embedded JSON (reserved; not produced yet) | 0.93 |
 | DOM | 0.88 |
 | Derived | 0.85 |
 | Regex | 0.80 |
@@ -142,7 +144,7 @@ A record's confidence is that of its least certain required value.
 4. **Batched LLM judge**: 20 records per call.
 5. **Fixed default.**
 
-Every decision is stored with the tier that made it. The Decisions tab reports the split and the LLM calls avoided.
+Every decision is stored with the tier that made it. The Decisions tab shows how many each tier settled, per task, and how often Jev and the LLM judge agreed.
 
 ### Validation, dedupe, quality, diff (`execute/`)
 
@@ -179,7 +181,7 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 | Table | Holds |
 |---|---|
 | `requests` | The prompt (plus an idempotency key) |
-| `dataset_contracts` | Contract versions per request (edited by the LLM or the user) |
+| `dataset_contracts` | Contract versions per request (written by the LLM, the template, or a user edit) |
 | `workflows` | IR versions with parent and reused-from links and the PlanDraft |
 | `runs` | Status, stage, attempt, heartbeat, metrics, quality report, diff, error |
 | `run_events` | The run's activity feed, numbered per run |

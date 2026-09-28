@@ -6,14 +6,16 @@ dataset. It then shows re-runs, self-repair and plan reuse.
 
 ## Before the demo
 
+Set up as in the README (install, migrate, browsers), then:
+
 ```bash
-docker compose up -d
-bun run dev                          # at the repo root: API :3000, worker, dashboard :3001
-cd apps/server && bun run seed:demo  # warms caches, resets the demo site, prints run links
+docker compose up -d --wait
+bun run dev                          # terminal 1, repo root: API :3000, worker, dashboard :3001
+cd apps/server && bun run seed:demo  # terminal 2: warms caches, resets the demo site, prints run links
 ```
 
-- **Repeatable timing:** restart the API and worker with `FETCH_CACHE_MODE=prefer_cache` after seeding. Pages then come from the cache, so a live run takes seconds.
-- **No network:** use `FETCH_CACHE_MODE=cache_only` and `LLM_CACHE_MODE=cache_only`.
+- **Repeatable timing:** after seeding, set `FETCH_CACHE_MODE=prefer_cache` in `apps/server/.env` and restart `bun run dev`. Pages then come from the cache, so a live run takes seconds.
+- **No network:** the same, with `FETCH_CACHE_MODE=cache_only` and `LLM_CACHE_MODE=cache_only`.
 - **Jev unavailable:** set `DECIDER_PROVIDER=off`. The decider then uses rules and the LLM judge only, and the Decisions tab shows that honestly.
 
 Keep the seeded "golden run" link open in a tab as a fallback for steps 3 to 6.
@@ -56,15 +58,15 @@ In the timeline and the Activity tab, point out:
 
 Click a row to open its evidence:
 - **Title / url**: `API`, 99%, with the JSON path it was read from and a link to the source.
-- **Company**: `DERIVED` from the registry.
+- **Company**: `API` on Greenhouse and Workable; `DERIVED` from the registry on Ashby and Lever, whose APIs do not state it.
 - **Salary**: `REGEX` or `JSON-LD` with the snippet it was read from. On a Hacker News row it may be `LLM`, which RUVO keeps only because the quote was found on the page.
 
-Then filter: **Status** valid, **Remote** remote, **Salary** yes, **Confidence** 90% or more. Press **Download CSV**.
+Then filter: **Status** valid, **Work** remote, **Salary** published, **Confidence** 90% or more. Press **Download CSV**.
 
 ## 6. Quality and Decisions (1 min)
 
 - **Quality**: the funnel from postings to valid records, completeness per column, where values came from (grouped by how much they can be trusted), the confidence spread, and why records were set aside.
-- **Decisions**: how many judgement calls each tier settled (rules, Jev, LLM judge), and the LLM calls and dollars the decision layer avoided.
+- **Decisions**: how many judgement calls each tier settled (rules, Jev, LLM judge), per task, and how often Jev and the LLM judge agreed. Everything settled by rules or Jev is an LLM call not made.
 
 ## 7. Run again: reuse and "what changed" (45 s)
 
@@ -76,7 +78,7 @@ Press **Run again**.
 
 Open the seeded **Northwind** run (the fictional demo site at `/fixtures/careers`). In **Workflow → Page recipes**:
 
-1. Press **Simulate a redesign**. RUVO records version N+1 with stale selectors, labelled *Simulated drift*, then press **Run again**.
+1. Press **Simulate a redesign** (or **Simulate a small site change**, which only renames the item wrapper). RUVO records version N+1 with stale selectors, labelled *Simulated drift*. Press **Run again**.
 2. In Activity:
    - `recipe vN+1 no longer fits the page (SELECTOR_MISS…)`
    - `SELECTOR_MISS → CHANGE_SELECTOR (decided by decider)`: Jev chose the cheap fix
@@ -114,4 +116,4 @@ Close by recapping the path: prompt → contract → workflow → evidence-backe
 | The live run is slow | Switch to the golden-run tab from `seed:demo`. |
 | Jev errors or is slow | `DECIDER_PROVIDER=off`; the Decisions tab then shows rules and the LLM judge only. |
 | No network | `FETCH_CACHE_MODE=cache_only`, `LLM_CACHE_MODE=cache_only` (after seeding). |
-| The Northwind recipe is in an odd state after rehearsals | Run `bun run seed:demo` again; it resets the site to version 1 and repairs the recipe if needed. |
+| The Northwind recipe is in an odd state after rehearsals | Run `bun run seed:demo` again: it resets the site to version 1 and re-runs the Northwind request, which repairs a stale recipe as a side effect. |
