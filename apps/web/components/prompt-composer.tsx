@@ -13,23 +13,36 @@ const EXAMPLES = [
   "Senior backend engineering jobs at Stripe and Datadog.",
 ];
 
+/** A random key; crypto.randomUUID only exists on secure origins (https or localhost). */
+const newKey = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+
 /** The request box: the user's own words, set in the serif RUVO uses for requests everywhere. */
 export function PromptComposer() {
   const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [skipReview, setSkipReview] = useState(false);
 
+  // One key per request text: a double submit (click plus Ctrl+Enter, or a retry) creates one run.
+  const [submission, setSubmission] = useState<{ prompt: string; key: string } | null>(null);
+
   const create = useMutation({
-    mutationFn: () => api.createRun(prompt.trim(), skipReview),
+    mutationFn: (key: string) => api.createRun(prompt.trim(), skipReview, key),
     onSuccess: ({ runId }) => router.push(`/runs/${runId}`),
   });
   const tooShort = prompt.trim().length < 10;
+  const submit = () => {
+    if (tooShort || create.isPending) return;
+    const key = submission?.prompt === prompt.trim() ? submission.key : newKey();
+    setSubmission({ prompt: prompt.trim(), key });
+    create.mutate(key);
+  };
 
   return (
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (!tooShort) create.mutate();
+        submit();
       }}
       className="space-y-4"
     >
@@ -41,7 +54,7 @@ export function PromptComposer() {
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && !tooShort) create.mutate();
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
         }}
         rows={4}
         placeholder="Backend and AI engineering roles, preferably remote, from good technology companies…"

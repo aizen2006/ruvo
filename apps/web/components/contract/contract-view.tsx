@@ -2,7 +2,6 @@
 
 import type { DatasetContract, RunDetail } from "@repo/contracts";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { runKeys, useRunAction } from "@/lib/queries";
 import { Button } from "../ui/button";
@@ -13,19 +12,24 @@ import { SourcePages } from "./source-pages";
 /**
  * The Dataset Contract: what RUVO understood from the request. While the run awaits
  * approval the user can change which fields are required and how strict each criterion is.
+ *
+ * Unsaved edits live in the run page (`edited`), so the header's Start button knows about
+ * them; with no edits the server's latest version is shown.
  */
-export function ContractView({ run }: { run: RunDetail }) {
+export function ContractView({
+  run,
+  edited,
+  onEdit,
+}: {
+  run: RunDetail;
+  edited: DatasetContract | null;
+  onEdit: (contract: DatasetContract | null) => void;
+}) {
   const saved = run.contract;
-  const [draft, setDraft] = useState<DatasetContract | null>(saved);
+  const draft = edited ?? saved;
+  const dirty = edited !== null;
   const client = useQueryClient();
   const editable = run.status === "awaiting_approval";
-
-  // Take new server versions unless the user has unsaved edits.
-  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
-  useEffect(() => {
-    if (!dirty) setDraft(saved);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [saved]);
 
   const save = useRunAction(run.id, () => api.editContract(run.id, draft!));
 
@@ -33,7 +37,7 @@ export function ContractView({ run }: { run: RunDetail }) {
     return <p className="py-6 text-muted">RUVO is reading the request. The contract appears here in a few seconds.</p>;
   }
 
-  const update = (next: Partial<DatasetContract>) => setDraft({ ...draft, ...next });
+  const update = (next: Partial<DatasetContract>) => onEdit({ ...draft, ...next });
   const edits = editable
     ? {
         onToggleStrength: (id: string) =>
@@ -110,13 +114,19 @@ export function ContractView({ run }: { run: RunDetail }) {
             variant="primary"
             disabled={!dirty || save.isPending}
             onClick={() =>
-              save.mutate(undefined, { onSuccess: () => client.invalidateQueries({ queryKey: runKeys.workflow(run.id) }) })
+              save.mutate(undefined, {
+                onSuccess: () => {
+                  // The server's normalized version replaces the draft.
+                  onEdit(null);
+                  void client.invalidateQueries({ queryKey: runKeys.workflow(run.id) });
+                },
+              })
             }
           >
             {save.isPending ? "Saving…" : "Save changes"}
           </Button>
           {dirty && (
-            <Button variant="quiet" onClick={() => setDraft(saved)}>
+            <Button variant="quiet" onClick={() => onEdit(null)}>
               Discard changes
             </Button>
           )}

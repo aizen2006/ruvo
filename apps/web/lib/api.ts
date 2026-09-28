@@ -75,11 +75,12 @@ const query = (params: Record<string, string | number | boolean | undefined>) =>
 };
 
 export const api = {
-  createRun: (prompt: string, autoStart: boolean) =>
+  /** `idempotencyKey` should stay the same for repeated submissions of one request, so the server creates one run. */
+  createRun: (prompt: string, autoStart: boolean, idempotencyKey: string) =>
     request<CreateRunResponse>("/api/runs", {
       method: "POST",
       body: JSON.stringify({ prompt, autoStart }),
-      headers: { "Idempotency-Key": crypto.randomUUID() },
+      headers: { "Idempotency-Key": idempotencyKey },
     }),
   listRuns: () => request<RunSummary[]>("/api/runs"),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),

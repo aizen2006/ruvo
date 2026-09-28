@@ -1,6 +1,6 @@
 "use client";
 
-import { isTerminal } from "@repo/contracts";
+import { isTerminal, type DatasetContract } from "@repo/contracts";
 import { useParams } from "next/navigation";
 import { useState } from "react";
 import { ContractView } from "@/components/contract/contract-view";
@@ -19,12 +19,19 @@ import { useRun, useRunEvents } from "@/lib/queries";
 
 export default function RunPage() {
   const { id } = useParams<{ id: string }>();
+  // Keyed by id so the tab, unsaved contract edits and filters reset when another run opens.
+  return <RunWorkspace key={id} id={id} />;
+}
+
+function RunWorkspace({ id }: { id: string }) {
   const { data: run, error, isLoading } = useRun(id);
   const events = useRunEvents(id, run?.status);
   const [tab, setTab] = useState<string | null>(null);
+  const [edited, setEdited] = useState<DatasetContract | null>(null);
 
   if (isLoading) return <p className="text-muted">Loading run…</p>;
-  if (error || !run) return <PageNotice error={error} what="run" />;
+  // A failed background refresh keeps showing the last good data; only a missing run replaces the page.
+  if (!run) return <PageNotice error={error} what="run" />;
 
   // Open where the user can act: the contract while reviewing, the dataset once records exist.
   const defaultTab = run.status === "awaiting_approval" || !run.contract ? "contract" : "dataset";
@@ -32,7 +39,8 @@ export default function RunPage() {
 
   return (
     <div className="space-y-6">
-      <RunHeader run={run} />
+      <RunHeader run={run} hasUnsavedEdits={edited !== null} />
+      {error && <p className="text-sm text-pattern">Lost contact with the API ({error.message}); showing the last known state.</p>}
       <div className="space-y-3">
         <StageTimeline run={run} />
         <LatestEvent events={events} active={!isTerminal(run.status)} />
@@ -52,7 +60,7 @@ export default function RunPage() {
           ]}
         />
         <TabPanel value="contract">
-          <ContractView run={run} />
+          <ContractView run={run} edited={edited} onEdit={setEdited} />
         </TabPanel>
         <TabPanel value="workflow">
           <WorkflowView run={run} events={events} />

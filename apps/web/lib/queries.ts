@@ -5,10 +5,20 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { useEffect, useRef, useState } from "react";
 import { api, type RecordFilters } from "./api";
 
-/** React Query hooks. Anything tied to an unfinished run polls once a second. */
+/**
+ * React Query hooks. A run in progress polls once a second; a run waiting for review polls
+ * slowly (only a start from elsewhere changes it); a finished run stops polling.
+ */
 
 const POLL_MS = 1000;
-const pollWhileActive = (status: RunStatus | undefined) => (status && isTerminal(status) ? false : POLL_MS);
+const REVIEW_POLL_MS = 5000;
+/** The API returns at most this many events per request. */
+const EVENTS_PAGE = 500;
+
+const pollInterval = (status: RunStatus | undefined) =>
+  status && isTerminal(status) ? false : status === "awaiting_approval" ? REVIEW_POLL_MS : POLL_MS;
+/** Part of the query key for data that changes one last time when the run ends. */
+const phase = (status: RunStatus | undefined) => ({ finished: Boolean(status && isTerminal(status)) });
 
 export const runKeys = {
   all: ["runs"] as const,
@@ -27,7 +37,7 @@ export function useRun(id: string) {
   return useQuery({
     queryKey: runKeys.run(id),
     queryFn: () => api.getRun(id),
-    refetchInterval: (q) => pollWhileActive(q.state.data?.status),
+    refetchInterval: (q) => pollInterval(q.state.data?.status),
   });
 }
 
@@ -37,17 +47,18 @@ export function useRun(id: string) {
  */
 export function useWorkflow(id: string, status: RunStatus | undefined) {
   const planned = status && !["queued", "compiling", "planning"].includes(status);
-  const finished = Boolean(status && isTerminal(status));
   return useQuery({
-    queryKey: [...runKeys.workflow(id), { finished }],
+    queryKey: [...runKeys.workflow(id), phase(status)],
     queryFn: () => api.getWorkflow(id),
+    placeholderData: keepPreviousData,
     enabled: Boolean(planned),
   });
 }
 
 export function useRecords(id: string, filters: RecordFilters, status: RunStatus | undefined) {
   return useQuery({
-    queryKey: runKeys.records(id, filters),
+    // Refetched once more when the run ends: deduplication happens last.
+    queryKey: [...runKeys.records(id, filters), phase(status)],
     queryFn: () => api.listRecords(id, filters),
     placeholderData: keepPreviousData,
     enabled: status === "running" || Boolean(status && isTerminal(status)),
@@ -67,6 +78,8 @@ export const useQuality = (id: string, status: RunStatus | undefined) =>
 
 /**
  * Accumulates run events by polling `?after=lastSeq`, so each poll only transfers new events.
+ * Polls never overlap, a long history is paged through, and a finished run is polled once
+ * more shortly after it ends (the worker writes its last event just after the status flips).
  */
 export function useRunEvents(id: string, status: RunStatus | undefined) {
   const [events, setEvents] = useState<RunEvent[]>([]);
@@ -74,15 +87,28 @@ export function useRunEvents(id: string, status: RunStatus | undefined) {
 
   useEffect(() => {
     let cancelled = false;
+    let inFlight = false;
     const poll = async () => {
-      const next = await api.listEvents(id, lastSeq.current).catch(() => []);
-      if (cancelled || next.length === 0) return;
-      lastSeq.current = next.at(-1)!.seq;
-      setEvents((prev) => [...prev, ...next]);
+      if (inFlight) return;
+      inFlight = true;
+      try {
+        for (;;) {
+          const next = await api.listEvents(id, lastSeq.current).catch(() => [] as RunEvent[]);
+          if (cancelled || next.length === 0) return;
+          lastSeq.current = next.at(-1)!.seq;
+          setEvents((prev) => {
+            const last = prev.at(-1)?.seq ?? 0;
+            return [...prev, ...next.filter((e) => e.seq > last)];
+          });
+          if (next.length < EVENTS_PAGE) return;
+        }
+      } finally {
+        inFlight = false;
+      }
     };
     void poll();
-    if (status && isTerminal(status)) return () => void (cancelled = true);
-    const timer = setInterval(poll, POLL_MS);
+    const interval = pollInterval(status);
+    const timer = interval ? setInterval(poll, interval) : setTimeout(poll, 2_000);
     return () => {
       cancelled = true;
       clearInterval(timer);
@@ -103,7 +129,7 @@ export function useRunAction<T>(id: string, action: () => Promise<T>) {
 
 export const useDecisions = (id: string, status: RunStatus | undefined) =>
   useQuery({
-    queryKey: runKeys.decisions(id),
+    queryKey: [...runKeys.decisions(id), phase(status)],
     queryFn: () => api.getDecisions(id),
     enabled: status === "running" || Boolean(status && isTerminal(status)),
     refetchInterval: status === "running" ? 3_000 : false,

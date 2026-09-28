@@ -8,7 +8,7 @@ import { StatusBadge } from "../status-badge";
 import { Button } from "../ui/button";
 
 /** The request as written, its status, and the actions available right now. */
-export function RunHeader({ run }: { run: RunDetail }) {
+export function RunHeader({ run, hasUnsavedEdits = false }: { run: RunDetail; hasUnsavedEdits?: boolean }) {
   const router = useRouter();
   const start = useRunAction(run.id, () => api.startRun(run.id));
   const cancel = useRunAction(run.id, () => api.cancelRun(run.id));
@@ -25,7 +25,12 @@ export function RunHeader({ run }: { run: RunDetail }) {
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {run.status === "awaiting_approval" && (
-          <Button variant="primary" onClick={() => start.mutate()} disabled={start.isPending}>
+          <Button
+            variant="primary"
+            onClick={() => start.mutate()}
+            disabled={start.isPending || hasUnsavedEdits}
+            title={hasUnsavedEdits ? "Save or discard your contract changes first" : undefined}
+          >
             Start collecting
           </Button>
         )}
@@ -38,6 +43,9 @@ export function RunHeader({ run }: { run: RunDetail }) {
           <Button onClick={() => rerun.mutate(undefined, { onSuccess: ({ runId }) => router.push(`/runs/${runId}`) })} disabled={rerun.isPending}>
             Run again
           </Button>
+        )}
+        {hasUnsavedEdits && run.status === "awaiting_approval" && (
+          <p className="w-full text-sm text-muted">Save or discard your contract changes before starting.</p>
         )}
         {error && <p className="w-full text-sm text-danger">{error.message}</p>}
       </div>
