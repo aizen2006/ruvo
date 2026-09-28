@@ -3,7 +3,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { getDecisionSummary } from "../db/repos/decisions";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
-import { createRun, getQualityReport, getRunDetail, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
+import { createRun, getQualityReport, getRunDetail, getRunDiff, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
 import { getRunWorkflow } from "../db/repos/workflows";
 import { editRunContract } from "../runs/editContract";
 import { fieldNamesOf, parseId } from "./params";
@@ -69,6 +69,10 @@ runsRouter.post("/:id/rerun", async (req, res) => {
 
 runsRouter.get("/:id/quality", async (req, res) => {
   res.json(await getQualityReport(runId(req.params.id)));
+});
+
+runsRouter.get("/:id/diff", async (req, res) => {
+  res.json(await getRunDiff(runId(req.params.id)));
 });
 
 runsRouter.get("/:id/decisions", async (req, res) => {

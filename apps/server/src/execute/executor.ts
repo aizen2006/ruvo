@@ -2,6 +2,7 @@ import type { SourceBranch, Stage, Step } from "@repo/contracts";
 import { mapLimit } from "../libs/limit";
 import type { RunContext } from "../runs/runContext";
 import type { Candidate } from "./candidate";
+import { buildRunDiff } from "./diff";
 import { buildQualityReport } from "./quality";
 import { collect } from "./steps/collect";
 import { dedupeRun } from "./steps/dedupe";
@@ -34,6 +35,16 @@ export async function executeWorkflow(ctx: RunContext): Promise<void> {
   ctx.emit({ stage: "deduplicating", type: "dedupe.completed", message: `${duplicates} duplicate records merged` });
 
   await buildQualityReport(ctx);
+  const diff = await buildRunDiff(ctx);
+  if (diff.previousRunId) {
+    const c = diff.counts;
+    ctx.emit({
+      stage: "done",
+      type: "diff.completed",
+      message: `Since the previous run: ${c.added} new, ${c.removed} gone, ${c.changed} changed, ${c.unchanged} unchanged`,
+      data: c,
+    });
+  }
   const m = ctx.metrics.snapshot();
   ctx.emit({
     stage: "done",

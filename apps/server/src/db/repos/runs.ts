@@ -197,3 +197,10 @@ export async function getQualityReport(runId: string) {
   if (!row.report) throw notFound("Quality report (the run has not finished)");
   return row.report;
 }
+
+export async function getRunDiff(runId: string) {
+  const [row] = await db.select({ diff: runs.diff }).from(runs).where(eq(runs.id, runId));
+  if (!row) throw notFound("Run");
+  if (!row.diff) throw notFound("Run diff (the run has not finished)");
+  return row.diff;
+}
