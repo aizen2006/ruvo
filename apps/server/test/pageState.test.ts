@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { siteOwner } from "../src/page/siteOwner";
 import { readFileSync } from "node:fs";
 import { toPageState } from "../src/page/pageState";
 import { isGeneratedClass } from "../src/page/selectors";
@@ -58,5 +59,16 @@ describe("isGeneratedClass", () => {
     ["list-item", false],
   ])("%s → %p", (name, generated) => {
     expect(isGeneratedClass(name)).toBe(generated);
+  });
+});
+
+describe("siteOwner", () => {
+  test.each([
+    ['<meta property="og:site_name" content="Acme"><h1>Open roles</h1>', "Acme"],
+    ["<title>Careers</title><h1>Northwind Labs</h1>", "Northwind Labs"],
+    ["<title>Globex | Careers</title><h1>We are hiring people who love building things</h1>", "Globex"],
+    ["<title>Jobs</title><h1>Careers</h1>", null],
+  ])("%s → %s", (html, name) => {
+    expect(siteOwner(html)?.name ?? null).toBe(name);
   });
 });

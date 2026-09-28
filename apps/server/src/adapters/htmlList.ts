@@ -2,6 +2,7 @@ import type { FieldSpec, Recipe } from "@repo/contracts";
 import { z } from "zod";
 import type { FetchResult } from "../fetch/fetcher";
 import { toPageState } from "../page/pageState";
+import { siteOwner } from "../page/siteOwner";
 import { discoverRecipe } from "../recipes/discover";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
 import { findActiveRecipe, recordRecipeUse } from "../recipes/store";
@@ -48,8 +49,13 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
       });
     }
 
-    // A company's own board doesn't repeat the company name per item; the registry supplies it.
-    const fields = run.contract.fields.filter((f) => LIST_FIELDS.has(f.catalogKey) && !(company && f.catalogKey === "company"));
+    // A company's own board doesn't repeat the company name per item. The registry supplies it;
+    // for a linked page it is read from the page itself, and a recipe need not find it per item.
+    const owner = company ? { name: company, basis: new URL(url).host, rule: "registry board owner" } : pageOwner(page.body);
+    const fields = run.contract.fields
+      .filter((f) => LIST_FIELDS.has(f.catalogKey) && !(company && f.catalogKey === "company"))
+      .map((f) => (owner && f.catalogKey === "company" ? { ...f, required: false } : f));
+    const companyKey = run.contract.fields.find((f) => f.catalogKey === "company")?.name;
     const refetch = async (mode: "http" | "browser"): Promise<FetchedPage> => {
       const again = await fetcher.fetch(scope, { url, expect: "html", purpose: "list page (retry)", mode, fresh: true });
       return toFetched(again);
@@ -73,7 +79,9 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
           ]),
         ),
       );
-      if (!values.company && company) values.company = derived(company, new URL(url).host, "registry board owner", sourceUrl, read.page.pageId)!;
+      if (companyKey && !values[companyKey] && owner) {
+        values[companyKey] = derived(owner.name, owner.basis, owner.rule, sourceUrl, read.page.pageId)!;
+      }
       return {
         externalId: row[fields.find((f) => f.catalogKey === "url")?.name ?? "url"] ?? `${url}#${i}`,
         fields: values,
@@ -162,3 +170,9 @@ const averageFill = (r: ReplayResult) => {
 };
 
 const toFetched = (r: FetchResult): FetchedPage => ({ html: r.body, url: r.url, finalUrl: r.finalUrl, pageId: r.pageId, via: r.via });
+
+/** The organization a linked page belongs to, as a derived company value. */
+function pageOwner(html: string) {
+  const found = siteOwner(html);
+  return found && { name: found.name, basis: found.basis, rule: "organization named by the page" };
+}

@@ -210,3 +210,12 @@ describe("simulated drift", () => {
     expect((await api.post(`/api/recipes/${crypto.randomUUID()}/simulate-drift`, { mode: "major" })).status).toBe(404);
   });
 });
+
+describe("linked pages", () => {
+  test("the company comes from the page when the registry does not supply it", async () => {
+    const llm = fakeLlm({ recipe: V1_RECIPE });
+    const { ctx } = run(llm);
+    const [item] = await htmlList.collect({ fetcher: pages({ http: careersPage(1) }), scope: ctx, run: ctx }, { url: URL_, tags: [] });
+    expect(item!.fields.company).toMatchObject({ value: "Northwind Labs", evidence: { method: "DERIVED", snippet: "<h1>Northwind Labs</h1>" } });
+  });
+});
