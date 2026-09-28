@@ -56,13 +56,15 @@ export const llmRung: ExtractorRung = {
       const field = fields.find((f) => f.name === extracted.name);
       if (!field || !extracted.value || !extracted.quote) continue;
       const span = verifyQuote(extracted.quote, input.text);
-      if (!span) {
+      // The quote must be on the page, and must actually say the value (not just mention the topic).
+      const problem = !span ? "its quote was not found in the source" : !quoteSupports(field, extracted.value, extracted.quote) ? "its quote does not state that value" : null;
+      if (problem || !span) {
         ctx.emit({
           stage: "extracting",
           type: "extract.unverified",
           level: "warn",
-          message: `Discarded an AI-extracted ${field.name}: its quote was not found in the source`,
-          data: { field: field.name, quote: truncate(extracted.quote, 120), sourceUrl: input.sourceUrl },
+          message: `Discarded an AI-extracted ${field.name}: ${problem}`,
+          data: { field: field.name, value: truncate(extracted.value, 120), quote: truncate(extracted.quote, 120), sourceUrl: input.sourceUrl },
         });
         continue;
       }
@@ -81,6 +83,25 @@ export const llmRung: ExtractorRung = {
     return out;
   },
 };
+
+/**
+ * Whether the quoted text states the value. Arrangement and salary are compared after parsing
+ * both sides ("fully remote" supports "remote"; "$250k-$300k" supports "250,000–300,000");
+ * other values must have every word of the value in the quote.
+ */
+export function quoteSupports(field: FieldSpec, value: string, quote: string): boolean {
+  if (field.catalogKey === "remote") {
+    const stated = detectArrangement(quote);
+    return stated !== null && stated === (detectArrangement(value) ?? value.trim().toLowerCase());
+  }
+  if (field.catalogKey === "salary") {
+    const [fromValue, fromQuote] = [parseSalary(value), parseSalary(quote)];
+    return fromValue !== null && fromQuote !== null && fromValue.min === fromQuote.min && fromValue.max === fromQuote.max;
+  }
+  const words = (s: string) => s.toLowerCase().replace(/(\d),(\d)/g, "$1$2").match(/[\p{L}\p{N}]+/gu) ?? [];
+  const quoted = new Set(words(quote));
+  return words(value).every((w) => quoted.has(w));
+}
 
 /** Puts model output into the same shape the deterministic parsers produce. */
 function normalizeValue(field: FieldSpec, value: string): string {

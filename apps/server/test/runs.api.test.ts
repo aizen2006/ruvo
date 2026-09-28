@@ -63,6 +63,13 @@ describe("runs API", () => {
     expect(second.body.runId).toBe(first.body.runId);
   });
 
+  test("concurrent requests with one idempotency key create one run", async () => {
+    const headers = { "Idempotency-Key": "race-1" };
+    const responses = await Promise.all(Array.from({ length: 5 }, () => api.post("/api/runs", { prompt }, headers)));
+    expect(responses.every((r) => r.status === 201)).toBe(true);
+    expect(new Set(responses.map((r) => r.body.runId)).size).toBe(1);
+  });
+
   test("start only works from awaiting_approval", async () => {
     const run = await insertRun({ status: "awaiting_approval" });
     expect((await api.post(`/api/runs/${run.id}/start`)).body.status).toBe("queued_run");

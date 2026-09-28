@@ -50,7 +50,7 @@ export interface Decider {
   decideMany<L extends string>(scope: DecisionScope, requests: DecisionRequest<L>[]): Promise<Decision<L>[]>;
 }
 
-const JUDGE_BATCH = 20;
+export const JUDGE_BATCH = 20;
 const JUDGE_PROMPT = `You classify items. Each item has a question, the allowed labels and the item's data.
 For every item return its id, exactly one allowed label, and your confidence from 0 to 1.
 Judge only from the data given; if it is insufficient, pick the most likely label with low confidence.`;

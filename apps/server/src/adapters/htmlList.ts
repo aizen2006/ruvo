@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { FetchResult } from "../fetch/fetcher";
 import { toPageState } from "../page/pageState";
 import { siteOwner } from "../page/siteOwner";
-import { discoverRecipe } from "../recipes/discover";
+import { acceptanceFor, discoverRecipe } from "../recipes/discover";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
 import { findActiveRecipe, recordRecipeUse } from "../recipes/store";
 import { repairRecipe, type FetchedPage, type RepairInput } from "../repair/repairRecipe";
@@ -92,10 +92,6 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
   },
 };
 
-/**
- * Replays the active recipe. When it no longer fits the page, the repair policy fixes it
- * (refetch, local selector repair or LLM rediscovery); with no recipe yet, one is discovered.
- */
 /** The recipe that read the page, its rows, and the page it read (a repair may have refetched it). */
 interface RecipeRead {
   recipe: Recipe;
@@ -103,11 +99,31 @@ interface RecipeRead {
   page: FetchedPage;
 }
 
+/**
+ * Replays the active recipe. When it no longer fits the page, the repair policy fixes it
+ * (refetch, local selector repair or LLM rediscovery); with no recipe yet, or one recorded for
+ * other columns, a recipe is discovered for this request's fields.
+ */
 async function readWithRecipe(run: RunContext, page: FetchedPage, fields: FieldSpec[], refetch: RepairInput["refetch"]): Promise<RecipeRead> {
   const { html, url } = page;
   const host = new URL(url).host;
   const existing = await findActiveRecipe(url);
   if (!existing) return discoverOrThrow(run, page, fields);
+
+  // Recipes are keyed by page, not by request: one recorded for other columns cannot read the
+  // fields this request needs. (Optional fields the page does not show are fine to leave out.)
+  const needed = Object.keys(acceptanceFor(fields).minFill);
+  const uncovered = fields.filter((f) => needed.includes(f.name) && !existing.def.fields.some((r) => r.name === f.name));
+  if (uncovered.length) {
+    const names = uncovered.map((f) => f.name).join(", ");
+    run.emit({
+      stage: "extracting",
+      type: "recipe.extended",
+      message: `${host}: recipe v${existing.version} does not read ${names}; recording one for this request's columns`,
+      data: { recipeId: existing.id, uncovered: uncovered.map((f) => f.name) },
+    });
+    return discoverOrThrow(run, page, fields, existing, `The previous recipe does not read these fields: ${names}`);
+  }
 
   const result = replayRecipe(html, url, existing.def);
   const failure = acceptanceFailure(result, existing.acceptance);
@@ -134,10 +150,10 @@ async function readWithRecipe(run: RunContext, page: FetchedPage, fields: FieldS
   return repaired;
 }
 
-async function discoverOrThrow(run: RunContext, page: FetchedPage, fields: FieldSpec[]): Promise<RecipeRead> {
+async function discoverOrThrow(run: RunContext, page: FetchedPage, fields: FieldSpec[], parent: Recipe | null = null, failureReport?: string): Promise<RecipeRead> {
   const { html, url } = page;
   const host = new URL(url).host;
-  const discovered = await discoverRecipe(run, { html, url, state: toPageState(html, url) }, fields, { origin: "llm_discovery" });
+  const discovered = await discoverRecipe(run, { html, url, state: toPageState(html, url) }, fields, { origin: "llm_discovery", parent, failureReport });
   if (!discovered) throw new Error(`Could not find a reliable way to read ${host}`);
   run.emit({
     stage: "extracting",

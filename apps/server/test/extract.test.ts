@@ -4,7 +4,7 @@ import { hnWhoIsHiring } from "../src/adapters/hn";
 import { toCandidate } from "../src/execute/candidate";
 import { extractText } from "../src/execute/steps/extractText";
 import { runLadder } from "../src/extract/ladder";
-import { llmRung } from "../src/extract/rungs/llm";
+import { llmRung, quoteSupports } from "../src/extract/rungs/llm";
 import { regexRung } from "../src/extract/rungs/regex";
 import { verifyQuote } from "../src/extract/verifyQuote";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
@@ -110,5 +110,20 @@ describe("extract_text step", () => {
     expect(newlyTitled).toHaveLength(2);
     expect(unparsed.length).toBeGreaterThan(2);
     expect(events.at(-1)?.type).toBe("extract.completed");
+  });
+});
+
+describe("quoteSupports", () => {
+  const field = (catalogKey: FieldSpec["catalogKey"]) => ({ name: catalogKey, catalogKey, type: "string", required: false, description: "" }) as FieldSpec;
+
+  test.each([
+    ["salary", "$250,000 - $300,000", "The base salary range is $250,000–$300,000 per year.", true],
+    ["salary", "$250,000", "We offer a competitive salary.", false],
+    ["remote", "remote", "This role is fully remote within the US.", true],
+    ["remote", "remote", "You will work from our Berlin office.", false],
+    ["location", "Berlin, Germany", "Based in Berlin, Germany or remote.", true],
+    ["location", "Paris", "Based in Berlin, Germany.", false],
+  ] as const)("%s %p in %p → %p", (key, value, quote, supported) => {
+    expect(quoteSupports(field(key), value, quote)).toBe(supported);
   });
 });

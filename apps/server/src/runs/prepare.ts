@@ -84,7 +84,8 @@ export const createPreparer = ({ llm, memory }: { llm: LlmClient; memory?: Workf
       data: { plannedBy: ir.provenance.plannedBy, warnings: ir.provenance.warnings },
     });
 
-    return run.autoStart ? "queued_run" : "awaiting_approval";
+    // With nothing to collect from, even an auto-started run stops for review so the user can add a page.
+    return run.autoStart && ir.sources.length > 0 ? "queued_run" : "awaiting_approval";
   } finally {
     await bus.close();
   }

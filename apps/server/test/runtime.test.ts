@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client";
 import { runEvents } from "../src/db/schema";
-import { createBudget } from "../src/runs/budget";
+import { createBudget, withCap } from "../src/runs/budget";
 import { createEventBus, nextEventSeq, type EventRow } from "../src/runs/eventBus";
 import { createMetrics } from "../src/runs/metrics";
 import { insertRun, resetDb } from "./helpers/db";
@@ -102,5 +102,16 @@ describe("event bus", () => {
       [1, "attempt 1"],
       [2, "attempt 2"],
     ]);
+  });
+});
+
+describe("withCap", () => {
+  test("limits one step's spending while drawing from the run's budget", () => {
+    const run = createBudget({ ...limits, maxLlmCalls: 5 });
+    const step = withCap(run, "llmCalls", 2);
+    expect([step.take("llmCalls"), step.take("llmCalls"), step.take("llmCalls")]).toEqual([true, true, false]);
+    expect(step.left("llmCalls")).toBe(0);
+    expect(run.left("llmCalls")).toBe(3);
+    expect(step.take("pages")).toBe(true);
   });
 });

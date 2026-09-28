@@ -1,5 +1,6 @@
 import type { AdapterId, DatasetContract } from "@repo/contracts";
 import { registeredAdapters } from "../adapters";
+import { nameSlugs } from "./slugs";
 import type { RegistryCompany } from "./registry";
 
 /** A source the planner may choose. `ref` is the stable id plans refer to. */
@@ -37,7 +38,8 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
 
   const named = hints.companies.map((name) => ({
     name,
-    match: companies.find((c) => normalize(c.name) === normalize(name) || normalize(c.slug) === normalize(name)),
+    // "OpenAI Inc" still matches the registry's OpenAI (slug "openai").
+    match: companies.find((c) => normalize(c.name) === normalize(name) || normalize(c.slug) === normalize(name) || nameSlugs(name).includes(c.slug)),
   }));
   const wantedTags = new Set([
     ...hints.companyTags,

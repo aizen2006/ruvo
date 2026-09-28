@@ -54,16 +54,35 @@ function toSummary(row: SummaryRow): RunSummary {
  * the run created the first time instead of creating a duplicate.
  */
 export async function createRun(input: { prompt: string; autoStart: boolean; idempotencyKey?: string }) {
-  if (input.idempotencyKey) {
-    const [existing] = await db
-      .select({ runId: runs.id, status: runs.status })
-      .from(requests)
-      .innerJoin(runs, eq(runs.requestId, requests.id))
-      .where(eq(requests.idempotencyKey, input.idempotencyKey))
-      .limit(1);
-    if (existing) return existing;
-  }
+  const key = input.idempotencyKey;
+  const existing = key ? await runForKey(key) : null;
+  if (existing) return existing;
 
+  try {
+    return await insertRun(input);
+  } catch (err) {
+    // Two identical requests raced past the lookup; the unique key let only one insert through.
+    const raced = key && isUniqueViolation(err) ? await runForKey(key) : null;
+    if (raced) return raced;
+    throw err;
+  }
+}
+
+async function runForKey(key: string) {
+  const [row] = await db
+    .select({ runId: runs.id, status: runs.status })
+    .from(requests)
+    .innerJoin(runs, eq(runs.requestId, requests.id))
+    .where(eq(requests.idempotencyKey, key))
+    .limit(1);
+  return row ?? null;
+}
+
+/** Postgres unique_violation, whether or not the driver error is wrapped. */
+const isUniqueViolation = (err: unknown): boolean =>
+  (err as { code?: string })?.code === "23505" || (err as { cause?: { code?: string } })?.cause?.code === "23505";
+
+function insertRun(input: { prompt: string; autoStart: boolean; idempotencyKey?: string }) {
   return db.transaction(async (tx) => {
     const [request] = await tx
       .insert(requests)

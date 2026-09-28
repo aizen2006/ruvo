@@ -33,7 +33,6 @@ const EnvSchema = z.object({
   DECIDER_MODE: z.enum(["off", "shadow", "active"]).default("active"),
 
   WORKER_INLINE: flag,
-  BROWSER_MODE: z.enum(["native", "sidecar", "spawn"]).default("native"),
   FETCH_CACHE_MODE: z.enum(["off", "ttl", "prefer_cache", "cache_only"]).default("ttl"),
   USER_AGENT: z.string().default("RUVO/0.1 (+https://github.com/aizen2006/ruvo)"),
 

@@ -1,5 +1,6 @@
 import { thresholdsFor } from "../../decide/calibration";
-import { noulBand, type DecisionRequest } from "../../decide/decider";
+import { JUDGE_BATCH, noulBand, type DecisionRequest } from "../../decide/decider";
+import { withCap } from "../../runs/budget";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
 import { compileKeywords } from "../keywords";
@@ -13,7 +14,7 @@ type Label = "yes" | "no" | "unknown";
  * keywords; the rest go to the decision layer. Irrelevant posts are dropped; the others
  * carry their verdict so extraction handles the most relevant first.
  */
-export const triage: StepFn<"triage"> = async (ctx, branch, _step, input) => {
+export const triage: StepFn<"triage"> = async (ctx, branch, step, input) => {
   const roleKeywords = compileKeywords(
     ctx.contract.criteria.filter((c) => c.kind === "keyword_any" && c.strength === "hard").flatMap((c) => c.values),
   );
@@ -37,7 +38,10 @@ export const triage: StepFn<"triage"> = async (ctx, branch, _step, input) => {
       defaultLabel: "unknown",
     }),
   );
-  const verdicts = await ctx.decider.decideMany(ctx, requests);
+  // The step's allowance (posts the LLM may judge) caps judge calls, so a long thread cannot
+  // spend the whole run's budget; posts beyond it stay "unknown".
+  const judgeCalls = Math.ceil(step.llmBudget / JUDGE_BATCH);
+  const verdicts = await ctx.decider.decideMany({ ...ctx, budget: withCap(ctx.budget, "llmCalls", judgeCalls) }, requests);
 
   const kept: Candidate[] = [];
   input.forEach((c, i) => {

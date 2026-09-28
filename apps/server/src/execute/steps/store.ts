@@ -11,7 +11,9 @@ import type { StepFn } from "./types";
  * Persists candidates as records with one evidence row per field. Upserts on
  * (run, item key) and replaces evidence, so a re-attempted run converges to the same rows.
  */
-export const store: StepFn<"store"> = async (ctx, _branch, _step, input) => {
+export const store: StepFn<"store"> = async (ctx, _branch, _step, candidates) => {
+  // A page can list the same item twice (e.g. a "featured" block); one upsert may not touch a row twice.
+  const input = [...new Map(candidates.map((c) => [c.key, c])).values()];
   if (input.length === 0) return input;
   const fields = ctx.contract.fields;
 

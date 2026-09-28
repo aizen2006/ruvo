@@ -3,22 +3,15 @@ import { ATS_LIST } from "../adapters/ats";
 import { db } from "../db/client";
 import { registryCompanies } from "../db/schema";
 import { probeBoard, type ProbeHit } from "./atsProbe";
+import { slugVariants } from "./slugs";
+
+export { nameSlugs, slugVariants } from "./slugs";
 
 /**
  * Finds public ATS boards for companies the user named that are not in the registry,
  * by probing likely board slugs on every supported ATS. Detected boards join the registry
  * (origin auto_detected, no tags), so discovery can use them and later runs skip the probe.
  */
-
-const SUFFIXES = /\b(inc|llc|ltd|corp|co|labs?|technologies|technology|hq|ai)\b\.?/g;
-
-/** Likely board slugs for a company name, most likely first: "Scale AI" → scaleai, scale-ai, scale. */
-export function slugVariants(name: string): string[] {
-  const words = name.toLowerCase().replace(/[^a-z0-9\s-]/g, " ").split(/\s+/).filter(Boolean);
-  const core = name.toLowerCase().replace(SUFFIXES, " ").replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
-  const variants = [words.join(""), words.join("-"), core.join(""), core.join("-"), core[0] ?? ""];
-  return [...new Set(variants.filter((v) => v.length >= 2))];
-}
 
 type Probe = typeof probeBoard;
 
@@ -42,11 +35,13 @@ export async function autoDetectCompanies(names: string[], opts: { userAgent: st
       if (hit) found.push({ name, hit });
     }),
   );
-  if (found.length) {
+  // Two names can lead to one board ("Acme", "Acme Inc"); one upsert may not touch a row twice.
+  const boards = [...new Map(found.map((f) => [`${f.hit.ats}:${f.hit.slug}`, f])).values()];
+  if (boards.length) {
     await db
       .insert(registryCompanies)
       .values(
-        found.map(({ name, hit }) => ({
+        boards.map(({ name, hit }) => ({
           name,
           ats: hit.ats,
           slug: hit.slug,

@@ -219,3 +219,18 @@ describe("linked pages", () => {
     expect(item!.fields.company).toMatchObject({ value: "Northwind Labs", evidence: { method: "DERIVED", snippet: "<h1>Northwind Labs</h1>" } });
   });
 });
+
+describe("recipes recorded for other columns", () => {
+  test("are not replayed when they miss a field this request requires", async () => {
+    // Recorded for a request that only wanted titles and links.
+    const narrow = await saveV1({ ...V1_RECIPE, fields: V1_RECIPE.fields.filter((f) => f.name !== "location") });
+    const llm = fakeLlm({ recipe: V1_RECIPE });
+    const { ctx, events } = run(llm);
+    const items = await collect(ctx, pages({ http: careersPage(1) }));
+
+    expect(events.map((e) => e.type)).toEqual(["recipe.extended", "recipe.discovered"]);
+    expect(items[0]!.fields.location?.value).toBe("Remote (EU)");
+    const [latest] = await listRecipes();
+    expect(latest).toMatchObject({ version: 2, parentId: narrow.id });
+  });
+});
