@@ -61,9 +61,13 @@ describe("discoverSources", () => {
     expect(discoverSources(contractWith({}, []), registry).candidates.map((c) => c.ref)).not.toContain("hn_whoishiring:latest");
   });
 
-  test("user-supplied URLs become list-page sources", () => {
-    const result = discoverSources(contractWith({ urls: ["https://example.com/jobs"] }, []), registry);
-    expect(result.candidates.find((c) => c.adapter === "html_list")).toMatchObject({ params: { url: "https://example.com/jobs" }, origin: "user_url" });
+  test("user-supplied URLs become list-page sources, and the only ones unless companies are named", () => {
+    const result = discoverSources(contractWith({ urls: ["https://example.com/jobs"], companyTags: ["ai_lab"] }, []), registry);
+    expect(result.candidates).toHaveLength(1);
+    expect(result.candidates[0]).toMatchObject({ label: "example.com", params: { url: "https://example.com/jobs" }, origin: "user_url" });
+
+    const named = discoverSources(contractWith({ urls: ["https://example.com/jobs"], companies: ["Anthropic"] }, []), registry);
+    expect(named.candidates.map((c) => c.origin)).toEqual(["user_url", "registry"]);
   });
 
   test("registry companies with a board page are collected from it", () => {

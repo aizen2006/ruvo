@@ -24,8 +24,9 @@ export interface Discovery {
 const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 /**
- * Chooses candidate sources for a contract from the registry:
- * named companies first; otherwise companies carrying the requested tags; otherwise all.
+ * Chooses candidate sources for a contract: pages the user linked come first, then registry
+ * companies (the named ones; otherwise, unless the user linked pages, companies carrying the
+ * requested tags, or all of them).
  * Only adapters that are implemented are offered, so plans never reference missing code.
  */
 export function discoverSources(contract: DatasetContract, registry: RegistryCompany[]): Discovery {
@@ -46,6 +47,9 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   let selected: Array<{ company: RegistryCompany; reason: string }>;
   if (named.some((n) => n.match)) {
     selected = named.filter((n) => n.match).map((n) => ({ company: n.match!, reason: `Named in the request` }));
+  } else if (hints.urls.length > 0) {
+    // "Jobs listed on <url>" means that page; adding the registry would only dilute it.
+    selected = [];
   } else if (wantedTags.size > 0) {
     selected = companies
       .filter((c) => c.tags.some((t) => wantedTags.has(t)))
@@ -54,9 +58,24 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
     selected = companies.map((c) => ({ company: c, reason: "Curated registry company" }));
   }
 
-  const candidates: SourceCandidate[] = selected
-    .filter(({ company }) => available.has(company.boardUrl ? "html_list" : company.ats))
-    .map(({ company, reason }) => registryCandidate(company, reason));
+  // Linked pages first, so they are planned (and run) before budgets are spent elsewhere.
+  const candidates: SourceCandidate[] = available.has("html_list")
+    ? hints.urls.map((url) => ({
+        ref: `html_list:${url}`,
+        adapter: "html_list" as const,
+        label: new URL(url).host,
+        params: { url },
+        tags: [],
+        jobCount: null,
+        reason: "URL supplied by the user",
+        origin: "user_url" as const,
+      }))
+    : [];
+  candidates.push(
+    ...selected
+      .filter(({ company }) => available.has(company.boardUrl ? "html_list" : company.ats))
+      .map(({ company, reason }) => registryCandidate(company, reason)),
+  );
 
   if (hints.includeCommunityBoards && available.has("hn_whoishiring")) {
     candidates.push({
@@ -70,21 +89,6 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
       origin: "community",
     });
   }
-  if (available.has("html_list")) {
-    for (const url of hints.urls) {
-      candidates.push({
-        ref: `html_list:${url}`,
-        adapter: "html_list",
-        label: new URL(url).hostname,
-        params: { url },
-        tags: [],
-        jobCount: null,
-        reason: "URL supplied by the user",
-        origin: "user_url",
-      });
-    }
-  }
-
   return { candidates, unmatchedCompanies: named.filter((n) => !n.match).map((n) => n.name) };
 }
 
