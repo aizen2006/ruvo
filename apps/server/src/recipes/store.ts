@@ -2,6 +2,7 @@ import type { Recipe } from "@repo/contracts";
 import { and, desc, eq, max, sql } from "drizzle-orm";
 import { db } from "../db/client";
 import { recipes } from "../db/schema";
+import { notFound } from "../libs/errors";
 
 type RecipeRow = typeof recipes.$inferSelect;
 
@@ -28,6 +29,7 @@ export const toRecipe = (row: RecipeRow): Recipe => ({
   def: row.def,
   acceptance: row.acceptance,
   stats: row.stats,
+  createdAt: row.createdAt.toISOString(),
 });
 
 /** The newest active recipe for pages like `url`, if one has been recorded. */
@@ -43,7 +45,7 @@ export async function findActiveRecipe(url: string, pageType: Recipe["pageType"]
 }
 
 /** Records a new version; earlier active versions of the same pattern are retired. */
-export async function saveRecipe(input: Omit<Recipe, "id" | "version" | "status" | "stats">): Promise<Recipe> {
+export async function saveRecipe(input: Omit<Recipe, "id" | "version" | "status" | "stats" | "createdAt">): Promise<Recipe> {
   return db.transaction(async (tx) => {
     const [latest] = await tx
       .select({ version: max(recipes.version) })
@@ -75,7 +77,18 @@ export async function recordRecipeUse(id: string, outcome: { ok: boolean; fill: 
     .where(eq(recipes.id, id));
 }
 
-export async function listRecipes(): Promise<Recipe[]> {
-  const rows = await db.select().from(recipes).orderBy(recipes.host, desc(recipes.version));
+/** Every recipe version, newest first; optionally only those for one host. */
+export async function listRecipes(host?: string): Promise<Recipe[]> {
+  const rows = await db
+    .select()
+    .from(recipes)
+    .where(host ? eq(recipes.host, host) : undefined)
+    .orderBy(recipes.host, recipes.urlPattern, desc(recipes.version));
   return rows.map(toRecipe);
+}
+
+export async function getRecipe(id: string): Promise<Recipe> {
+  const [row] = await db.select().from(recipes).where(eq(recipes.id, id));
+  if (!row) throw notFound("Recipe");
+  return toRecipe(row);
 }

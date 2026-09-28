@@ -32,5 +32,12 @@ export const Recipe = z.object({
   def: RecipeDef,
   acceptance: z.object({ minItems: z.number(), minFill: z.record(z.string(), z.number()) }),
   stats: z.object({ uses: z.number(), failures: z.number(), lastFill: z.number().nullable() }),
+  createdAt: z.string(),
 });
 export type Recipe = z.infer<typeof Recipe>;
+
+export const ListRecipesQuery = z.object({ host: z.string().optional() });
+
+/** Records a deliberately broken recipe version to demonstrate self-repair. */
+export const SimulateDriftRequest = z.object({ mode: z.enum(["minor", "major"]).default("major") });
+export type SimulateDriftRequest = z.infer<typeof SimulateDriftRequest>;

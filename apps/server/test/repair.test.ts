@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import type { RecipeDef } from "@repo/contracts";
 import { htmlList } from "../src/adapters/htmlList";
 import { getRunWorkflow, attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
@@ -18,6 +18,8 @@ import { recordRepairs } from "../src/runs/pipeline";
 import type { RunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { fakeLlm } from "./helpers/fakeLlm";
+import { startTestServer } from "./helpers/http";
+import { driftRecipe } from "../src/repair/drift";
 
 beforeEach(resetDb);
 
@@ -173,5 +175,38 @@ describe("repaired workflow version", () => {
     expect(wf.ir.provenance.warnings.at(-1)).toContain("Repaired recipe for localhost:3000: v1 → v2 (local selector fix)");
     expect(wf.versions.map((v) => v.plannedBy)).toEqual(["repair", "template"]);
     expect(events.map((e) => e.type)).toEqual(["workflow.repaired"]);
+  });
+});
+
+describe("simulated drift", () => {
+  const api = startTestServer();
+  afterAll(() => api.close());
+
+  test("minor drift only renames the item wrapper; major drift stales every selector", () => {
+    expect(driftRecipe(V1_RECIPE, "minor")).toEqual({ ...V1_RECIPE, itemSelector: "div.job-card.ruvo-drift" });
+    const major = driftRecipe(V1_RECIPE, "major");
+    expect(major.fields.map((f) => f.selector)).toEqual(["h3.job-title.ruvo-drift", "h3.job-title a.ruvo-drift", ".job-location.ruvo-drift"]);
+  });
+
+  test("records a simulated_drift version, and the next read repairs it", async () => {
+    const v1 = await saveV1();
+    const { status, body } = await api.post(`/api/recipes/${v1.id}/simulate-drift`, { mode: "minor" });
+    expect(status).toBe(201);
+    expect(body).toMatchObject({ version: 2, status: "active", origin: "simulated_drift", parentId: v1.id });
+
+    const listed = await api.get("/api/recipes?host=localhost:3000");
+    expect(listed.body.map((r: { version: number; status: string }) => [r.version, r.status])).toEqual([
+      [2, "active"],
+      [1, "retired"],
+    ]);
+
+    const { ctx } = run();
+    expect(await collect(ctx, pages({ http: careersPage(1) }))).toHaveLength(8);
+    const [v3] = await listRecipes();
+    expect(v3).toMatchObject({ version: 3, origin: "local_repair", parentId: body.id });
+  });
+
+  test("unknown recipes are 404", async () => {
+    expect((await api.post(`/api/recipes/${crypto.randomUUID()}/simulate-drift`, { mode: "major" })).status).toBe(404);
   });
 });
