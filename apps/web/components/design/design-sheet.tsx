@@ -20,7 +20,7 @@ const COLOURS: Array<[token: string, hex: string, role: string]> = [
   ["sheet", "#FFFFFF", "Surfaces: composer, table, drawers"],
   ["ink", "#16202A", "Text, primary buttons, focus"],
   ["graphite", "#4A5761", "Secondary text"],
-  ["pencil", "#6E7A84", "Placeholders, micro text on sheet"],
+  ["pencil", "#646F79", "Placeholders, hints, inactive labels"],
   ["hairline", "#DCE2E6", "Rules and borders"],
   ["highlighter", "#FFE45C", "Found, proven, chosen, progress"],
   ["highlighter-wash", "#FFF6C7", "Soft highlight, focus halo"],

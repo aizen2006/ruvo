@@ -14,7 +14,7 @@
   --color-sheet: #ffffff;
   --color-ink: #16202a;
   --color-graphite: #4a5761;
-  --color-pencil: #6e7a84; /* placeholders and micro text, on sheet only */
+  --color-pencil: #646f79; /* placeholders, hints and inactive labels */
   --color-hairline: #dce2e6;
   --color-hairline-strong: #c5ced4;
 

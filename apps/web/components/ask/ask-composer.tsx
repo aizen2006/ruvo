@@ -73,7 +73,7 @@ export function AskComposer() {
           What do you want a list of?
         </label>
 
-        <div className="rounded-panel border border-hairline-strong bg-sheet transition-colors focus-within:border-ink">
+        <div className="rounded-panel border border-hairline-strong bg-sheet transition-colors focus-within:border-ink focus-within:ring-4 focus-within:ring-highlighter-wash">
           <textarea
             id="prompt"
             value={prompt}

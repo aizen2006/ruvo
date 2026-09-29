@@ -2,7 +2,7 @@
 
 import type { DatasetContract, RecordDTO, RunDetail } from "@repo/contracts";
 import { ExternalLink, Search } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { columnTitle } from "@/components/plan/column-chips";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,11 @@ export function DataTable({ run }: { run: RunDetail }) {
   const [source, setSource] = useState(ANY);
   const [page, setPage] = useState(1);
   const [openRecord, setOpenRecord] = useState<string | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
+  const open = (id: string, from: HTMLElement) => {
+    opener.current = from;
+    setOpenRecord(id);
+  };
 
   const filters: RecordFilters = {
     q: useDebounced(search) || undefined,
@@ -183,8 +188,13 @@ export function DataTable({ run }: { run: RunDetail }) {
                   key={record.id}
                   tabIndex={0}
                   aria-label={`Open the receipt for ${cellText(record.data[primary?.name ?? ""])}`}
-                  onClick={() => setOpenRecord(record.id)}
-                  onKeyDown={(e) => e.key === "Enter" && setOpenRecord(record.id)}
+                  onClick={(e) => open(record.id, e.currentTarget)}
+                  onKeyDown={(e) => {
+                    if (e.key !== "Enter" && e.key !== " ") return;
+                    // Otherwise the same key press also activates the receipt's Close button once it takes focus.
+                    e.preventDefault();
+                    open(record.id, e.currentTarget);
+                  }}
                   className="cursor-pointer hover:bg-highlighter-wash/60 focus-visible:bg-highlighter-wash/60"
                 >
                   {columns.map((f) => (
@@ -216,7 +226,7 @@ export function DataTable({ run }: { run: RunDetail }) {
         <ul className="divide-y divide-hairline sm:hidden">
           {data?.items.map((record) => (
             <li key={record.id}>
-              <button type="button" onClick={() => setOpenRecord(record.id)} className="w-full space-y-1 px-item py-3 text-left">
+              <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-item py-3 text-left">
                 <span className="flex items-start justify-between gap-tight">
                   <span className="font-medium">{cellText(record.data[primary?.name ?? ""])}</span>
                   <CertaintyMark confidence={record.confidence} />
@@ -270,7 +280,7 @@ export function DataTable({ run }: { run: RunDetail }) {
         </div>
       )}
 
-      <ReceiptDrawer runId={run.id} recordId={openRecord} contract={contract} onClose={() => setOpenRecord(null)} />
+      <ReceiptDrawer runId={run.id} recordId={openRecord} contract={contract} onClose={() => setOpenRecord(null)} returnFocusTo={opener.current} />
     </section>
   );
 }

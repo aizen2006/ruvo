@@ -89,11 +89,14 @@ export function ReceiptDrawer({
   recordId,
   contract,
   onClose,
+  returnFocusTo,
 }: {
   runId: string;
   recordId: string | null;
   contract: DatasetContract;
   onClose: () => void;
+  /** The row that opened the receipt; it opens without a Radix trigger, so focus is returned by hand. */
+  returnFocusTo?: HTMLElement | null;
 }) {
   const { data, isLoading, error } = useEvidence(runId, recordId);
   const record = data?.record;
@@ -105,7 +108,13 @@ export function ReceiptDrawer({
 
   return (
     <Sheet open={recordId !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent title={title} description={company ? `${company}. Where each value came from.` : "Where each value came from."}>
+      <SheetContent
+        onCloseAutoFocus={(e) => {
+          if (!returnFocusTo) return;
+          e.preventDefault();
+          returnFocusTo.focus();
+        }}
+        title={title} description={company ? `${company}. Where each value came from.` : "Where each value came from."}>
         {isLoading && (
           <div className="space-y-item">
             <Skeleton className="h-6 w-1/2" />

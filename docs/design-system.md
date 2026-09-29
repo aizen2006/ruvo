@@ -29,7 +29,7 @@ component on one page.
 | `sheet` | `#FFFFFF` | Surfaces: composer, table, drawers |
 | `ink` | `#16202A` | Text, primary buttons, focus outline |
 | `graphite` | `#4A5761` | Secondary text |
-| `pencil` | `#6E7A84` | Placeholders and micro text, on `sheet` only |
+| `pencil` | `#646F79` | Placeholders, hints, inactive labels |
 | `hairline` / `hairline-strong` | `#DCE2E6` / `#C5CED4` | Rules, borders, control outlines |
 | `highlighter` | `#FFE45C` | The signature: evidence quotes, the chosen option, progress |
 | `highlighter-wash` | `#FFF6C7` | Focus halo, new-row flash |
@@ -40,8 +40,9 @@ component on one page.
 `structured`, `pattern`, `model` and `derived` colour the trust tiers in the charts behind
 *Show details*. Meaning colours always come with a word or an icon, never colour alone.
 
-Contrast: `ink` and `graphite` pass WCAG AA on both `canvas` and `sheet`. `pencil` reaches
-4.5:1 only on `sheet`, so it is used there and only for placeholders and micro text.
+Contrast (WCAG AA needs 4.5:1 for text): `ink` 14.5 / 16.5, `graphite` 6.6 / 7.4 and `pencil`
+4.5 / 5.1 on `canvas` / `sheet`. Ink on `highlighter` is 13:1. `stamp`, `amber` and `brick` each
+pass on their own wash (4.6, 4.8, 5.5).
 
 ## Type
 
