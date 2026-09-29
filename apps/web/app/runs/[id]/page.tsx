@@ -6,6 +6,7 @@ import { useState } from "react";
 import { DatasetView } from "@/components/dataset/dataset-view";
 import { BehindTheScenes } from "@/components/details/behind-the-scenes";
 import { PlanSheet } from "@/components/plan/plan-sheet";
+import { CollectingView } from "@/components/progress/collecting-view";
 import { DatasetHeader } from "@/components/run/dataset-header";
 import { LatestEvent } from "@/components/run/event-feed";
 import { RunHeader } from "@/components/run/run-header";
@@ -47,6 +48,8 @@ function RunWorkspace({ id }: { id: string }) {
         <div className="max-w-[720px]">
           <PlanSheet run={run} edited={edited} onEdit={setEdited} />
         </div>
+      ) : phase === "preparing" || phase === "collecting" ? (
+        <CollectingView run={run} events={events} />
       ) : (
         <div className="space-y-6">
           <RunHeader run={run} />

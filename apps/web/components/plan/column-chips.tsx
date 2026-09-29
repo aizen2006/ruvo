@@ -12,6 +12,12 @@ const COLUMN_NAME: Record<string, string> = {
 
 export const columnName = (f: Pick<FieldSpec, "name" | "catalogKey">) => COLUMN_NAME[f.catalogKey] ?? f.name.replace(/_/g, " ");
 
+/** The same name in sentence case, for table headings. */
+export const columnTitle = (f: Pick<FieldSpec, "name" | "catalogKey">) => {
+  const name = columnName(f);
+  return name.charAt(0).toUpperCase() + name.slice(1);
+};
+
 /**
  * The columns of the list. A solid chip is a must-have (rows without it are set aside); a dashed
  * one is nice to have. Pressing a chip switches it when the plan can still change.

@@ -181,6 +181,16 @@
   }
 }
 
+/* The current progress step fills towards 90%, never claiming to be finished. */
+@keyframes fill {
+  from {
+    transform: scaleX(0.08);
+  }
+  to {
+    transform: scaleX(0.9);
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
