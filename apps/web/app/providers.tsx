@@ -3,6 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Tooltip } from "radix-ui";
 import { useState } from "react";
+import { Toaster } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/api";
 
 /** Retry once on network or server errors; a 4xx answer (e.g. not found) will not change. */
@@ -13,7 +14,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 2_000, retry } } }));
   return (
     <QueryClientProvider client={client}>
-      <Tooltip.Provider delayDuration={200}>{children}</Tooltip.Provider>
+      <Tooltip.Provider delayDuration={200}>
+        {children}
+        <Toaster />
+      </Tooltip.Provider>
     </QueryClientProvider>
   );
 }
