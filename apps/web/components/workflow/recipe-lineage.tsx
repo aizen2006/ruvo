@@ -56,7 +56,7 @@ function PatternLineage({ run, versions }: { run: RunDetail; versions: Recipe[] 
           <li key={v.id} className="relative py-1.5 pl-4 text-small">
             <span
               aria-hidden
-              className={clsx("absolute top-3 -left-[4.5px] size-2 rounded-full", v.status === "active" ? "bg-ink" : "bg-hairline-strong")}
+              className={clsx("absolute top-3 -left-[4.5px] size-2", v.status === "active" ? "bg-ink" : "bg-hairline-strong")}
             />
             <div className="flex flex-wrap items-baseline gap-x-3">
               <span className={clsx("font-medium", v.status !== "active" && "text-graphite")}>Version {v.version}</span>
@@ -70,7 +70,7 @@ function PatternLineage({ run, versions }: { run: RunDetail; versions: Recipe[] 
               <span className="text-pencil">{timeAgo(v.createdAt)}</span>
             </div>
             <details className="mt-1">
-              <summary className="cursor-pointer text-micro text-graphite hover:text-ink">Selectors</summary>
+              <summary className="cursor-pointer font-mono text-micro text-graphite hover:text-ink">Selectors</summary>
               <pre className="mt-1 overflow-x-auto font-mono text-micro leading-relaxed text-graphite">
                 {[`item  ${v.def.itemSelector}`, ...v.def.fields.map((f) => `${f.name.padEnd(5)} ${f.selector || ":scope"} @${f.attr}`)].join("\n")}
               </pre>

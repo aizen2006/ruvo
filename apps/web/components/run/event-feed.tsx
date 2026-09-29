@@ -12,7 +12,7 @@ export function EventFeed({ events }: { events: RunEvent[] }) {
     <ol className="divide-y divide-hairline text-small">
       {events.map((e) => (
         <li key={e.seq} className="grid grid-cols-[5.5rem_1fr] gap-3 py-2">
-          <time className="text-graphite" dateTime={e.ts}>
+          <time className="font-mono text-graphite tabular" dateTime={e.ts}>
             {time(e.ts)}
           </time>
           <span className={LEVEL[e.level]}>{e.message}</span>

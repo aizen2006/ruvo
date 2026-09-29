@@ -142,8 +142,9 @@ is reads as a three-cell meter beside the word (Sure, Likely, Check this).
 **Receipt drawer**: frosted, 20px radius. Each value's quote is set in Geist Mono on `sheet`
 with the found words behind signal.
 
-**Datasets**: a flat list; each row shows the name, a small static dot-field thumbnail seeded
-from the dataset id, the row count in mono, and status.
+**Datasets**: a flat, scannable list on `sheet` with the table's mono headers on a 2px ink rule;
+each row shows the name (the request beneath it), status as a small square, and the row count,
+spend and when in mono.
 
 ## Words
 

@@ -25,7 +25,7 @@ export function DiffPanel({ run }: { run: RunDetail }) {
   ];
 
   return (
-    <section className="space-y-5 border-b border-hairline pb-10">
+    <section className="space-y-group border-b border-hairline pb-section">
       <header>
         <h2 className="text-body font-semibold">What changed since the previous run</h2>
         <p className="text-small text-graphite">
@@ -40,8 +40,8 @@ export function DiffPanel({ run }: { run: RunDetail }) {
       <dl className="flex flex-wrap gap-x-10 gap-y-3">
         {stats.map((s) => (
           <div key={s.label}>
-            <dt className="text-micro text-graphite">{s.label}</dt>
-            <dd className="text-heading tabular-nums">{formatNumber(s.value)}</dd>
+            <dt className="font-mono text-micro text-graphite">{s.label}</dt>
+            <dd className="font-mono text-heading tabular-nums">{formatNumber(s.value)}</dd>
           </div>
         ))}
       </dl>

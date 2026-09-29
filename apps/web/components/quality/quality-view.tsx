@@ -36,15 +36,15 @@ export function QualityView({ run }: { run: RunDetail }) {
 
   if (run.status === "failed" || run.status === "cancelled") {
     return (
-      <p className="py-6 text-graphite">
+      <p className="py-group text-graphite">
         This run {run.status === "failed" ? "failed" : "was cancelled"} before its quality report was built. The Activity tab shows what happened;
         Run again to try once more.
       </p>
     );
   }
-  if (run.status !== "completed") return <p className="py-6 text-graphite">The quality report is ready when the run completes.</p>;
-  if (isLoading) return <p className="py-6 text-graphite">Loading the quality report…</p>;
-  if (error || !q) return <p className="py-6 text-brick">{error?.message ?? "No quality report for this run."}</p>;
+  if (run.status !== "completed") return <p className="py-group text-graphite">The quality report is ready when the run completes.</p>;
+  if (isLoading) return <p className="py-group text-graphite">Loading the quality report…</p>;
+  if (error || !q) return <p className="py-group text-brick">{error?.message ?? "No quality report for this run."}</p>;
 
   const collected = run.metrics.rawRecords;
   const kept = q.totals.valid + q.totals.incomplete;
@@ -57,7 +57,7 @@ export function QualityView({ run }: { run: RunDetail }) {
   const evidenceTotal = Object.values(q.methodMix).reduce((a, b) => a + b, 0);
 
   return (
-    <div className="space-y-10 py-6">
+    <div className="space-y-section py-group">
       <DiffPanel run={run} />
       <div className="grid gap-12 lg:grid-cols-2">
         <Section title="From postings to dataset" hint="Each step keeps fewer records; hover a bar for detail.">
@@ -91,7 +91,7 @@ export function QualityView({ run }: { run: RunDetail }) {
               if (bars.length === 0) return null;
               return (
                 <div key={tier.label} className="space-y-1.5">
-                  <p className="text-micro text-graphite">{tier.label}</p>
+                  <p className="font-mono text-micro text-graphite">{tier.label}</p>
                   <BarList ariaLabel={tier.label} bars={bars} max={Math.max(1, ...Object.values(q.methodMix))} labelWidth="9rem" />
                 </div>
               );
@@ -135,11 +135,11 @@ function SourceTable({ report }: { report: QualityReport }) {
   return (
     <table className="w-full border-collapse text-small">
       <thead>
-        <tr className="border-b border-hairline-strong text-left text-graphite">
-          <th className="py-2 pr-4 font-medium">Source</th>
-          <th className="py-2 pr-4 text-right font-medium">Kept</th>
-          <th className="py-2 pr-4 text-right font-medium">Valid</th>
-          <th className="py-2 text-right font-medium">Duplicates</th>
+        <tr className="border-b-2 border-ink text-left">
+          <th className="py-2 pr-4 font-mono text-micro font-normal">Source</th>
+          <th className="py-2 pr-4 text-right font-mono text-micro font-normal">Kept</th>
+          <th className="py-2 pr-4 text-right font-mono text-micro font-normal">Valid</th>
+          <th className="py-2 text-right font-mono text-micro font-normal">Duplicates</th>
         </tr>
       </thead>
       <tbody>

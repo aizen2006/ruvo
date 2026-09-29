@@ -66,9 +66,9 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
   const { data: workflow, isLoading, error } = useWorkflow(run.id, run.status);
 
   if (!run.workflowId || isLoading) {
-    return <p className="py-6 text-graphite">The workflow appears here once RUVO has planned the run.</p>;
+    return <p className="py-group text-graphite">The workflow appears here once RUVO has planned the run.</p>;
   }
-  if (error || !workflow) return <p className="py-6 text-brick">{error?.message ?? "Workflow unavailable"}</p>;
+  if (error || !workflow) return <p className="py-group text-brick">{error?.message ?? "Workflow unavailable"}</p>;
 
   const { ir, planDraft } = workflow;
   const { steps, failures } = outcomesFrom(events);
@@ -82,7 +82,7 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
   });
 
   return (
-    <div className="space-y-10 py-6">
+    <div className="space-y-section py-group">
       <section className="max-w-3xl space-y-3">
         <p className="text-small text-graphite">
           Planned by {PLANNED_BY[ir.provenance.plannedBy]}
@@ -124,7 +124,7 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
       <section className="space-y-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="text-body font-semibold">Sources</h2>
-          <p className="text-small text-graphite">
+          <p className="font-mono text-micro text-graphite">
             Limits: {formatNumber(ir.budgets.maxPages)} pages, {formatNumber(ir.budgets.maxBrowserPages)} browser pages,{" "}
             {formatNumber(ir.budgets.maxLlmCalls)} LLM calls, {Math.round(ir.budgets.maxDurationMs / 60_000)} minutes
           </p>
@@ -134,10 +134,10 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
         ) : (
           <table className="w-full border-collapse text-small">
             <thead>
-              <tr className="border-b border-hairline-strong text-left text-graphite">
-                <th className="py-2 pr-4 font-medium">Source</th>
-                <th className="py-2 pr-4 font-medium">Steps</th>
-                <th className="py-2 text-right font-medium">Keeps up to</th>
+              <tr className="border-b-2 border-ink text-left">
+                <th className="py-2 pr-4 font-mono text-micro font-normal">Source</th>
+                <th className="py-2 pr-4 font-mono text-micro font-normal">Steps</th>
+                <th className="py-2 text-right font-mono text-micro font-normal">Keeps up to</th>
               </tr>
             </thead>
             <tbody>
@@ -179,7 +179,7 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
       )}
 
       <details className="group">
-        <summary className="cursor-pointer text-small text-graphite hover:text-ink">Show the workflow as JSON</summary>
+        <summary className="cursor-pointer font-mono text-small text-graphite hover:text-ink">Show the workflow as JSON</summary>
         <pre className="mt-3 max-h-[32rem] overflow-auto rounded-control border border-hairline bg-sheet p-4 font-mono text-micro leading-relaxed">
           {JSON.stringify(ir, null, 2)}
         </pre>

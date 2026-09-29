@@ -56,7 +56,7 @@ export function BehindTheScenes({
         <TabPanel value="decisions">
           <DecisionsView run={run} />
         </TabPanel>
-        <TabPanel value="activity" className="py-4">
+        <TabPanel value="activity" className="py-item">
           <EventFeed events={events} />
         </TabPanel>
       </Tabs>
