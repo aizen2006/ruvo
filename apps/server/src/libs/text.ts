@@ -30,6 +30,9 @@ export function normalizeWhitespace(text: string): string {
     .join("\n");
 }
 
+/** Collapses all whitespace, line breaks included, to single spaces. */
+export const singleLine = (text: string) => text.replace(/\s+/g, " ").trim();
+
 /** Shortens text to at most `max` characters on a word boundary, adding an ellipsis. */
 export function truncate(text: string, max: number): string {
   if (text.length <= max) return text;

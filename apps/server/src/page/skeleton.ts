@@ -1,5 +1,5 @@
 import * as cheerio from "cheerio";
-import type { AnyNode, Element } from "domhandler";
+import type { AnyNode, Element, Text } from "domhandler";
 import { normalizeWhitespace } from "../libs/text";
 import { elementSignature } from "./selectors";
 
@@ -13,23 +13,13 @@ const KEEP_ATTRS = ["id", "class", "href", "role", "data-ui", "data-testid", "da
  */
 export function pageSkeleton(html: string, maxChars = 12_000): string {
   const $ = cheerio.load(html);
+  return outline($("body").get(0)?.children ?? [], maxChars);
+}
+
+/** The outline of `nodes` and their descendants, as `pageSkeleton` draws it. */
+export function outline(nodes: AnyNode[], maxChars: number): string {
   const lines: string[] = [];
   let size = 0;
-
-  const describe = (el: Element) => {
-    const attrs = KEEP_ATTRS.map((name) => {
-      const value = el.attribs[name];
-      if (!value) return "";
-      return name === "href" ? ` href="${value.slice(0, 60)}"` : ` ${name}="${value.slice(0, 80)}"`;
-    }).join("");
-    const ownText = normalizeWhitespace(
-      $(el)
-        .contents()
-        .filter((_, n) => n.type === "text")
-        .text(),
-    );
-    return `<${el.tagName}${attrs}>${ownText ? ` ${ownText.slice(0, 80)}` : ""}`;
-  };
 
   const walk = (nodes: AnyNode[], depth: number) => {
     const elements = nodes.filter((n): n is Element => n.type === "tag" && !SKIP.has((n as Element).tagName));
@@ -44,7 +34,7 @@ export function pageSkeleton(html: string, maxChars = 12_000): string {
         push(depth, `… ${total - 2} more like the above`);
       }
       if (count >= 3) continue;
-      push(depth, describe(el));
+      push(depth, describeElement(el));
       walk(el.children, depth + 1);
     }
   };
@@ -55,6 +45,24 @@ export function pageSkeleton(html: string, maxChars = 12_000): string {
     size += indented.length + 1;
   };
 
-  walk($("body").get(0)?.children ?? [], 0);
+  walk(nodes, 0);
   return size > maxChars ? `${lines.join("\n")}\n… (truncated)` : lines.join("\n");
 }
+
+/** One element as an outline line: its tag, useful attributes and a text sample (by default its own text). */
+export function describeElement(el: Element, text = ownText(el).slice(0, 80)): string {
+  const attrs = KEEP_ATTRS.map((name) => {
+    const value = el.attribs[name];
+    if (!value) return "";
+    return name === "href" ? ` href="${value.slice(0, 60)}"` : ` ${name}="${value.slice(0, 80)}"`;
+  }).join("");
+  return `<${el.tagName}${attrs}>${text ? ` ${text}` : ""}`;
+}
+
+const ownText = (el: Element) =>
+  normalizeWhitespace(
+    el.children
+      .filter((n): n is Text => n.type === "text")
+      .map((n) => n.data)
+      .join(" "),
+  );
