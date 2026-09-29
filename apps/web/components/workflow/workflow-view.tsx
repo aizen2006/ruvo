@@ -75,7 +75,9 @@ export function WorkflowView({ run, events }: { run: RunDetail; events: RunEvent
   const pageHosts = ir.sources.flatMap((b) => {
     const step = collectOf(b);
     const url = step?.adapter === "html_list" ? (step.params as { url?: string }).url : undefined;
-    return url ? [new URL(url).host] : [];
+    // A planner-written address may not parse; leave it out rather than crash the view.
+    const host = url ? URL.parse(url)?.host : undefined;
+    return host ? [host] : [];
   });
 
   return (

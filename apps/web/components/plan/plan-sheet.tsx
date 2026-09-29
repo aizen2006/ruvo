@@ -124,6 +124,14 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
                 })
               }
             />
+          ) : workflow.error ? (
+            // Without the plan there is nothing to start, so say why and offer another try.
+            <p className="text-small text-brick">
+              Couldn&apos;t load the plan: {workflow.error.message}{" "}
+              <Button variant="quiet" size="sm" disabled={workflow.isFetching} onClick={() => void workflow.refetch()}>
+                Retry
+              </Button>
+            </p>
           ) : null}
           {ir?.search && ir.search.queries.length > 0 && <SearchedFor queries={ir.search.queries} />}
           {noSources && (

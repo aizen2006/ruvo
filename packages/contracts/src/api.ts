@@ -6,8 +6,11 @@ import { RunMetrics, RunStatus, Stage } from "./run";
 
 /** Request/response shapes shared by the API routes and the dashboard client. */
 
+/** The longest request text the API accepts. */
+export const MAX_PROMPT_LENGTH = 4000;
+
 export const CreateRunRequest = z.object({
-  prompt: z.string().trim().min(10, "Describe the data you need in a sentence or two").max(4000),
+  prompt: z.string().trim().min(10, "Describe the data you need in a sentence or two").max(MAX_PROMPT_LENGTH),
   autoStart: z.boolean().default(false),
   mode: RunMode.default("balanced"),
   /** Overrides the mode's models (the dashboard's advanced settings). */

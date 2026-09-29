@@ -1,6 +1,6 @@
 "use client";
 
-import { estimateRunCost, type ModelChoice, type RunMode } from "@repo/contracts";
+import { estimateRunCost, MAX_PROMPT_LENGTH, type ModelChoice, type RunMode } from "@repo/contracts";
 import { useMutation } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -8,7 +8,7 @@ import { PageList } from "@/components/page-list";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { costRange } from "@/lib/plain";
 import { useRunOptions } from "@/lib/queries";
 import { withPages } from "@/lib/url";
@@ -25,6 +25,10 @@ const MIN_PROMPT = 10;
 
 /** Spoken phrases continue the typed request, separated by a space. */
 const appendSpoken = (prompt: string, spoken: string) => (prompt && !/\s$/.test(prompt) ? `${prompt} ${spoken}` : `${prompt}${spoken}`);
+
+/** The server's first validation message (e.g. "Describe the data you need…"), else the error itself. */
+const errorText = (error: Error) =>
+  (error instanceof ApiError && Array.isArray(error.details) && (error.details[0] as { message?: string } | undefined)?.message) || error.message;
 
 /**
  * The ask screen: what list you want, optional pages to read, how thorough, and (advanced)
@@ -50,8 +54,10 @@ export function AskComposer() {
     onSuccess: ({ runId }) => router.push(`/runs/${runId}`),
   });
   const tooShort = prompt.trim().length < MIN_PROMPT;
+  // Added pages and spoken words count too, so the textarea's maxLength alone isn't enough.
+  const tooLong = request.prompt.length > MAX_PROMPT_LENGTH;
   const submit = () => {
-    if (tooShort || create.isPending) return;
+    if (tooShort || tooLong || create.isPending) return;
     const key = submission?.signature === signature ? submission.key : newKey();
     setSubmission({ signature, key });
     create.mutate(key);
@@ -87,6 +93,7 @@ export function AskComposer() {
               if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submit();
             }}
             rows={3}
+            maxLength={MAX_PROMPT_LENGTH}
             placeholder="Remote backend jobs at AI companies, with salary"
             className="block w-full resize-none rounded-t-panel bg-transparent px-group pt-group pb-item text-heading placeholder:text-pencil focus:outline-none"
           />
@@ -123,14 +130,14 @@ export function AskComposer() {
                 {costRange(estimate.typicalUsd, estimate.highUsd)}
               </span>
             )}
-            <Button type="submit" variant="primary" size="lg" className="w-full sm:w-auto" disabled={tooShort || create.isPending}>
+            <Button type="submit" variant="primary" size="lg" className="w-full sm:w-auto" disabled={tooShort || tooLong || create.isPending}>
               {create.isPending ? "Starting…" : "Make my list"}
             </Button>
           </div>
         </div>
-        {create.error && (
+        {(tooLong || create.error) && (
           <p role="alert" className="text-small text-brick">
-            {create.error.message}
+            {tooLong ? `Keep the request under ${MAX_PROMPT_LENGTH} characters, including added pages.` : errorText(create.error!)}
           </p>
         )}
       </form>

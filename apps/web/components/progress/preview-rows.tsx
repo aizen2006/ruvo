@@ -9,9 +9,9 @@ import { useRecords } from "@/lib/queries";
 const PREVIEW = 8;
 const PREVIEW_COLUMNS = 4;
 
-/** The newest rows while collecting. Each new row fades in with a brief highlight. */
+/** The best-matching valid rows so far while collecting. Each new row fades in with a brief highlight. */
 export function PreviewRows({ run }: { run: RunDetail }) {
-  const { data } = useRecords(run.id, { pageSize: PREVIEW }, run.status);
+  const { data } = useRecords(run.id, { status: "valid", pageSize: PREVIEW }, run.status);
   const columns = tableColumns(run.contract as DatasetContract).slice(0, PREVIEW_COLUMNS);
   if (!data || data.items.length === 0) {
     return <p className="text-small text-graphite">The first rows appear here as each source finishes.</p>;
