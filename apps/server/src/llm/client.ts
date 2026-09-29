@@ -28,6 +28,10 @@ export interface ParseRequest<T> {
   system: string;
   user: string;
   signal?: AbortSignal;
+  /** Overrides the role's configured model. */
+  model?: string;
+  /** Attributes the call's cost to a run without drawing on its budget (compile, plan). */
+  runId?: string;
   /** When called inside a run: counts the call against the run's budget and metrics. */
   run?: { runId: string; budget: Budget; metrics: Metrics };
 }
@@ -73,10 +77,11 @@ export function createLlmClient(opts: {
 
   return {
     async parse<T>(req: ParseRequest<T>): Promise<ParseResult<T>> {
-      const model = req.role === "planner" ? env.MODEL_PLANNER : env.MODEL_WORKER;
+      const model = req.model ?? (req.role === "planner" ? env.MODEL_PLANNER : env.MODEL_WORKER);
       const inputHash = sha256(stableStringify({ model, name: req.name, system: req.system, user: req.user }));
+      const runId = req.run?.runId ?? req.runId ?? null;
       const log = (row: Partial<typeof llmCalls.$inferInsert>) =>
-        db.insert(llmCalls).values({ runId: req.run?.runId ?? null, stage: req.stage, model, schemaName: req.name, inputHash, ms: 0, ...row });
+        db.insert(llmCalls).values({ runId, stage: req.stage, model, schemaName: req.name, inputHash, ms: 0, ...row });
 
       if (env.LLM_CACHE_MODE !== "off") {
         const hit = await findCached(inputHash);
@@ -132,6 +137,17 @@ export function createLlmClient(opts: {
         throw new LlmError("api", `${req.name} call failed: ${message}`);
       }
     },
+  };
+}
+
+/**
+ * A view of `llm` for one run: each role uses the run's chosen model, and every call is
+ * attributed to the run for its cost. Shares the underlying client and cache.
+ */
+export function scopeLlm(llm: LlmClient, scope: { models?: Partial<Record<LlmRole, string | null>>; runId?: string }): LlmClient {
+  return {
+    parse: (req) =>
+      llm.parse({ ...req, model: req.model ?? scope.models?.[req.role] ?? undefined, runId: req.runId ?? scope.runId }),
   };
 }
 

@@ -5,21 +5,23 @@ import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
 import { autoDetectCompanies } from "../plan/atsDetect";
 import { discoverSources } from "../plan/discovery";
-import type { LlmClient } from "../llm/client";
+import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
 import { planForContract } from "../plan/planner";
 import { listRegistry } from "../plan/registry";
-import { budgetsFromEnv } from "./budget";
 import { createEventBus, nextEventSeq, type EmitInput } from "./eventBus";
-import { llm, memory } from "./services";
+import { budgetsForMode, runModels } from "./modes";
+import { llm as sharedLlm, memory } from "./services";
 import type { RunPreparer } from "./worker";
 
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
  * Ends in review (awaiting_approval) unless the run was created with autoStart.
  */
-export const createPreparer = ({ llm, memory }: { llm: LlmClient; memory?: WorkflowMemory }): RunPreparer => async (run, signal) => {
+export const createPreparer = ({ llm: baseLlm, memory }: { llm: LlmClient; memory?: WorkflowMemory }): RunPreparer => async (run, signal) => {
   const bus = createEventBus(run.id, { startSeq: await nextEventSeq(run.id) });
+  // Compile and plan with the run's models, and count what they cost towards the run.
+  const llm = scopeLlm(baseLlm, { models: runModels(run, env), runId: run.id });
   const stage = async (s: Stage, event: Omit<EmitInput, "stage">) => {
     await setRunStage(run.id, s);
     bus.emit({ ...event, stage: s });
@@ -65,7 +67,7 @@ export const createPreparer = ({ llm, memory }: { llm: LlmClient; memory?: Workf
     });
 
     const remembered = (await memory?.recall(contract, signal)) ?? null;
-    const caps = budgetsFromEnv(env, contract.maxRecords);
+    const caps = budgetsForMode(run.mode, env, contract.maxRecords);
     const { ir, draft, reused } = await planForContract(llm, contract, discovery.candidates, caps, signal, remembered);
     const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft, reusedFromWorkflowId: reused?.workflowId ?? null });
     if (reused) {
@@ -91,4 +93,4 @@ export const createPreparer = ({ llm, memory }: { llm: LlmClient; memory?: Workf
   }
 };
 
-export const prepareRun = createPreparer({ llm, memory });
+export const prepareRun = createPreparer({ llm: sharedLlm, memory });

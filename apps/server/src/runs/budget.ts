@@ -46,20 +46,6 @@ export function createBudget(limits: Budgets, onExhausted?: (key: BudgetKey, lim
   };
 }
 
-/** Per-run caps from the environment; the IR compiler clamps planned budgets to these. */
-export const budgetsFromEnv = (e: {
-  MAX_PAGES: number;
-  MAX_BROWSER_PAGES: number;
-  MAX_LLM_CALLS: number;
-  MAX_RUN_MS: number;
-}, maxRecords = 500): Budgets => ({
-  maxPages: e.MAX_PAGES,
-  maxBrowserPages: e.MAX_BROWSER_PAGES,
-  maxLlmCalls: e.MAX_LLM_CALLS,
-  maxDurationMs: e.MAX_RUN_MS,
-  maxRecords,
-});
-
 /**
  * A view of `budget` that lets one step spend at most `max` of `key`, still drawing from the
  * run's budget. Used where a step has its own allowance, e.g. triage's LLM judge calls.

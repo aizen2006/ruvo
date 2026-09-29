@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { DatasetContract } from "./contract";
+import { ModelChoice, RunMode } from "./options";
 import { RecordStatus } from "./record";
 import { RunMetrics, RunStatus, Stage } from "./run";
 
@@ -8,6 +9,9 @@ import { RunMetrics, RunStatus, Stage } from "./run";
 export const CreateRunRequest = z.object({
   prompt: z.string().trim().min(10, "Describe the data you need in a sentence or two").max(4000),
   autoStart: z.boolean().default(false),
+  mode: RunMode.default("balanced"),
+  /** Overrides the mode's models (the dashboard's advanced settings). */
+  models: ModelChoice.partial().optional(),
 });
 export type CreateRunRequest = z.infer<typeof CreateRunRequest>;
 
@@ -20,6 +24,10 @@ export const RunSummary = z.object({
   status: RunStatus,
   stage: Stage,
   metrics: RunMetrics,
+  mode: RunMode,
+  models: ModelChoice,
+  /** Everything the run spent on AI, including understanding and planning the request. */
+  costUsd: z.number(),
   createdAt: z.string(),
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),

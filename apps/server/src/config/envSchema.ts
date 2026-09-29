@@ -36,10 +36,11 @@ const EnvSchema = z.object({
   FETCH_CACHE_MODE: z.enum(["off", "ttl", "prefer_cache", "cache_only"]).default("ttl"),
   USER_AGENT: z.string().default("RUVO/0.1 (+https://github.com/aizen2006/ruvo)"),
 
-  MAX_PAGES: z.coerce.number().int().positive().default(150),
-  MAX_BROWSER_PAGES: z.coerce.number().int().nonnegative().default(10),
-  MAX_LLM_CALLS: z.coerce.number().int().nonnegative().default(60),
-  MAX_RUN_MS: z.coerce.number().int().positive().default(240_000),
+  /** Ceilings for every run; each mode (quick, balanced, thorough) sets its own budgets below them. */
+  MAX_PAGES: z.coerce.number().int().positive().default(300),
+  MAX_BROWSER_PAGES: z.coerce.number().int().nonnegative().default(20),
+  MAX_LLM_CALLS: z.coerce.number().int().nonnegative().default(150),
+  MAX_RUN_MS: z.coerce.number().int().positive().default(480_000),
 });
 
 export type Env = z.infer<typeof EnvSchema>;

@@ -1,16 +1,20 @@
 import {
   emptyMetrics,
   isTerminal,
+  type ModelChoice,
   type RunDetail,
   type RunEvent,
+  type RunMode,
   type RunStatus,
   type RunSummary,
   type Stage,
 } from "@repo/contracts";
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
+import { env } from "../../config/env";
 import { conflict, notFound } from "../../libs/errors";
+import { runModels } from "../../runs/modes";
 import { db } from "../client";
-import { datasetContracts, requests, runEvents, runs, workflows } from "../schema";
+import { datasetContracts, llmCalls, requests, runEvents, runs, workflows } from "../schema";
 
 /** Data access for runs and their events. Routes call these; they never write SQL themselves. */
 
@@ -23,6 +27,11 @@ const summaryColumns = {
   status: runs.status,
   stage: runs.stage,
   metrics: runs.metrics,
+  mode: runs.mode,
+  modelPlanner: runs.modelPlanner,
+  modelWorker: runs.modelWorker,
+  // llm_calls is the one record of spend: compile and plan calls are in it too, not only the run's.
+  costUsd: sql<number>`coalesce((select sum(${llmCalls.costUsd}) from ${llmCalls} where ${llmCalls.runId} = ${runs.id}), 0)`.mapWith(Number),
   workflowId: runs.workflowId,
   error: runs.error,
   createdAt: runs.createdAt,
@@ -42,6 +51,9 @@ function toSummary(row: SummaryRow): RunSummary {
     status: row.status,
     stage: row.stage,
     metrics: row.metrics,
+    mode: row.mode,
+    models: runModels(row, env),
+    costUsd: row.costUsd,
     error: row.error,
     createdAt: row.createdAt.toISOString(),
     startedAt: iso(row.startedAt),
@@ -53,7 +65,9 @@ function toSummary(row: SummaryRow): RunSummary {
  * Creates a request and its run. With an idempotency key, a repeated call returns
  * the run created the first time instead of creating a duplicate.
  */
-export async function createRun(input: { prompt: string; autoStart: boolean; idempotencyKey?: string }) {
+type NewRun = { prompt: string; autoStart: boolean; mode: RunMode; models: ModelChoice; idempotencyKey?: string };
+
+export async function createRun(input: NewRun) {
   const key = input.idempotencyKey;
   const existing = key ? await runForKey(key) : null;
   if (existing) return existing;
@@ -82,7 +96,7 @@ async function runForKey(key: string) {
 const isUniqueViolation = (err: unknown): boolean =>
   (err as { code?: string })?.code === "23505" || (err as { cause?: { code?: string } })?.cause?.code === "23505";
 
-function insertRun(input: { prompt: string; autoStart: boolean; idempotencyKey?: string }) {
+function insertRun(input: NewRun) {
   return db.transaction(async (tx) => {
     const [request] = await tx
       .insert(requests)
@@ -91,7 +105,16 @@ function insertRun(input: { prompt: string; autoStart: boolean; idempotencyKey?:
     // Every run starts in the preparation queue: a worker compiles and plans it next.
     const [run] = await tx
       .insert(runs)
-      .values({ requestId: request!.id, status: "queued", stage: "understanding", autoStart: input.autoStart, metrics: emptyMetrics() })
+      .values({
+        requestId: request!.id,
+        status: "queued",
+        stage: "understanding",
+        autoStart: input.autoStart,
+        mode: input.mode,
+        modelPlanner: input.models.planner,
+        modelWorker: input.models.worker,
+        metrics: emptyMetrics(),
+      })
       .returning({ runId: runs.id, status: runs.status });
     return run!;
   });
@@ -214,6 +237,10 @@ export async function rerunRun(runId: string) {
       status: "queued_run",
       stage: "collecting",
       autoStart: true,
+      // Same mode and models, so the re-run is comparable with the original.
+      mode: source.mode,
+      modelPlanner: source.modelPlanner,
+      modelWorker: source.modelWorker,
       metrics: emptyMetrics(),
     })
     .returning({ runId: runs.id, status: runs.status });

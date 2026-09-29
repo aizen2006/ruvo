@@ -1,7 +1,11 @@
 import { CreateRunRequest, DatasetContract, ListRecordsQuery } from "@repo/contracts";
 import { Router } from "express";
 import { z } from "zod";
+import { env } from "../config/env";
 import { getDecisionSummary } from "../db/repos/decisions";
+import { badRequest } from "../libs/errors";
+import { isChatModel } from "../llm/models";
+import { modelsForMode } from "../runs/modes";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
 import { createRun, getQualityReport, getRunDetail, getRunDiff, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
 import { getRunWorkflow } from "../db/repos/workflows";
@@ -16,8 +20,12 @@ const runId = (raw: string | undefined) => parseId(raw, "Run");
 export const runsRouter = Router();
 
 runsRouter.post("/", async (req, res) => {
-  const body = CreateRunRequest.parse(req.body);
-  const run = await createRun({ ...body, idempotencyKey: req.get("Idempotency-Key") ?? undefined });
+  const { prompt, autoStart, mode, models: chosen } = CreateRunRequest.parse(req.body);
+  const unknown = Object.values(chosen ?? {}).filter((m) => m && !isChatModel(m));
+  if (unknown.length) throw badRequest(`Unknown model: ${unknown.join(", ")}`);
+
+  const models = modelsForMode(mode, chosen, env);
+  const run = await createRun({ prompt, autoStart, mode, models, idempotencyKey: req.get("Idempotency-Key") ?? undefined });
   res.status(201).json(run);
 });
 

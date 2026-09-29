@@ -1,5 +1,8 @@
+import { env } from "../config/env";
 import { loadRunWorkflow, saveRepairedWorkflow } from "../db/repos/workflows";
 import { executeWorkflow } from "../execute/executor";
+import { scopeLlm } from "../llm/client";
+import { runModels } from "./modes";
 import { createRunContext, type RunContext } from "./runContext";
 import { decider, fetcher, llm, memory } from "./services";
 import type { RunExecutor } from "./worker";
@@ -9,7 +12,8 @@ export const runPipeline: RunExecutor = async (run, signal) => {
   const planned = await loadRunWorkflow(run.id);
   if (!planned) throw new Error("Run has no workflow; it must be prepared before it can execute");
 
-  const ctx = await createRunContext({ runId: run.id, signal, contract: planned.contract, ir: planned.ir, fetcher, llm, decider });
+  const runLlm = scopeLlm(llm, { models: runModels(run, env) });
+  const ctx = await createRunContext({ runId: run.id, signal, contract: planned.contract, ir: planned.ir, fetcher, llm: runLlm, decider });
   try {
     await executeWorkflow(ctx);
     await recordRepairs(ctx);

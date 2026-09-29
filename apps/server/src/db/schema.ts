@@ -6,6 +6,7 @@ import type {
   Recipe,
   RunDiff,
   RunMetrics,
+  RunMode,
   RunStatus,
   Signal,
   Stage,
@@ -74,6 +75,10 @@ export const runs = pgTable(
     status: text("status").$type<RunStatus>().notNull(),
     stage: text("stage").$type<Stage>().notNull(),
     autoStart: boolean("auto_start").notNull().default(false),
+    /** How thorough the run is; sets its budgets. Models are resolved when the run is created. */
+    mode: text("mode").$type<RunMode>().notNull().default("balanced"),
+    modelPlanner: text("model_planner"),
+    modelWorker: text("model_worker"),
     attempt: integer("attempt").notNull().default(0),
     workerId: text("worker_id"),
     heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
@@ -243,5 +248,5 @@ export const llmCalls = pgTable(
     error: text("error"),
     createdAt: createdAt(),
   },
-  (t) => [index("llm_calls_hash_idx").on(t.inputHash)],
+  (t) => [index("llm_calls_hash_idx").on(t.inputHash), index("llm_calls_run_idx").on(t.runId)],
 );
