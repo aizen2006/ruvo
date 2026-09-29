@@ -176,11 +176,14 @@ const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(mi
 
 /**
  * Criteria regexes run on scraped text on the worker's only thread, so beyond compiling they
- * must be short and free of the classic catastrophic-backtracking shape: a quantified group
- * that itself contains a quantifier, e.g. `(a+)+` or `(\w+\s?)*`.
+ * must be short and backtrack at most polynomially: one unbounded quantifier at most, and no
+ * repeated group holding a quantifier or alternation, e.g. `(a+)+`, `(a|a)*` or `.*a.*b`.
  */
 export function isSafeRegex(source: string): boolean {
-  if (source.length > 200 || /\([^)]*[*+}][^)]*\)[*+{]/.test(source)) return false;
+  // Escapes and character classes can't backtrack on their own; drop them before counting.
+  const shape = source.replace(/\\./g, "x").replace(/\[[^\]]*\]/g, "x");
+  const unbounded = shape.match(/[*+]|\{\d+,\}/g)?.length ?? 0;
+  if (source.length > 200 || unbounded > 1 || /\([^)]*[|*+}][^)]*\)[*+{]/.test(shape)) return false;
   try {
     new RegExp(source);
     return true;

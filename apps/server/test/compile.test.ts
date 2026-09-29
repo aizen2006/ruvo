@@ -65,7 +65,7 @@ describe("normalizeContract", () => {
     for (const ok of ["\\b(senior|staff)\\b", "\\$\\d{2,3}k", "remote.*(us|usa)", "(?:foo)+", "^[A-Z]{2}-\\d+$"]) {
       expect(isSafeRegex(ok)).toBe(true);
     }
-    for (const evil of ["(a+)+$", "(a*)*b", "([a-z]+)*$", "(\\w+\\s?)*$", "(x{1,10}){1,10}", "(unclosed", "a".repeat(201)]) {
+    for (const evil of ["(a+)+$", "(a*)*b", "([a-z]+)*$", "(\\w+\\s?)*$", "(x{1,10}){1,10}", "(a|a)*$", ".*a.*b", "(unclosed", "a".repeat(201)]) {
       expect(isSafeRegex(evil)).toBe(false);
     }
     const criterion = { id: "r", label: "Evil", kind: "regex" as const, fields: ["title"], values: ["(a+)+$"], strength: "hard" as const, weight: 1 };

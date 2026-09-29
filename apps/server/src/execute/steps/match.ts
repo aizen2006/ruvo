@@ -151,7 +151,7 @@ export function compileCriterion(contract: DatasetContract, criterion: Criterion
     case "regex": {
       const pattern = safeRegex(criterion.values[0]);
       // Capped input bounds even a slow pattern's worst case.
-      return (c) => (pattern ? pattern.test(text(c).slice(0, 20_000)) : null);
+      return (c) => (pattern ? pattern.test(text(c).slice(0, 2_000)) : null);
     }
     case "company_tag": {
       const wanted = new Set(criterion.values);
