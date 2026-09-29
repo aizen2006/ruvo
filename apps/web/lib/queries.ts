@@ -31,6 +31,9 @@ export const runKeys = {
   decisions: (id: string) => ["runs", id, "decisions"] as const,
 };
 
+/** Modes, models and prices for a new run; they only change when the server restarts. */
+export const useRunOptions = () => useQuery({ queryKey: ["options"], queryFn: api.getOptions, staleTime: 5 * 60_000 });
+
 export const useRuns = () => useQuery({ queryKey: runKeys.all, queryFn: api.listRuns, refetchInterval: 5_000 });
 
 export function useRun(id: string) {

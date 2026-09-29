@@ -1,4 +1,5 @@
 import type {
+  CreateRunRequest,
   CreateRunResponse,
   DatasetContract,
   DecisionSummary,
@@ -11,6 +12,7 @@ import type {
   RunDetail,
   RunDiff,
   RunEvent,
+  RunOptions,
   RunStatus,
   RunSummary,
   WorkflowIR,
@@ -76,12 +78,13 @@ const query = (params: Record<string, string | number | boolean | undefined>) =>
 
 export const api = {
   /** `idempotencyKey` should stay the same for repeated submissions of one request, so the server creates one run. */
-  createRun: (prompt: string, autoStart: boolean, idempotencyKey: string) =>
+  createRun: (input: CreateRunRequest, idempotencyKey: string) =>
     request<CreateRunResponse>("/api/runs", {
       method: "POST",
-      body: JSON.stringify({ prompt, autoStart }),
+      body: JSON.stringify(input),
       headers: { "Idempotency-Key": idempotencyKey },
     }),
+  getOptions: () => request<RunOptions>("/api/options"),
   listRuns: () => request<RunSummary[]>("/api/runs"),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),
   startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),

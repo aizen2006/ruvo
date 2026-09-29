@@ -55,15 +55,16 @@ export interface CostEstimate {
 }
 
 /**
- * Typical tokens per LLM call by role, from `llm_calls` on real runs. Compile and plan are one
- * planner call each; everything during collection is counted against the AI-call budget.
+ * Typical tokens per LLM call by role, measured from `llm_calls` on real runs (2026-09-29):
+ * compile and plan average about 1,400 in and 1,150 out; judging a batch about 1,600 in and 350 out.
+ * Compile and plan are one planner call each; calls during collection count against the AI-call budget.
  */
 const TYPICAL_CALL = {
-  planner: { tokensIn: 5000, tokensOut: 1200 },
-  worker: { tokensIn: 2500, tokensOut: 400 },
+  planner: { tokensIn: 1400, tokensOut: 1150 },
+  worker: { tokensIn: 1600, tokensOut: 350 },
 } as const;
-/** Share of the AI-call budget a typical run spends (most values come from APIs and pages). */
-const TYPICAL_BUDGET_SHARE = 0.25;
+/** Share of the AI-call budget a typical run spends; most values come from APIs and pages (measured: ~5%). */
+const TYPICAL_BUDGET_SHARE = 0.15;
 
 /**
  * Cost estimate for a run, shared by the server (options) and the dashboard (live model picker).
