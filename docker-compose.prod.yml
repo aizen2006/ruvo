@@ -1,0 +1,98 @@
+# Self-hosted RUVO stack (see docs/deploy.md):
+#   docker compose -f docker-compose.prod.yml up -d --build
+# Configuration comes from .env next to this file (copy .env.example).
+# Its own project name keeps it apart from the dev docker-compose.yml.
+name: ruvo-prod
+
+# API, worker and migrations share one image and one configuration.
+x-server: &server
+  image: ruvo-server:latest
+  build:
+    context: .
+    dockerfile: apps/server/Dockerfile
+  env_file: .env
+  environment:
+    DATABASE_URL: postgres://ruvo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/ruvo
+    QDRANT_URL: http://qdrant:6333
+  init: true
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ruvo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ruvo
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ruvo -d ruvo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
+    volumes:
+      - qdrant-data:/qdrant/storage
+
+  # Applies pending migrations, then exits; the API and worker start only after it succeeds.
+  migrate:
+    <<: *server
+    command: ["bun", "src/db/migrate.ts"]
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    <<: *server
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # Scale with --scale worker=N; runs are claimed from the Postgres queue.
+  worker:
+    <<: *server
+    command: ["bun", "src/worker.ts"]
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      qdrant:
+        condition: service_started
+    # Chromium needs more shared memory than Docker's 64 MB default.
+    shm_size: 1gb
+    # Lets an in-flight run be released back to the queue before the container is killed.
+    stop_grace_period: 30s
+
+  web:
+    image: ruvo-web:latest
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # The API's URL as the browser sees it; baked into the dashboard at build time.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3001:3001"
+
+volumes:
+  postgres-data:
+  qdrant-data:
