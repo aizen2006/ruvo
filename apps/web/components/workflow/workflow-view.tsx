@@ -24,6 +24,7 @@ const PLANNED_BY = {
   memory: "a reused past workflow",
   repair: "self-repair",
   user_edit: "your contract edit",
+  find_more: "your Find more request",
 } as const;
 
 type StepResult = { count: number; ms: number };

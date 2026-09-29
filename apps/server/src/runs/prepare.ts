@@ -1,17 +1,19 @@
-import type { DatasetContract, Stage } from "@repo/contracts";
+import type { DatasetContract, SearchLog, Stage } from "@repo/contracts";
 import { compileRequirement } from "../compile/requirementCompiler";
 import { env } from "../config/env";
+import type { ClaimedRun } from "../db/queue";
 import { getRequestPrompt, setRunStage } from "../db/repos/runs";
-import { attachWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
+import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
 import { autoDetectCompanies } from "../plan/atsDetect";
 import { discoverSources, foundCandidate } from "../plan/discovery";
 import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
 import { planForContract } from "../plan/planner";
 import { listRegistry } from "../plan/registry";
-import { discoverFromSearch, searchQueriesFor, type WebDiscovery, type WebSearch } from "../plan/webDiscovery";
+import { addFoundSources, discoverFromSearch, moreSearchQueries, searchQueriesFor, type WebDiscovery, type WebSearch } from "../plan/webDiscovery";
 import { createBudget } from "./budget";
-import { createEventBus, nextEventSeq, type EmitInput } from "./eventBus";
+import { recompileWorkflow } from "./editContract";
+import { createEventBus, nextEventSeq, type EmitInput, type EventBus } from "./eventBus";
 import { createMetrics } from "./metrics";
 import { budgetsForMode, runModels, searchResultsPerQuery } from "./modes";
 import { llm as sharedLlm, memory, webSearch } from "./services";
@@ -35,6 +37,9 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
   };
 
   try {
+    // A queued run that already has a workflow is a "find more" follow-up (see rerunRun).
+    if (run.workflowId) return await prepareMore(run, { llm, web, bus, stage, signal });
+
     await stage("understanding", { type: "compile.started", message: "Understanding the request" });
     const compiled = await compileRequirement(llm, await getRequestPrompt(run.requestId), signal);
     const contract = compiled.contract;
@@ -71,17 +76,7 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
       });
       const scope = { signal, budget: createBudget(caps), metrics: createMetrics() };
       search = await discoverFromSearch(contract, web, llm, { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode) });
-      for (const s of search.searches) {
-        bus.emit({
-          stage: "discovering",
-          type: "discovery.searched",
-          level: s.error ? "warn" : "info",
-          message: s.error
-            ? `Could not search "${s.query}": ${s.error}`
-            : `Searched "${s.query}": ${s.hits} results${s.cached ? " (saved from an earlier run)" : ""}`,
-          data: s,
-        });
-      }
+      emitSearches(bus, search.searches);
       const known = new Set(discovery.candidates.map((c) => c.ref));
       const added = search.sources.filter((s) => !known.has(s.ref)).map(foundCandidate);
       discovery.candidates.push(...added);
@@ -125,6 +120,56 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
     await bus.close();
   }
 };
+
+type StageFn = (s: Stage, event: Omit<EmitInput, "stage">) => Promise<void>;
+
+/**
+ * Prepares a "find more" run: searches with queries not tried yet and adds the sources found to
+ * the previous workflow as a new version. Earlier sources stay and replay from cache, so the
+ * run's diff against the previous run shows the new rows.
+ */
+async function prepareMore(
+  run: ClaimedRun,
+  { llm, web, bus, stage, signal }: { llm: LlmClient; web: WebSearch | null; bus: EventBus; stage: StageFn; signal: AbortSignal },
+) {
+  if (!web) throw new Error("Finding more needs web search, which is not set up (FIRECRAWL_API_KEY)");
+  const current = await getRunWorkflow(run.id);
+  const { contract, ir } = current;
+
+  await stage("discovering", { type: "discovery.search_started", message: "Looking for more: thinking of new searches" });
+  const tried = ir.search?.queries.map((q) => q.query) ?? searchQueriesFor(contract);
+  const queries = await moreSearchQueries(contract, tried, llm, signal);
+  if (queries.length === 0) throw new Error("Could not think of new searches for this request");
+
+  const scope = { signal, budget: createBudget(budgetsForMode(run.mode, env, contract.maxRecords)), metrics: createMetrics() };
+  const withQueries = { ...contract, sourceHints: { ...contract.sourceHints, searchQueries: queries } };
+  const found = await discoverFromSearch(withQueries, web, llm, { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode) });
+  emitSearches(bus, found.searches);
+
+  const search = { queries: [...(ir.search?.queries ?? []), ...found.searches], sources: addFoundSources(ir.search?.sources ?? [], found.sources) };
+  const { ir: next } = await recompileWorkflow(run.id, { current, contract, contractId: current.contractId, mode: run.mode, search, plannedBy: "find_more" });
+  const added = next.sources.length - ir.sources.length;
+  await stage("planning", {
+    type: "plan.completed",
+    level: added > 0 ? "info" : "warn",
+    message: added > 0 ? `Found ${added} new source${added === 1 ? "" : "s"}, ${next.sources.length} in all` : "No new sources found; collecting from the earlier ones again",
+  });
+  return run.autoStart && next.sources.length > 0 ? "queued_run" : "awaiting_approval";
+}
+
+function emitSearches(bus: EventBus, searches: SearchLog[]) {
+  for (const s of searches) {
+    bus.emit({
+      stage: "discovering",
+      type: "discovery.searched",
+      level: s.error ? "warn" : "info",
+      message: s.error
+        ? `Could not search "${s.query}": ${s.error}`
+        : `Searched "${s.query}": ${s.hits} results${s.cached ? " (saved from an earlier run)" : ""}`,
+      data: s,
+    });
+  }
+}
 
 /**
  * Whether to search the web: always for other records, and for jobs only when the known boards

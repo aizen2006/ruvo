@@ -82,6 +82,10 @@ runsRouter.post("/:id/rerun", async (req, res) => {
   res.status(201).json(await rerunRun(runId(req.params.id)));
 });
 
+runsRouter.post("/:id/more", async (req, res) => {
+  res.status(201).json(await rerunRun(runId(req.params.id), { more: true }));
+});
+
 runsRouter.get("/:id/quality", async (req, res) => {
   res.json(await getQualityReport(runId(req.params.id)));
 });

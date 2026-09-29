@@ -228,8 +228,9 @@ export async function getRequestPrompt(requestId: string): Promise<string> {
 /**
  * Runs a finished run's workflow again as a new run, skipping compile and plan.
  * Recorded recipes and caches make the re-run cheap; comparing the two gives a diff.
+ * With `more`, the new run is prepared first, searching for sources not read yet (see prepareMore).
  */
-export async function rerunRun(runId: string) {
+export async function rerunRun(runId: string, { more = false } = {}) {
   const [source] = await db.select().from(runs).where(eq(runs.id, runId));
   if (!source) throw notFound("Run");
   if (!isTerminal(source.status)) throw conflict(`Run is still ${source.status}`);
@@ -240,8 +241,8 @@ export async function rerunRun(runId: string) {
     .values({
       requestId: source.requestId,
       workflowId: source.workflowId,
-      status: "queued_run",
-      stage: "collecting",
+      status: more ? "queued" : "queued_run",
+      stage: more ? "discovering" : "collecting",
       autoStart: true,
       // Same mode and models, so the re-run is comparable with the original.
       mode: source.mode,

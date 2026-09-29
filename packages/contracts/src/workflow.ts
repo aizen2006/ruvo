@@ -49,7 +49,7 @@ export const Budgets = z.object({
 export type Budgets = z.infer<typeof Budgets>;
 
 export const Provenance = z.object({
-  plannedBy: z.enum(["llm", "template", "memory", "repair", "user_edit"]),
+  plannedBy: z.enum(["llm", "template", "memory", "repair", "user_edit", "find_more"]),
   model: z.string().nullable(),
   /** Run whose plan was reused (plannedBy "memory"). */
   reusedFrom: z.string().nullable(),

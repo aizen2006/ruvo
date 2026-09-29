@@ -85,6 +85,7 @@ export async function getRunWorkflow(runId: string) {
     ir: row.workflow.ir,
     planDraft: row.workflow.planDraft,
     contract: row.contract.contract,
+    contractId: row.contract.id,
     contractVersion: row.contract.version,
     versions: versions.map((v) => ({
       id: v.id,

@@ -101,6 +101,51 @@ export function searchQueriesFor(contract: DatasetContract): string[] {
   return fallback ? [fallback] : [];
 }
 
+/** New queries asked for per "find more". */
+const MORE_QUERIES = 3;
+
+const MoreQueries = z.object({ queries: z.array(z.string()) });
+
+const MORE_QUERIES_PROMPT = `You write web search queries for a data collection request. The queries already tried found some records.
+Write up to ${MORE_QUERIES} different queries that would find more records of the requested kind: other phrasings, sub-niches, places, or sites that list them.
+Never repeat or lightly reword a query already tried.`;
+
+/** Queries not tried yet, from one worker-model call; for "find more". */
+export async function moreSearchQueries(contract: DatasetContract, tried: string[], llm: LlmClient, signal: AbortSignal): Promise<string[]> {
+  const { data } = await llm.parse({
+    stage: "discover",
+    role: "worker",
+    schema: MoreQueries,
+    name: "more_search_queries",
+    system: MORE_QUERIES_PROMPT,
+    user: JSON.stringify({ wanted: contract.entityDescription || contract.title, tried }),
+    signal,
+  });
+  const seen = new Set(tried.map((q) => q.trim().toLowerCase()));
+  const fresh = data.queries.map((q) => q.trim()).filter((q) => q && !seen.has(q.toLowerCase()) && seen.add(q.toLowerCase()));
+  return fresh.slice(0, MORE_QUERIES);
+}
+
+/**
+ * Adds newly found sources to earlier ones, skipping pages already read. Profiles share one
+ * search_hits source per site, so new profiles join that source instead. New sources come first,
+ * so they are read before the budget goes to replaying earlier ones.
+ */
+export function addFoundSources(earlier: FoundSource[], found: FoundSource[]): FoundSource[] {
+  const byRef = new Map(earlier.map((s) => [s.ref, s]));
+  const added: FoundSource[] = [];
+  for (const source of found) {
+    const old = byRef.get(source.ref);
+    if (!old) added.push(source);
+    else if (source.adapter === "search_hits") {
+      const [a, b] = [old.params, source.params] as Array<{ site: string; hits: SearchHit[] }>;
+      const seen = new Set(a!.hits.map((h) => h.url));
+      byRef.set(source.ref, { ...old, params: { ...a, hits: [...a!.hits, ...b!.hits.filter((h) => !seen.has(h.url))] } });
+    }
+  }
+  return [...added, ...byRef.values()];
+}
+
 /** Runs each query in turn and merges the hits by canonical URL, keeping the first query that found each. */
 async function runSearches(queries: string[], searcher: SearchRunner, opts: WebDiscoveryOptions) {
   const searches: SearchLog[] = [];

@@ -95,6 +95,8 @@ export const api = {
   startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),
   cancelRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/cancel`, { method: "POST" }),
   rerun: (id: string) => request<CreateRunResponse>(`/api/runs/${id}/rerun`, { method: "POST" }),
+  /** A follow-up run that searches for sources not read yet. */
+  findMore: (id: string) => request<CreateRunResponse>(`/api/runs/${id}/more`, { method: "POST" }),
   getWorkflow: (id: string) => request<WorkflowView>(`/api/runs/${id}/workflow`),
   /** `removeSources` drops sources web search found (by ref) from the plan. */
   editContract: (id: string, contract: DatasetContract, removeSources: string[] = []) =>

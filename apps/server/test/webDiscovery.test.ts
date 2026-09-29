@@ -1,8 +1,8 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
-import type { AdapterId, DatasetContract, PlanDraft } from "@repo/contracts";
+import type { AdapterId, DatasetContract, FoundSource, PlanDraft } from "@repo/contracts";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { discoverFromSearch, type WebSearch } from "../src/plan/webDiscovery";
+import { addFoundSources, discoverFromSearch, type WebSearch } from "../src/plan/webDiscovery";
 import { createBudget } from "../src/runs/budget";
 import { createMetrics } from "../src/runs/metrics";
 import { createPreparer } from "../src/runs/prepare";
@@ -154,6 +154,27 @@ describe("discoverFromSearch", () => {
   });
 });
 
+describe("addFoundSources", () => {
+  const page = (url: string): FoundSource => ({ ref: `html_list:${url}`, adapter: "html_list", label: url, params: { url }, reason: "" });
+  const profiles = (...urls: string[]): FoundSource => ({
+    ref: "search_hits:instagram.com",
+    adapter: "search_hits",
+    label: "Instagram",
+    params: { site: "instagram.com", hits: urls.map((url) => ({ url, title: "", description: "", query: "q" })) },
+    reason: "",
+  });
+
+  test("puts new pages first, skips pages already read, and adds new profiles to the site's source", () => {
+    const merged = addFoundSources([page("https://a.example"), profiles("https://instagram.com/one")], [
+      page("https://a.example"),
+      page("https://b.example"),
+      profiles("https://instagram.com/one", "https://instagram.com/two"),
+    ]);
+    expect(merged.map((s) => s.ref)).toEqual(["html_list:https://b.example", "html_list:https://a.example", "search_hits:instagram.com"]);
+    expect((merged[2]!.params as { hits: Array<{ url: string }> }).hits.map((h) => h.url)).toEqual(["https://instagram.com/one", "https://instagram.com/two"]);
+  });
+});
+
 describe("preparing a run with web search", () => {
   const api = startTestServer();
   afterAll(api.close);
@@ -169,7 +190,13 @@ describe("preparing a run with web search", () => {
   };
 
   const worker = (searchResults: Record<string, SearchResultItem[]>) => {
-    const fake = fakeResponses({ dataset_contract: PODCASTS, plan_draft: planAll, search_hit_kinds: allRecords });
+    const fake = fakeResponses({
+      dataset_contract: PODCASTS,
+      plan_draft: planAll,
+      search_hit_kinds: allRecords,
+      // One query already tried, one new.
+      more_search_queries: { queries: ["Best climate tech podcasts", "climate podcast interviews"] },
+    });
     const llm = createLlmClient({
       env: { MODEL_PLANNER: "gpt-6-sol", MODEL_WORKER: "gpt-6-luna", LLM_CACHE_MODE: "off", OPENAI_API_KEY: "x" },
       responses: fake.responses,
@@ -205,6 +232,34 @@ describe("preparing a run with web search", () => {
     expect(edited.sources.map((s: { ref: string }) => s.ref)).not.toContain(removed);
     expect(edited.sources.length).toBe(ir.sources.length - 1);
     expect(edited.search.queries).toEqual(ir.search.queries);
+  });
+
+  test("find more searches with new queries and adds only sources not read yet", async () => {
+    const w = worker({
+      ...RESULTS,
+      "climate podcast interviews": [
+        hit("https://podlist.example/best-climate-podcasts", "The 25 Best Climate Tech Podcasts in 2026"),
+        hit("https://greenshows.example/directory/climate", "Climate shows"),
+      ],
+    });
+    const runId = await prepared();
+    const runStatus = (id: string) => api.get(`/api/runs/${id}`).then((r) => r.body.status as string);
+    await api.post(`/api/runs/${runId}/start`);
+    await waitFor(() => runStatus(runId), (s) => s === "completed");
+
+    const res = await api.post(`/api/runs/${runId}/more`);
+    expect(res.status).toBe(201);
+    await waitFor(() => runStatus(res.body.runId), (s) => s === "completed");
+    await w.stop();
+
+    const before = (await api.get(`/api/runs/${runId}/workflow`)).body.ir;
+    const after = (await api.get(`/api/runs/${res.body.runId}/workflow`)).body.ir;
+    expect(after.provenance.plannedBy).toBe("find_more");
+    expect(after.search.queries.map((q: { query: string }) => q.query)).toEqual([...PODCASTS.sourceHints.searchQueries, "climate podcast interviews"]);
+    const refs = after.sources.map((s: { ref: string }) => s.ref);
+    expect(refs.length).toBe(before.sources.length + 1);
+    expect(refs).toContain("html_list:https://greenshows.example/directory/climate");
+    expect(refs.filter((r: string) => r === "html_list:https://podlist.example/best-climate-podcasts")).toHaveLength(1);
   });
 
   test("with nothing found, the run stops for review and says what was searched", async () => {

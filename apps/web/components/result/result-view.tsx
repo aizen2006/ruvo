@@ -1,7 +1,7 @@
 "use client";
 
 import type { RunDetail } from "@repo/contracts";
-import { RotateCw } from "lucide-react";
+import { ListPlus, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
@@ -17,6 +17,15 @@ import { WhatChanged } from "./what-changed";
 export function ResultView({ run }: { run: RunDetail }) {
   const router = useRouter();
   const rerun = useRunAction(run.id, () => api.rerun(run.id));
+  const more = useRunAction(run.id, () => api.findMore(run.id));
+  // Both start a follow-up run; its page shows progress, then the rows it added.
+  const follow = (action: typeof rerun, message: string) => () =>
+    action.mutate(undefined, {
+      onSuccess: ({ runId }) => {
+        toast(message);
+        router.push(`/runs/${runId}`);
+      },
+    });
   const { data: workflow } = useWorkflow(run.id, run.status);
   const rows = run.metrics.validRecords;
   const took = duration(run.startedAt, run.finishedAt);
@@ -55,24 +64,20 @@ export function ResultView({ run }: { run: RunDetail }) {
         </div>
         <div className="flex flex-wrap gap-tight">
           {run.workflowId && (
-            <Button
-              disabled={rerun.isPending}
-              onClick={() =>
-                rerun.mutate(undefined, {
-                  onSuccess: ({ runId }) => {
-                    toast("Running again");
-                    router.push(`/runs/${runId}`);
-                  },
-                })
-              }
-            >
+            <Button disabled={rerun.isPending} onClick={follow(rerun, "Running again")}>
               <RotateCw /> Run again
+            </Button>
+          )}
+          {/* Finding more searches the web again, so it is offered for lists web search found. */}
+          {run.workflowId && workflow?.ir.search && (
+            <Button disabled={more.isPending} onClick={follow(more, "Looking for more")}>
+              <ListPlus /> Find more
             </Button>
           )}
           {rows > 0 && <DownloadMenu runId={run.id} />}
         </div>
       </section>
-      {rerun.error && <p className="text-small text-brick">{rerun.error.message}</p>}
+      {(rerun.error ?? more.error) && <p className="text-small text-brick">{(rerun.error ?? more.error)!.message}</p>}
 
       <TrustSummary run={run} />
       <WhatChanged run={run} />
