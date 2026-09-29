@@ -96,6 +96,12 @@ The contract, workflow, recipes, decisions and full activity log are all still t
 To rehearse a full demo, including a live self-repair on a bundled fake careers site, follow
 [docs/demo-script.md](docs/demo-script.md).
 
+## Deploy
+
+`docker compose -f docker-compose.prod.yml up -d --build` runs the whole stack with Docker.
+[docs/deploy.md](docs/deploy.md) covers configuration, scaling workers, backups, and why the API
+must sit behind your own HTTPS and authentication before it faces the internet.
+
 ## The few settings that matter
 
 All settings live in `apps/server/.env`. The template lists every variable with its default.
