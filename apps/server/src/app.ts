@@ -5,6 +5,7 @@ import { datasetsRouter } from "./api/datasets.routes";
 import { optionsRouter } from "./api/options.routes";
 import { recipesRouter } from "./api/recipes.routes";
 import { runsRouter } from "./api/runs.routes";
+import { sql } from "./db/client";
 import { careersSite } from "./fixtures/careersSite";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler, notFoundHandler } from "./middlewares/errorLogger";
@@ -13,13 +14,16 @@ import { errorHandler, notFoundHandler } from "./middlewares/errorLogger";
 export function createApp() {
   const app = express();
 
-  app.use(cors());
+  // maxAge caches preflights so the dashboard's polling doesn't send one per request.
+  app.use(cors({ maxAge: 600 }));
   // The dashboard runs on a different origin, so API responses must be readable cross-origin.
   app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
   app.use(express.json({ limit: "1mb" }));
   app.use(requestLogger);
 
-  app.get("/health", (_req, res) => {
+  // Healthy only while the database answers, so an orchestrator notices an API that lost it.
+  app.get("/health", async (_req, res) => {
+    await sql`select 1`;
     res.status(200).json({ status: "ok" });
   });
   app.use("/api/options", optionsRouter);

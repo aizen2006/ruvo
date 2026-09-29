@@ -35,7 +35,16 @@ function toResponse(err: unknown): { status: number; body: { error: string; deta
   if (err instanceof SyntaxError && (err as { status?: number }).status === 400) {
     return { status: 400, body: { error: "Malformed JSON body" } };
   }
+  // Other body-parser failures (413 too large, 415 bad charset...) carry their own client status.
+  if (isClientHttpError(err)) {
+    return { status: err.status, body: { error: err.expose ? err.message : "Invalid request" } };
+  }
   return { status: 500, body: { error: "Internal server error" } };
+}
+
+function isClientHttpError(err: unknown): err is Error & { status: number; expose?: boolean } {
+  const status = (err as { status?: unknown } | null)?.status;
+  return err instanceof Error && typeof status === "number" && status >= 400 && status < 500;
 }
 
 function isZodError(err: unknown): err is { issues: unknown[] } {

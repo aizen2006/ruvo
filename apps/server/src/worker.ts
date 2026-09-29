@@ -1,5 +1,6 @@
 import { bootstrap } from "./bootstrap";
-import { logger } from "./libs/logger";
+import { sql } from "./db/client";
+import { onShutdown } from "./libs/shutdown";
 import { runPipeline } from "./runs/pipeline";
 import { prepareRun } from "./runs/prepare";
 import { browser } from "./runs/services";
@@ -9,11 +10,9 @@ import { startWorker } from "./runs/worker";
 await bootstrap();
 const worker = startWorker({ execute: runPipeline, prepare: prepareRun });
 
-for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, async () => {
-    logger.info("Shutting down worker", { signal });
-    await worker.stop();
-    await browser.close();
-    process.exit(0);
-  });
-}
+onShutdown(async () => {
+  // Aborts the current run, which hands it back to the queue for the next worker.
+  await worker.stop();
+  await browser.close();
+  await sql.end({ timeout: 5 });
+});

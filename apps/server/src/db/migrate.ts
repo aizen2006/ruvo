@@ -1,8 +1,9 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
+import { fileURLToPath } from "node:url";
 import postgres from "postgres";
 
-const MIGRATIONS_FOLDER = new URL("../../drizzle", import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+const MIGRATIONS_FOLDER = fileURLToPath(new URL("../../drizzle", import.meta.url));
 
 /** Applies pending SQL migrations from ./drizzle. Safe to run repeatedly. */
 export async function migrateDb(url: string) {

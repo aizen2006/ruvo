@@ -1,5 +1,6 @@
 import { ListRecipesQuery, SimulateDriftRequest } from "@repo/contracts";
 import { Router } from "express";
+import { env } from "../config/env";
 import { getRecipe, listRecipes, saveRecipe } from "../recipes/store";
 import { driftRecipe } from "../repair/drift";
 import { parseId } from "./params";
@@ -14,9 +15,9 @@ recipesRouter.get("/", async (req, res) => {
 
 /**
  * Records a broken copy of a recipe as its newest version, so the next run that reads the
- * page has to repair it. The simulated version stays in the lineage.
+ * page has to repair it. The simulated version stays in the lineage. Demo-only: not served in production.
  */
-recipesRouter.post("/:id/simulate-drift", async (req, res) => {
+if (env.NODE_ENV !== "production") recipesRouter.post("/:id/simulate-drift", async (req, res) => {
   const { mode } = SimulateDriftRequest.parse(req.body ?? {});
   const source = await getRecipe(parseId(req.params.id, "Recipe"));
   const drifted = await saveRecipe({

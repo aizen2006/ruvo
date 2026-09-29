@@ -14,18 +14,24 @@ import { fieldNamesOf, parseId } from "./params";
 
 const EventsQuery = z.object({ after: z.coerce.number().int().nonnegative().default(0) });
 const ListQuery = z.object({ limit: z.coerce.number().int().positive().max(200).default(50) });
+const MAX_IDEMPOTENCY_KEY = 200;
 
 const runId = (raw: string | undefined) => parseId(raw, "Run");
 
 export const runsRouter = Router();
 
 runsRouter.post("/", async (req, res) => {
+  const idempotencyKey = req.get("Idempotency-Key") || undefined;
+  // The key sits in a unique btree index, which rejects oversized values.
+  if (idempotencyKey && idempotencyKey.length > MAX_IDEMPOTENCY_KEY) {
+    throw badRequest(`Idempotency-Key must be at most ${MAX_IDEMPOTENCY_KEY} characters`);
+  }
   const { prompt, autoStart, mode, models: chosen } = CreateRunRequest.parse(req.body);
   const unknown = Object.values(chosen ?? {}).filter((m) => m && !isChatModel(m));
   if (unknown.length) throw badRequest(`Unknown model: ${unknown.join(", ")}`);
 
   const models = modelsForMode(mode, chosen, env);
-  const run = await createRun({ prompt, autoStart, mode, models, idempotencyKey: req.get("Idempotency-Key") ?? undefined });
+  const run = await createRun({ prompt, autoStart, mode, models, idempotencyKey });
   res.status(201).json(run);
 });
 
