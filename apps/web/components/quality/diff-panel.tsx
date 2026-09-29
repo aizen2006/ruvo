@@ -25,12 +25,12 @@ export function DiffPanel({ run }: { run: RunDetail }) {
   ];
 
   return (
-    <section className="space-y-5 border-b border-rule pb-10">
+    <section className="space-y-5 border-b border-hairline pb-10">
       <header>
-        <h2 className="text-lg font-semibold">What changed since the previous run</h2>
-        <p className="text-sm text-muted">
+        <h2 className="text-body font-semibold">What changed since the previous run</h2>
+        <p className="text-small text-graphite">
           Compared with{" "}
-          <Link href={`/runs/${diff.previousRunId}`} className="text-accent underline-offset-2 hover:underline">
+          <Link href={`/runs/${diff.previousRunId}`} className="text-ink underline-offset-2 hover:underline">
             the run {diff.previousFinishedAt ? timeAgo(diff.previousFinishedAt) : "before this one"}
           </Link>
           , matching records by their canonical link.
@@ -40,8 +40,8 @@ export function DiffPanel({ run }: { run: RunDetail }) {
       <dl className="flex flex-wrap gap-x-10 gap-y-3">
         {stats.map((s) => (
           <div key={s.label}>
-            <dt className="text-xs text-muted">{s.label}</dt>
-            <dd className="text-xl tabular-nums">{formatNumber(s.value)}</dd>
+            <dt className="text-micro text-graphite">{s.label}</dt>
+            <dd className="text-heading tabular-nums">{formatNumber(s.value)}</dd>
           </div>
         ))}
       </dl>
@@ -58,17 +58,17 @@ export function DiffPanel({ run }: { run: RunDetail }) {
 function RecordList({ title, items, total, empty, muted }: { title: string; items: RunDiff["added"]; total: number; empty: string; muted?: boolean }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium">{title}</h3>
+      <h3 className="text-small font-medium">{title}</h3>
       {items.length === 0 ? (
-        <p className="text-sm text-muted">{empty}</p>
+        <p className="text-small text-graphite">{empty}</p>
       ) : (
-        <ul className="space-y-1 text-sm">
+        <ul className="space-y-1 text-small">
           {items.map((r) => (
-            <li key={r.key} className={muted ? "text-muted line-through decoration-rule-strong" : undefined}>
+            <li key={r.key} className={muted ? "text-graphite line-through decoration-hairline-strong" : undefined}>
               {r.label}
             </li>
           ))}
-          {total > items.length && <li className="text-muted">and {formatNumber(total - items.length)} more</li>}
+          {total > items.length && <li className="text-graphite">and {formatNumber(total - items.length)} more</li>}
         </ul>
       )}
     </div>
@@ -78,22 +78,22 @@ function RecordList({ title, items, total, empty, muted }: { title: string; item
 function ChangedList({ diff }: { diff: RunDiff }) {
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium">Changed</h3>
+      <h3 className="text-small font-medium">Changed</h3>
       {diff.changed.length === 0 ? (
-        <p className="text-sm text-muted">No values changed.</p>
+        <p className="text-small text-graphite">No values changed.</p>
       ) : (
-        <ul className="space-y-3 text-sm">
+        <ul className="space-y-3 text-small">
           {diff.changed.map((r) => (
             <li key={r.key}>
               <p>{r.label}</p>
               {r.fields.map((f) => (
-                <p key={f.field} className="text-muted">
-                  {f.field.replace(/_/g, " ")}: <span className="line-through decoration-rule-strong">{show(f.before)}</span> → <span className="text-ink">{show(f.after)}</span>
+                <p key={f.field} className="text-graphite">
+                  {f.field.replace(/_/g, " ")}: <span className="line-through decoration-hairline-strong">{show(f.before)}</span> → <span className="text-ink">{show(f.after)}</span>
                 </p>
               ))}
             </li>
           ))}
-          {diff.counts.changed > diff.changed.length && <li className="text-muted">and {formatNumber(diff.counts.changed - diff.changed.length)} more</li>}
+          {diff.counts.changed > diff.changed.length && <li className="text-graphite">and {formatNumber(diff.counts.changed - diff.changed.length)} more</li>}
         </ul>
       )}
     </div>

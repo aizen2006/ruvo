@@ -40,7 +40,7 @@ export function AnnotatedRequest({ prompt, assumptions }: { prompt: string; assu
 
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <p className="font-serif text-2xl leading-relaxed sm:text-[1.7rem]">
+      <p className="text-heading sm:text-title">
         {segments.map((s, i) =>
           s.note === null ? (
             <Fragment key={i}>{s.text}</Fragment>
@@ -51,17 +51,17 @@ export function AnnotatedRequest({ prompt, assumptions }: { prompt: string; assu
               onMouseLeave={() => setFocus(null)}
               className={clsx(
                 "cursor-default bg-transparent text-inherit underline decoration-2 underline-offset-[6px] transition-colors",
-                focus === s.note ? "decoration-accent bg-accent-wash" : "decoration-accent/40",
+                focus === s.note ? "decoration-ink bg-highlighter-wash" : "decoration-ink/40",
               )}
             >
               {s.text}
-              <sup className="ml-0.5 font-sans text-xs text-accent">{markerOf(s.note)}</sup>
+              <sup className="ml-0.5 font-sans text-micro text-ink">{markerOf(s.note)}</sup>
             </mark>
           ),
         )}
       </p>
 
-      <ol className="space-y-4 border-l border-rule pl-5 text-sm">
+      <ol className="space-y-4 border-l border-hairline pl-5 text-small">
         {assumptions.map((a, i) =>
           anchored.has(i) ? (
             <li
@@ -71,20 +71,20 @@ export function AnnotatedRequest({ prompt, assumptions }: { prompt: string; assu
               className={clsx("space-y-1 transition-colors", focus !== null && focus !== i && "opacity-50")}
             >
               <p>
-                <span className="mr-2 text-accent">{markerOf(i)}</span>
-                <span className="font-serif italic">“{a.phrase}”</span>
+                <span className="mr-2 text-ink">{markerOf(i)}</span>
+                <span className="italic">“{a.phrase}”</span>
               </p>
               <p className="text-ink">{a.interpretation}</p>
-              {a.signals.length > 0 && <p className="text-muted">Checked using: {a.signals.join("; ")}</p>}
+              {a.signals.length > 0 && <p className="text-graphite">Checked using: {a.signals.join("; ")}</p>}
             </li>
           ) : null,
         )}
         {unanchored.length > 0 && (
           <li className="space-y-2 pt-1">
-            <p className="text-muted">Also assumed</p>
+            <p className="text-graphite">Also assumed</p>
             {unanchored.map(({ a, i }) => (
               <p key={i}>
-                <span className="font-serif italic">“{a.phrase}”</span>: {a.interpretation}
+                <span className="italic">“{a.phrase}”</span>: {a.interpretation}
               </p>
             ))}
           </li>

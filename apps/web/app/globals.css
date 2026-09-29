@@ -40,23 +40,9 @@
   --color-derived: #4a5761;
   --color-derived-wash: #e6eaed;
 
-  /* Legacy names, kept until every screen has moved to the tokens above. */
-  --color-paper: var(--color-canvas);
-  --color-surface: var(--color-sheet);
-  --color-muted: var(--color-graphite);
-  --color-faint: var(--color-pencil);
-  --color-rule: var(--color-hairline);
-  --color-rule-strong: var(--color-hairline-strong);
-  --color-accent: var(--color-ink);
-  --color-accent-strong: #0b1117;
-  --color-accent-wash: var(--color-highlighter-wash);
-  --color-danger: var(--color-brick);
-  --color-danger-wash: var(--color-brick-wash);
-  --color-warn: var(--color-amber);
 
   /* Type: one grotesque for everything; mono only for text quoted from a source page. */
   --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-sans);
   --font-mono: var(--font-spline-mono), ui-monospace, monospace;
 
   --text-display: 2.75rem;
@@ -196,18 +182,6 @@
     opacity: 0;
   }
   to {
-    opacity: 1;
-  }
-}
-
-/* The evidence panel slides in from the right when opened (legacy name). */
-@keyframes slide-in {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
     opacity: 1;
   }
 }

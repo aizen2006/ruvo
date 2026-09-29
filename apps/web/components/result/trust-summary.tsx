@@ -4,13 +4,14 @@ import type { QualityReport, RunDetail } from "@repo/contracts";
 import { formatNumber } from "@/lib/format";
 import { useQuality } from "@/lib/queries";
 
-/** Where a list's values came from, in three trust groups (see the design system's "Words"). */
+/** Where a list's values came from, in four trust groups (see the design system's "Words"). */
 function trustSplit(report: QualityReport) {
   const m = report.methodMix;
   const direct = m.API + m.JSON_LD + m.EMBEDDED_JSON;
-  const read = m.DOM + m.REGEX + m.DERIVED;
+  const read = m.DOM + m.REGEX;
+  const derived = m.DERIVED;
   const ai = m.LLM;
-  return { direct, read, ai, total: direct + read + ai };
+  return { direct, read, derived, ai, total: direct + read + derived + ai };
 }
 
 /**
@@ -20,13 +21,14 @@ function trustSplit(report: QualityReport) {
 export function TrustSummary({ run }: { run: RunDetail }) {
   const { data: report } = useQuality(run.id, run.status);
   if (!report) return null;
-  const { direct, read, ai, total } = trustSplit(report);
+  const { direct, read, derived, ai, total } = trustSplit(report);
   if (total === 0) return null;
   const pct = (n: number) => Math.round((n / total) * 100);
 
   const segments = [
     { label: "from the sites' own data", n: direct, className: "bg-stamp" },
     { label: "read from the page text", n: read, className: "bg-graphite" },
+    { label: "worked out by RUVO", n: derived, className: "bg-pencil" },
     { label: "found by AI, quote checked", n: ai, className: "bg-model" },
   ].filter((s) => s.n > 0);
 

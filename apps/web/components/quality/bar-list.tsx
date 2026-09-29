@@ -35,25 +35,25 @@ export function BarList({
           <Tooltip.Trigger asChild>
             <li
               tabIndex={0}
-              className="grid items-center gap-3 rounded-sm py-0.5 text-sm outline-none hover:bg-surface focus-visible:bg-surface"
+              className="grid items-center gap-3 rounded-sm py-0.5 text-small outline-none hover:bg-sheet focus-visible:bg-sheet"
               style={{ gridTemplateColumns: `${labelWidth} 1fr 4.5rem` }}
             >
               <span className="truncate text-ink" title={bar.label}>
                 {bar.label}
               </span>
-              <span className="h-2.5 overflow-hidden rounded-r bg-rule/50" aria-hidden>
+              <span className="h-2.5 overflow-hidden rounded-r bg-hairline/50" aria-hidden>
                 <span
-                  className={clsx("block h-full rounded-r", tone === "accent" ? "bg-accent" : "bg-derived")}
+                  className={clsx("block h-full rounded-r", tone === "accent" ? "bg-ink" : "bg-derived")}
                   style={{ width: `${Math.max(bar.value > 0 ? 1.5 : 0, (bar.value / top) * 100)}%` }}
                 />
               </span>
-              <span className="text-right tabular-nums text-muted">{bar.display}</span>
+              <span className="text-right tabular-nums text-graphite">{bar.display}</span>
             </li>
           </Tooltip.Trigger>
           <Tooltip.Portal>
-            <Tooltip.Content side="top" sideOffset={4} className="rounded border border-rule bg-surface px-2.5 py-1.5 text-xs text-ink shadow-sm">
+            <Tooltip.Content side="top" sideOffset={4} className="rounded border border-hairline bg-sheet px-2.5 py-1.5 text-micro text-ink shadow-sm">
               <span className="font-medium">{bar.label}</span>: {bar.display}
-              {bar.detail && <span className="block text-muted">{bar.detail}</span>}
+              {bar.detail && <span className="block text-graphite">{bar.detail}</span>}
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>

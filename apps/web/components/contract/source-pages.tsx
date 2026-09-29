@@ -38,8 +38,8 @@ export function SourcePages({
   return (
     <section className="space-y-3">
       <header>
-        <h2 className="text-lg font-semibold">Pages to read</h2>
-        <p className="text-sm text-muted">
+        <h2 className="text-body font-semibold">Pages to read</h2>
+        <p className="text-small text-graphite">
           {needed
             ? "RUVO reads these records from list pages you link. It records how to read each page, so later runs repeat it without AI."
             : "List pages to read alongside the job boards RUVO already knows."}
@@ -47,10 +47,10 @@ export function SourcePages({
       </header>
 
       {urls.length > 0 ? (
-        <ul className="divide-y divide-rule border-y border-rule text-sm">
+        <ul className="divide-y divide-hairline border-y border-hairline text-small">
           {urls.map((url) => (
             <li key={url} className="flex items-center justify-between gap-3 py-2">
-              <a href={url} target="_blank" rel="noreferrer" className="truncate font-mono text-[13px] text-accent hover:underline">
+              <a href={url} target="_blank" rel="noreferrer" className="truncate font-mono text-small text-ink hover:underline">
                 {url}
               </a>
               {onChange && (
@@ -63,7 +63,7 @@ export function SourcePages({
         </ul>
       ) : (
         needed && (
-          <p className="rounded-(--radius-control) bg-pattern-wash px-3 py-2 text-sm text-pattern">
+          <p className="rounded-control bg-pattern-wash px-3 py-2 text-small text-pattern">
             Add the address of a page that lists these records. Nothing can be collected until there is one.
           </p>
         )
@@ -85,12 +85,12 @@ export function SourcePages({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder="https://example.com/listings"
-            className="min-w-0 flex-1 rounded-(--radius-control) border border-rule-strong bg-surface px-3 py-2 font-mono text-[13px] outline-none focus:border-accent"
+            className="min-w-0 flex-1 rounded-control border border-hairline-strong bg-sheet px-3 py-2 font-mono text-small outline-none focus:border-ink"
           />
           <Button type="submit" disabled={!value.trim()}>
             Add page
           </Button>
-          {error && <p className="w-full text-sm text-danger">{error}</p>}
+          {error && <p className="w-full text-small text-brick">{error}</p>}
         </form>
       )}
     </section>

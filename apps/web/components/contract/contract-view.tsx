@@ -34,7 +34,7 @@ export function ContractView({
   const save = useRunAction(run.id, () => api.editContract(run.id, draft!));
 
   if (!saved || !draft) {
-    return <p className="py-6 text-muted">RUVO is reading the request. The contract appears here in a few seconds.</p>;
+    return <p className="py-6 text-graphite">RUVO is reading the request. The contract appears here in a few seconds.</p>;
   }
 
   const update = (next: Partial<DatasetContract>) => onEdit({ ...draft, ...next });
@@ -54,12 +54,12 @@ export function ContractView({
 
       <section className="space-y-3">
         <div className="flex items-baseline justify-between">
-          <h2 className="text-lg font-semibold">Columns</h2>
-          <p className="text-sm text-muted">Up to {draft.maxRecords} records</p>
+          <h2 className="text-body font-semibold">Columns</h2>
+          <p className="text-small text-graphite">Up to {draft.maxRecords} records</p>
         </div>
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-collapse text-small">
           <thead>
-            <tr className="border-b border-rule-strong text-left text-muted">
+            <tr className="border-b border-hairline-strong text-left text-graphite">
               <th className="py-2 pr-4 font-medium">Column</th>
               <th className="py-2 pr-4 font-medium">Meaning</th>
               <th className="py-2 text-right font-medium">Required</th>
@@ -67,9 +67,9 @@ export function ContractView({
           </thead>
           <tbody>
             {draft.fields.map((f) => (
-              <tr key={f.name} className="border-b border-rule">
-                <td className="py-2 pr-4 font-mono text-[13px]">{f.name}</td>
-                <td className="py-2 pr-4 text-muted">{f.description}</td>
+              <tr key={f.name} className="border-b border-hairline">
+                <td className="py-2 pr-4 font-mono text-small">{f.name}</td>
+                <td className="py-2 pr-4 text-graphite">{f.description}</td>
                 <td className="py-2 text-right">
                   <input
                     type="checkbox"
@@ -77,7 +77,7 @@ export function ContractView({
                     checked={f.required}
                     disabled={!editable}
                     onChange={() => update({ fields: draft.fields.map((x) => (x.name === f.name ? { ...x, required: !x.required } : x)) })}
-                    className="size-4 accent-(--color-accent)"
+                    className="size-4 accent-(--color-ink)"
                   />
                 </td>
               </tr>
@@ -93,14 +93,14 @@ export function ContractView({
       />
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">How records are judged</h2>
+        <h2 className="text-body font-semibold">How records are judged</h2>
         <CriteriaList criteria={draft.criteria} edits={edits} />
       </section>
 
       {draft.unsupported.length > 0 && (
         <section className="space-y-2">
-          <h2 className="text-lg font-semibold">Not something RUVO can collect</h2>
-          <ul className="list-disc pl-5 text-sm text-muted">
+          <h2 className="text-body font-semibold">Not something RUVO can collect</h2>
+          <ul className="list-disc pl-5 text-small text-graphite">
             {draft.unsupported.map((u) => (
               <li key={u}>{u}</li>
             ))}
@@ -109,7 +109,7 @@ export function ContractView({
       )}
 
       {editable && (
-        <div className="sticky bottom-0 -mx-6 flex items-center gap-3 border-t border-rule bg-paper/95 px-6 py-3 backdrop-blur">
+        <div className="sticky bottom-0 -mx-6 flex items-center gap-3 border-t border-hairline bg-canvas/95 px-6 py-3 backdrop-blur">
           <Button
             variant="primary"
             disabled={!dirty || save.isPending}
@@ -130,14 +130,14 @@ export function ContractView({
               Discard changes
             </Button>
           )}
-          <p className="text-sm text-muted">
+          <p className="text-small text-graphite">
             {save.isSuccess && !dirty
               ? `Saved. The workflow was recompiled as version ${save.data.version}.`
               : dirty
                 ? "Saving recompiles the workflow; nothing is collected until you start."
                 : "Adjust the contract, or start collecting when it looks right."}
           </p>
-          {save.error && <p className="text-sm text-danger">{save.error.message}</p>}
+          {save.error && <p className="text-small text-brick">{save.error.message}</p>}
         </div>
       )}
     </div>

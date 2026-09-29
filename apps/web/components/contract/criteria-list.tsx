@@ -24,17 +24,17 @@ function describe(c: Criterion): string {
 
 function Values({ criterion }: { criterion: Criterion }) {
   const [open, setOpen] = useState(false);
-  if (criterion.kind === "semantic") return <p className="font-serif italic">{criterion.values[0]}</p>;
+  if (criterion.kind === "semantic") return <p className="italic">{criterion.values[0]}</p>;
   const shown = open ? criterion.values : criterion.values.slice(0, 10);
   return (
     <p className="flex flex-wrap gap-1.5">
       {shown.map((v) => (
-        <span key={v} className="rounded border border-rule bg-surface px-1.5 py-0.5 text-xs">
+        <span key={v} className="rounded border border-hairline bg-sheet px-1.5 py-0.5 text-micro">
           {v.replace(/_/g, " ")}
         </span>
       ))}
       {criterion.values.length > shown.length && (
-        <button type="button" onClick={() => setOpen(true)} className="text-xs text-accent hover:underline">
+        <button type="button" onClick={() => setOpen(true)} className="text-micro text-ink hover:underline">
           {criterion.values.length - shown.length} more
         </button>
       )}
@@ -60,29 +60,29 @@ export function CriteriaList({ criteria, edits }: { criteria: Criterion[]; edits
         <section key={group.title} className="space-y-3">
           <header>
             <h3 className="font-semibold">{group.title}</h3>
-            <p className="text-sm text-muted">{group.hint}</p>
+            <p className="text-small text-graphite">{group.hint}</p>
           </header>
-          {group.items.length === 0 && <p className="text-sm text-faint">None</p>}
-          <ul className={group.items.length ? "divide-y divide-rule border-y border-rule" : "hidden"}>
+          {group.items.length === 0 && <p className="text-small text-pencil">None</p>}
+          <ul className={group.items.length ? "divide-y divide-hairline border-y border-hairline" : "hidden"}>
             {group.items.map((c) => (
               <li key={c.id} className="space-y-2 py-3">
                 <div className="flex items-baseline justify-between gap-3">
                   <p className="font-medium">{c.label}</p>
-                  <div className="flex shrink-0 gap-3 text-xs">
-                    {c.strength === "soft" && <span className="text-muted">weight {c.weight.toFixed(1)}</span>}
+                  <div className="flex shrink-0 gap-3 text-micro">
+                    {c.strength === "soft" && <span className="text-graphite">weight {c.weight.toFixed(1)}</span>}
                     {edits?.onToggleStrength && (
-                      <button type="button" onClick={() => edits.onToggleStrength!(c.id)} className="text-accent hover:underline">
+                      <button type="button" onClick={() => edits.onToggleStrength!(c.id)} className="text-ink hover:underline">
                         {c.strength === "hard" ? "Make optional" : "Make required"}
                       </button>
                     )}
                     {edits?.onRemove && (
-                      <button type="button" onClick={() => edits.onRemove!(c.id)} className="text-danger hover:underline">
+                      <button type="button" onClick={() => edits.onRemove!(c.id)} className="text-brick hover:underline">
                         Remove
                       </button>
                     )}
                   </div>
                 </div>
-                <p className="text-sm text-muted">{describe(c)}</p>
+                <p className="text-small text-graphite">{describe(c)}</p>
                 <Values criterion={c} />
               </li>
             ))}

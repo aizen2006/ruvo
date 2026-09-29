@@ -1,32 +1,3 @@
-import type { RunStatus } from "@repo/contracts";
-
-/** Plain-language names for run statuses, as a user would describe them. */
-export const STATUS_LABEL: Record<RunStatus, string> = {
-  queued: "Waiting to start",
-  compiling: "Understanding request",
-  planning: "Planning",
-  awaiting_approval: "Ready for review",
-  queued_run: "Waiting to collect",
-  running: "Collecting",
-  completed: "Complete",
-  failed: "Failed",
-  cancelled: "Cancelled",
-};
-
-export type StatusTone = "neutral" | "active" | "attention" | "success" | "danger";
-
-export const STATUS_TONE: Record<RunStatus, StatusTone> = {
-  queued: "neutral",
-  compiling: "active",
-  planning: "active",
-  awaiting_approval: "attention",
-  queued_run: "neutral",
-  running: "active",
-  completed: "success",
-  failed: "danger",
-  cancelled: "neutral",
-};
-
 const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
 export function timeAgo(iso: string, now = Date.now()): string {
