@@ -91,8 +91,9 @@ export const api = {
   cancelRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/cancel`, { method: "POST" }),
   rerun: (id: string) => request<CreateRunResponse>(`/api/runs/${id}/rerun`, { method: "POST" }),
   getWorkflow: (id: string) => request<WorkflowView>(`/api/runs/${id}/workflow`),
-  editContract: (id: string, contract: DatasetContract) =>
-    request<{ version: number }>(`/api/runs/${id}/contract`, { method: "PATCH", body: JSON.stringify({ contract }) }),
+  /** `removeSources` drops sources web search found (by ref) from the plan. */
+  editContract: (id: string, contract: DatasetContract, removeSources: string[] = []) =>
+    request<{ version: number }>(`/api/runs/${id}/contract`, { method: "PATCH", body: JSON.stringify({ contract, removeSources }) }),
   listEvents: (id: string, after: number) => request<RunEvent[]>(`/api/runs/${id}/events?after=${after}`),
   listRecords: (id: string, filters: RecordFilters) => request<Page<RecordDTO>>(`/api/runs/${id}/records${query(filters)}`),
   getEvidence: (id: string, recordId: string) =>

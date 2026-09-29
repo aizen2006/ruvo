@@ -69,6 +69,9 @@ export const budgetsForMode = (mode: RunMode, e: CeilingEnv, maxRecords = 500): 
   maxRecords,
 });
 
+/** Results asked for per web search; a thorough run looks further down each query's results. */
+export const searchResultsPerQuery = (mode: RunMode) => (mode === "thorough" ? 20 : 10);
+
 /** A stored run's models; runs created before modes existed fall back to the configured pair. */
 export const runModels = (run: { modelPlanner: string | null; modelWorker: string | null }, e: ModelEnv): ModelChoice => ({
   planner: run.modelPlanner ?? e.MODEL_PLANNER,

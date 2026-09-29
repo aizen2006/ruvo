@@ -62,6 +62,26 @@ export const Provenance = z.object({
 });
 export type Provenance = z.infer<typeof Provenance>;
 
+/** One web search run while looking for sources. */
+export const SearchLog = z.object({
+  query: z.string(),
+  hits: z.number(),
+  cached: z.boolean(),
+  /** Set when the search failed or was skipped (e.g. the search budget ran out). */
+  error: z.string().nullable(),
+});
+export type SearchLog = z.infer<typeof SearchLog>;
+
+/** A source found by web search, kept so later edits re-plan it without searching again. */
+export const FoundSource = z.object({
+  ref: z.string(),
+  adapter: AdapterId,
+  label: z.string(),
+  params: z.unknown(),
+  reason: z.string(),
+});
+export type FoundSource = z.infer<typeof FoundSource>;
+
 export const WorkflowIR = z.object({
   irVersion: z.literal(1),
   entity: z.string(),
@@ -69,5 +89,7 @@ export const WorkflowIR = z.object({
   dedupe: z.object({ keys: z.array(z.array(z.string())), prefer: z.array(EvidenceMethod) }),
   budgets: Budgets,
   provenance: Provenance,
+  /** What web search found while planning (absent when search was not used). */
+  search: z.object({ queries: z.array(SearchLog), sources: z.array(FoundSource) }).optional(),
 });
 export type WorkflowIR = z.infer<typeof WorkflowIR>;

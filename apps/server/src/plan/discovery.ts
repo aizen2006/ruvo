@@ -1,4 +1,4 @@
-import type { AdapterId, DatasetContract } from "@repo/contracts";
+import type { AdapterId, DatasetContract, FoundSource } from "@repo/contracts";
 import { registeredAdapters } from "../adapters";
 import { nameSlugs } from "./slugs";
 import type { RegistryCompany } from "./registry";
@@ -13,7 +13,7 @@ export interface SourceCandidate {
   /** Postings at last verification; null when unknown. */
   jobCount: number | null;
   reason: string;
-  origin: "registry" | "community" | "user_url";
+  origin: "registry" | "community" | "user_url" | "search";
 }
 
 export interface Discovery {
@@ -96,6 +96,9 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   }
   return { candidates, unmatchedCompanies: named.filter((n) => !n.match).map((n) => n.name) };
 }
+
+/** A source web search found earlier, as a plannable candidate again (e.g. after a contract edit). */
+export const foundCandidate = (found: FoundSource): SourceCandidate => ({ ...found, params: found.params as Record<string, unknown>, tags: [], jobCount: null, origin: "search" });
 
 /**
  * A registry company as a plannable source: its public board page (browser + recipe) when the

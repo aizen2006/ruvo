@@ -17,6 +17,8 @@ For each candidate source, return an entry with:
 - fetchDetails: false (detail pages are not needed for API sources)
 - maxItems: how many matching records to keep from this source (5-100), so the total roughly meets the contract's maxRecords with some headroom for rejects and duplicates
 
+Candidates with origin "search" were found by searching the web: list pages (adapter html_list), pages about a single record (html_record, which yields one record) and public profiles known only from search results (search_hits). Their discoveryReason names the query that found them. Include the ones likely to hold records the contract asks for; skip off-topic ones.
+
 fieldStrategies: for each contract field, the extraction methods to try in order, from: adapter, json_ld, embedded_json, dom_recipe, regex, llm, derived. Prefer adapter when the source provides the field.
 llmBudget: LLM calls to allow for this run (0-60); API-only plans need few.
 rationale: 2-3 sentences explaining the plan.`;
@@ -26,6 +28,8 @@ export async function draftPlan(llm: LlmClient, contract: DatasetContract, candi
   const sources = candidates.map((c) => ({
     ref: c.ref,
     label: c.label,
+    adapter: c.adapter,
+    origin: c.origin,
     kind: getAdapter(c.adapter).kind,
     tags: c.tags,
     postings: c.jobCount,
@@ -35,6 +39,7 @@ export async function draftPlan(llm: LlmClient, contract: DatasetContract, candi
   const contractSummary = {
     title: contract.title,
     entity: contract.entity,
+    entityDescription: contract.entityDescription,
     fields: contract.fields.map((f) => ({ name: f.name, catalogKey: f.catalogKey, required: f.required })),
     criteria: contract.criteria.map((c) => ({ label: c.label, kind: c.kind, strength: c.strength })),
     maxRecords: contract.maxRecords,

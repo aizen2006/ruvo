@@ -68,7 +68,8 @@ runsRouter.get("/:id/workflow", async (req, res) => {
 
 runsRouter.patch("/:id/contract", async (req, res) => {
   const contract = DatasetContract.parse(req.body?.contract);
-  res.json(await editRunContract(runId(req.params.id), contract));
+  const removeSources = z.array(z.string()).default([]).parse(req.body?.removeSources);
+  res.json(await editRunContract(runId(req.params.id), contract, removeSources));
 });
 
 runsRouter.post("/:id/rerun", async (req, res) => {

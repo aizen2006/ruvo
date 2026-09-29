@@ -1,6 +1,6 @@
 "use client";
 
-import type { DatasetContract, RunDetail } from "@repo/contracts";
+import type { DatasetContract, RunDetail, SearchLog } from "@repo/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -27,6 +27,22 @@ function Part({ title, hint, children }: { title: string; hint?: ReactNode; chil
   );
 }
 
+/** The web searches RUVO ran to find sources, with how many results each gave. */
+function SearchedFor({ queries }: { queries: SearchLog[] }) {
+  return (
+    <p className="text-small text-graphite">
+      Searched the web for{" "}
+      {queries.map((q, i) => (
+        <span key={q.query}>
+          {i > 0 && ", "}
+          <span className="text-ink">&ldquo;{q.query}&rdquo;</span> ({q.error ? "not searched" : `${q.hits} results`})
+        </span>
+      ))}
+      .
+    </p>
+  );
+}
+
 /**
  * "Check the plan": what RUVO understood, in plain words, before anything is collected.
  * Columns, rules and websites can be changed here. Unsaved changes live in the run page
@@ -40,11 +56,14 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
 
   const save = useRunAction(run.id, () => api.editContract(run.id, draft!));
   const start = useRunAction(run.id, () => api.startRun(run.id));
+  // Removes a searched source from the saved plan; unsaved edits stay as they are.
+  const removeSource = useRunAction(run.id, (ref: string) => api.editContract(run.id, run.contract!, [ref]));
 
   if (!draft) return null;
   const update = (next: Partial<DatasetContract>) => onEdit({ ...draft, ...next });
   const ir = workflow.data?.ir;
   const noSources = ir !== undefined && ir.sources.length === 0;
+  const found = new Set(ir?.search?.sources.map((s) => s.ref));
 
   return (
     <div className="space-y-group">
@@ -87,17 +106,30 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
           hint={
             draft.entity === "job_posting"
               ? "Job boards RUVO knows for this request, plus any website you add."
-              : "RUVO reads these records from websites you add. It learns each page once, so later runs are cheaper."
+              : "RUVO searches the web for pages that list these records, and reads any website you add. It learns each page once, so later runs are cheaper."
           }
         >
           {workflow.isPending ? (
             <Skeleton className="h-8 w-2/3" />
           ) : ir && ir.sources.length > 0 ? (
-            <SiteList sources={ir.sources} />
+            <SiteList
+              sources={ir.sources}
+              found={found}
+              onRemove={(ref) =>
+                removeSource.mutate(ref, {
+                  onSuccess: () => {
+                    void client.invalidateQueries({ queryKey: runKeys.workflow(run.id) });
+                    toast("Source removed");
+                  },
+                })
+              }
+            />
           ) : null}
+          {ir?.search && ir.search.queries.length > 0 && <SearchedFor queries={ir.search.queries} />}
           {noSources && (
             <p className="rounded-control bg-amber-wash px-3 py-2 text-small text-amber">
-              Nothing to read yet. Add a website that lists these, then save your changes.
+              {ir.search ? "The web search found no page RUVO may read." : "Nothing to read yet."} Add a website that lists these, then save your
+              changes.
             </p>
           )}
           <PageList urls={draft.sourceHints.urls} onChange={(urls) => update({ sourceHints: { ...draft.sourceHints, urls } })} />
@@ -159,7 +191,9 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
             </Button>
           </>
         )}
-        {(save.error ?? start.error) && <p className="text-small text-brick sm:ml-auto">{(save.error ?? start.error)!.message}</p>}
+        {(save.error ?? start.error ?? removeSource.error) && (
+          <p className="text-small text-brick sm:ml-auto">{(save.error ?? start.error ?? removeSource.error)!.message}</p>
+        )}
       </div>
     </div>
   );

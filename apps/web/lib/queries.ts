@@ -122,7 +122,7 @@ export function useRunEvents(id: string, status: RunStatus | undefined) {
 }
 
 /** Wraps a run action and refreshes everything about that run afterwards. */
-export function useRunAction<T>(id: string, action: () => Promise<T>) {
+export function useRunAction<T, V = void>(id: string, action: (variables: V) => Promise<T>) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: action,

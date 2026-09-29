@@ -7,7 +7,7 @@ import { getRequestPrompt } from "../db/repos/runs";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
 import { runs } from "../db/schema";
 import { conflict } from "../libs/errors";
-import { discoverSources } from "../plan/discovery";
+import { discoverSources, foundCandidate } from "../plan/discovery";
 import { compileIr, defaultSourcePlan } from "../plan/irCompiler";
 import { listRegistry } from "../plan/registry";
 import { appendEvent } from "./eventBus";
@@ -17,8 +17,9 @@ import { budgetsForMode } from "./modes";
  * Applies a user's edit to a run's contract before it starts: the contract is normalized
  * and versioned, sources are re-discovered, and the IR is recompiled from the existing plan
  * (no LLM call), keeping the planner's choices for sources that are still candidates.
+ * Sources found by web search are kept without searching again, except those in `removeSources`.
  */
-export async function editRunContract(runId: string, edited: DatasetContract) {
+export async function editRunContract(runId: string, edited: DatasetContract, removeSources: string[] = []) {
   const [run] = await db.select({ status: runs.status, requestId: runs.requestId, mode: runs.mode }).from(runs).where(eq(runs.id, runId));
   if (!run || run.status !== "awaiting_approval") throw conflict("The contract can only be edited while the run awaits approval");
 
@@ -26,13 +27,20 @@ export async function editRunContract(runId: string, edited: DatasetContract) {
   const { contract, warnings } = normalizeContract(edited, await getRequestPrompt(run.requestId));
   const contractRow = await saveContract({ requestId: run.requestId, contract, editedBy: "user" });
 
-  const { candidates } = discoverSources(contract, await listRegistry());
+  const removed = new Set(removeSources);
+  const search = current.ir.search && { ...current.ir.search, sources: current.ir.search.sources.filter((s) => !removed.has(s.ref)) };
+  const discovered = discoverSources(contract, await listRegistry()).candidates;
+  const known = new Set(discovered.map((c) => c.ref));
+  const candidates = [...discovered, ...(search?.sources ?? []).filter((s) => !known.has(s.ref)).map(foundCandidate)].filter(
+    (c) => !removed.has(c.ref),
+  );
   const draft = mergeDraft(current.planDraft, candidates.map((c) => c.ref), (ref) => defaultSourcePlan(candidates.find((c) => c.ref === ref)!));
   const ir = compileIr(contract, draft, candidates, {
     caps: budgetsForMode(run.mode, env, contract.maxRecords),
     provenance: { plannedBy: "user_edit", model: null, reusedFrom: null, parentVersion: current.version },
   });
   ir.provenance.warnings.unshift(...warnings);
+  if (search) ir.search = search;
 
   const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft, parentWorkflowId: current.workflowId });
   await attachWorkflow(runId, workflow.id);
