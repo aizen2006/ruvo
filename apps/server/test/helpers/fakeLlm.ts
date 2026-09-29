@@ -7,11 +7,11 @@ type FakeReply = unknown | ((request: { input: Array<{ role: string; content: st
  * fakeResponses({ contract: {...} }). `refuse` makes a schema return a refusal.
  */
 export function fakeResponses(replies: Record<string, FakeReply>, opts: { refuse?: string[] } = {}) {
-  const calls: Array<{ name: string; input: Array<{ role: string; content: string }> }> = [];
+  const calls: Array<{ name: string; model: string; input: Array<{ role: string; content: string }> }> = [];
   const responses = {
-    async parse(body: { text?: { format?: { name?: string } }; input: Array<{ role: string; content: string }> }) {
+    async parse(body: { model: string; text?: { format?: { name?: string } }; input: Array<{ role: string; content: string }> }) {
       const name = body.text?.format?.name ?? "";
-      calls.push({ name, input: body.input });
+      calls.push({ name, model: body.model, input: body.input });
       if (opts.refuse?.includes(name)) {
         return { output_parsed: null, output: [{ content: [{ type: "refusal", refusal: "not allowed" }] }], usage: { input_tokens: 10, output_tokens: 1 } };
       }
