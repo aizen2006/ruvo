@@ -90,7 +90,7 @@ void main() {
 }`;
 
 /** A colour token from globals.css as 0–1 RGB. Tokens are hex; the production build may shorten them. */
-export function token(name: string) {
+function token(name: string) {
   const hex = getComputedStyle(document.documentElement).getPropertyValue(`--color-${name}`).trim().slice(1);
   const n = parseInt(hex.length === 3 ? hex.replace(/./g, "$&$&") : hex, 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => c / 255) as [number, number, number];

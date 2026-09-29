@@ -85,6 +85,8 @@
   --animate-row-in: row-in 320ms var(--ease-standard) both;
   --animate-sheet-in: sheet-in 320ms var(--ease-standard) both;
   --animate-fade-in: fade-in 200ms var(--ease-standard) both;
+  --animate-cat-fall: cat-fall 1.6s ease-in-out infinite;
+  --animate-streak: streak 1.4s linear infinite;
 }
 
 /* Motion: three durations, one easing (--ease-standard). */
@@ -207,6 +209,32 @@
   to {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* The falling cat: it sways and bobs in place while the air streaks rise past it. */
+@keyframes cat-fall {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-7deg);
+  }
+  50% {
+    transform: translateY(3px) rotate(7deg);
+  }
+}
+
+@keyframes streak {
+  from {
+    transform: translateY(44px);
+    opacity: 0;
+  }
+  25%,
+  75% {
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-56px);
+    opacity: 0;
   }
 }
 

@@ -110,12 +110,11 @@ One WebGL fragment shader on a full-screen triangle, no images or libraries.
 
 ## Loader (`components/falling-cat.tsx`)
 
-When a whole page is loading, a small 1-bit pixel cat falls on its back, centred on the page with
-no panel behind it (`app/loading.tsx`, and a dataset's first load). It stays in place, swaying and
-bobbing, while thin `pencil` streaks rush upward past it; that is what makes the fall. It is drawn
-as shapes, thresholded and outlined layer by layer in `ink`, so the sway gets real pixel jaggies;
-the label is for screen readers only. It runs at 30fps and shows one still frame under reduced
-motion.
+When a whole page is loading, a small solid pixel cat (a 29×32 sprite in `ink`, tail and ears
+up, eyes left open) falls in the middle of the page with no panel behind it (`app/loading.tsx`,
+and a dataset's first load). It stays centred, swaying and bobbing, while thin `pencil` streaks
+rise past it; that is what makes the fall. It is one SVG path animated with CSS, so reduced motion
+simply stops it. The label is for screen readers only.
 Loading inside a panel keeps the dither `Skeleton`.
 
 ## Screens

@@ -109,7 +109,7 @@ export function DesignSheet() {
       </Section>
 
       <Section title="Loader">
-        <p className="max-w-prose text-small text-graphite">While a whole page loads: a small pixel cat falling on its back, centred. Panels keep their dither skeletons.</p>
+        <p className="max-w-prose text-small text-graphite">While a whole page loads: a small pixel cat falling, centred. Panels keep their dither skeletons.</p>
         <FallingCat className="h-40" />
       </Section>
 
