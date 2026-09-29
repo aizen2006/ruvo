@@ -79,6 +79,7 @@ function llmFloor(contract: DatasetContract, sources: SourceBranch[]): number {
   for (const branch of sources) {
     for (const step of branch.steps) {
       if (step.kind === "collect" && step.adapter === "html_list") calls += RECIPE_DISCOVERY_CALLS;
+      if (step.kind === "collect" && step.adapter === "html_record") calls += 1;
       if (step.kind === "collect" && semantic) calls += Math.ceil(step.maxItems / JUDGE_BATCH);
       if (step.kind === "enrich" && step.rungs.includes("llm")) calls += 2;
     }

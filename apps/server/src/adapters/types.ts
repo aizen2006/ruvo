@@ -1,4 +1,4 @@
-import type { AdapterId, CatalogKey, EvidenceMethod, Locator } from "@repo/contracts";
+import { CatalogKey, type AdapterId, type EvidenceMethod, type Locator } from "@repo/contracts";
 import type { z } from "zod";
 import type { Fetcher, FetchScope } from "../fetch/fetcher";
 import type { RunContext } from "../runs/runContext";
@@ -51,3 +51,7 @@ export interface SourceAdapter<P> {
   provides: Partial<Record<CatalogKey, EvidenceMethod>>;
   collect(ctx: AdapterContext, params: P): Promise<Item[]>;
 }
+
+/** `provides` for adapters that read whatever columns the request has, by one method. */
+export const everyField = (method: EvidenceMethod) =>
+  Object.fromEntries(CatalogKey.options.map((key) => [key, method])) as SourceAdapter<unknown>["provides"];
