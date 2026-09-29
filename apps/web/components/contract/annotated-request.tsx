@@ -39,7 +39,7 @@ export function AnnotatedRequest({ prompt, assumptions }: { prompt: string; assu
   const markerOf = (note: number) => [...anchored].sort((x, y) => x - y).indexOf(note) + 1;
 
   return (
-    <div className="grid gap-8 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+    <div className="grid gap-stack lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
       <p className="text-heading sm:text-title">
         {segments.map((s, i) =>
           s.note === null ? (
@@ -55,7 +55,7 @@ export function AnnotatedRequest({ prompt, assumptions }: { prompt: string; assu
               )}
             >
               {s.text}
-              <sup className="ml-0.5 font-sans text-micro text-ink">{markerOf(s.note)}</sup>
+              <sup className="ml-0.5 font-mono text-micro text-ink">{markerOf(s.note)}</sup>
             </mark>
           ),
         )}
@@ -71,7 +71,7 @@ export function AnnotatedRequest({ prompt, assumptions }: { prompt: string; assu
               className={clsx("space-y-1 transition-colors", focus !== null && focus !== i && "opacity-50")}
             >
               <p>
-                <span className="mr-2 text-ink">{markerOf(i)}</span>
+                <span className="mr-2 font-mono text-ink">{markerOf(i)}</span>
                 <span className="italic">“{a.phrase}”</span>
               </p>
               <p className="text-ink">{a.interpretation}</p>

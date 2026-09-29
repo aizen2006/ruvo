@@ -29,7 +29,10 @@ export function SiteList({
         const searched = found?.has(s.ref) ?? false;
         const removable = searched && onRemove;
         return (
-          <li key={s.id} className={cn("inline-flex max-w-full items-center gap-1 rounded-full bg-ink/6 py-1 pl-3 text-small", removable ? "pr-1" : "pr-3")}>
+          <li
+            key={s.id}
+            className={cn("inline-flex max-w-full items-center gap-1.5 rounded-full border border-hairline-strong bg-sheet py-1 pl-3 font-mono text-small", removable ? "pr-1" : "pr-3")}
+          >
             {searched && <Search className="size-3.5 shrink-0 text-graphite" aria-label="Found by web search" />}
             <Tooltip content={s.reason}>
               <span tabIndex={0} className="truncate">
@@ -51,7 +54,7 @@ export function SiteList({
       })}
       {sources.length > shown.length && (
         <li>
-          <button type="button" onClick={() => setAll(true)} className="px-2 py-1 text-small text-graphite underline underline-offset-4 hover:text-ink">
+          <button type="button" onClick={() => setAll(true)} className="px-2 py-1 font-mono text-small text-graphite underline underline-offset-4 hover:text-ink">
             and {sources.length - shown.length} more
           </button>
         </li>

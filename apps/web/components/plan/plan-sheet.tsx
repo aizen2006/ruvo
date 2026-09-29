@@ -15,14 +15,18 @@ import { PlanFacts } from "./plan-facts";
 import { RuleChips } from "./rule-chips";
 import { SiteList } from "./site-list";
 
+/** One part of the plan, laid out like a spec sheet: the name in a margin column, then what it says. */
 function Part({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <section className="space-y-item border-t border-hairline px-group py-group first:border-t-0">
-      <div className="space-y-1">
-        <h2 className="text-body font-semibold">{title}</h2>
+    <section className="grid gap-item border-t border-hairline px-group py-group first:border-t-0 sm:grid-cols-[9rem_minmax(0,1fr)] sm:gap-group">
+      <h2 className="flex items-baseline gap-tight font-mono text-small font-medium">
+        <span aria-hidden className="size-1.5 shrink-0 -translate-y-0.5 bg-ink" />
+        {title}
+      </h2>
+      <div className="min-w-0 space-y-item">
         {hint && <p className="text-small text-graphite">{hint}</p>}
+        {children}
       </div>
-      {children}
     </section>
   );
 }
@@ -35,7 +39,7 @@ function SearchedFor({ queries }: { queries: SearchLog[] }) {
       {queries.map((q, i) => (
         <span key={q.query}>
           {i > 0 && ", "}
-          <span className="text-ink">&ldquo;{q.query}&rdquo;</span> ({q.error ? "not searched" : `${q.hits} results`})
+          <span className="font-mono text-ink">&ldquo;{q.query}&rdquo;</span> ({q.error ? "not searched" : `${q.hits} results`})
         </span>
       ))}
       .
@@ -95,8 +99,8 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
           <Part title="How RUVO read your words">
             <dl className="space-y-item text-small">
               {draft.assumptions.map((a) => (
-                <div key={a.phrase}>
-                  <dt className="font-medium">&ldquo;{a.phrase}&rdquo;</dt>
+                <div key={a.phrase} className="space-y-1">
+                  <dt className="font-mono font-medium">&ldquo;{a.phrase}&rdquo;</dt>
                   <dd className="text-graphite">{a.interpretation}</dd>
                 </div>
               ))}
@@ -148,7 +152,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
 
         {draft.unsupported.length > 0 && (
           <Part title="What RUVO can't collect">
-            <ul className="list-disc space-y-1 pl-5 text-small text-graphite">
+            <ul className="list-[square] space-y-1 pl-5 text-small text-graphite">
               {draft.unsupported.map((u) => (
                 <li key={u}>{u}</li>
               ))}
@@ -180,7 +184,8 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
         )}
       </div>
 
-      <div className="sticky bottom-0 -mx-4 flex flex-col gap-tight border-t border-hairline bg-canvas/95 px-4 py-item backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:rounded-panel sm:border sm:px-item">
+      {/* The actions float over the plan as it scrolls. */}
+      <div className="frost sticky bottom-3 flex flex-col gap-tight rounded-panel p-tight sm:flex-row sm:items-center">
         {dirty ? (
           <>
             <Button
@@ -202,7 +207,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
             <Button variant="quiet" onClick={() => onEdit(null)}>
               Discard
             </Button>
-            <p className="text-small text-graphite sm:ml-auto">Save before starting. Nothing is collected yet.</p>
+            <p className="px-tight font-mono text-micro text-graphite sm:ml-auto">Save before starting. Nothing is collected yet.</p>
           </>
         ) : (
           <>
@@ -220,7 +225,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
           </>
         )}
         {(save.error ?? start.error ?? removeSource.error) && (
-          <p className="text-small text-brick sm:ml-auto">{(save.error ?? start.error ?? removeSource.error)!.message}</p>
+          <p className="px-tight text-small text-brick sm:ml-auto">{(save.error ?? start.error ?? removeSource.error)!.message}</p>
         )}
       </div>
     </div>

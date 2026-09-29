@@ -29,7 +29,7 @@ function Values({ criterion }: { criterion: Criterion }) {
   return (
     <p className="flex flex-wrap gap-1.5">
       {shown.map((v) => (
-        <span key={v} className="rounded border border-hairline bg-sheet px-1.5 py-0.5 text-micro">
+        <span key={v} className="rounded-full border border-hairline bg-sheet px-2 py-0.5 font-mono text-micro">
           {v.replace(/_/g, " ")}
         </span>
       ))}
@@ -55,11 +55,11 @@ export function CriteriaList({ criteria, edits }: { criteria: Criterion[]; edits
   ];
 
   return (
-    <div className="grid gap-8 md:grid-cols-2">
+    <div className="grid gap-stack md:grid-cols-2">
       {groups.map((group) => (
         <section key={group.title} className="space-y-3">
           <header>
-            <h3 className="font-semibold">{group.title}</h3>
+            <h3 className="font-mono text-small font-medium">{group.title}</h3>
             <p className="text-small text-graphite">{group.hint}</p>
           </header>
           {group.items.length === 0 && <p className="text-small text-pencil">None</p>}

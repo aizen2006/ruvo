@@ -49,7 +49,7 @@ export function ContractView({
     : undefined;
 
   return (
-    <div className="space-y-10 py-6">
+    <div className="space-y-section py-group">
       <AnnotatedRequest prompt={run.prompt} assumptions={draft.assumptions} />
 
       <section className="space-y-3">
@@ -59,7 +59,7 @@ export function ContractView({
         </div>
         <table className="w-full border-collapse text-small">
           <thead>
-            <tr className="border-b border-hairline-strong text-left text-graphite">
+            <tr className="border-b-2 border-ink text-left font-mono text-micro text-graphite">
               <th className="py-2 pr-4 font-medium">Column</th>
               <th className="py-2 pr-4 font-medium">Meaning</th>
               <th className="py-2 text-right font-medium">Required</th>
@@ -109,7 +109,7 @@ export function ContractView({
       )}
 
       {editable && (
-        <div className="sticky bottom-0 -mx-6 flex items-center gap-3 border-t border-hairline bg-canvas/95 px-6 py-3 backdrop-blur">
+        <div className="frost sticky bottom-3 flex flex-wrap items-center gap-3 rounded-panel p-tight">
           <Button
             variant="primary"
             disabled={!dirty || save.isPending}

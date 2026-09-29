@@ -14,7 +14,7 @@ export function RuleChips({ criteria, edits }: { criteria: Criterion[]; edits?: 
   const must = criteria.filter((c) => c.strength === "hard");
   const nice = criteria.filter((c) => c.strength === "soft");
   return (
-    <div className="grid gap-group sm:grid-cols-2">
+    <div className="grid gap-group">
       <RuleGroup title="Keeps only rows that" empty="No strict rules: every row is kept." items={must} edits={edits} />
       <RuleGroup title="Ranks higher when" empty="No preferences." items={nice} edits={edits} />
     </div>
@@ -24,13 +24,13 @@ export function RuleChips({ criteria, edits }: { criteria: Criterion[]; edits?: 
 function RuleGroup({ title, empty, items, edits }: { title: string; empty: string; items: Criterion[]; edits?: RuleEdits }) {
   return (
     <div className="space-y-tight">
-      <h3 className="text-small text-graphite">{title}</h3>
+      <h3 className="font-mono text-micro text-graphite">{title}</h3>
       {items.length === 0 ? (
         <p className="text-small text-pencil">{empty}</p>
       ) : (
         <ul className="flex flex-wrap gap-tight">
           {items.map((c) => (
-            <li key={c.id}>{edits ? <EditableRule rule={c} edits={edits} /> : <span className={RULE}>{c.label}</span>}</li>
+            <li key={c.id}>{edits ? <EditableRule rule={c} edits={edits} /> : <span className={`${RULE} border border-hairline bg-sheet`}>{c.label}</span>}</li>
           ))}
         </ul>
       )}
@@ -38,13 +38,14 @@ function RuleGroup({ title, empty, items, edits }: { title: string; empty: strin
   );
 }
 
-const RULE = "inline-flex items-center gap-1 rounded-control border border-hairline-strong bg-sheet px-3 py-1.5 text-small";
+const RULE = "inline-flex items-center gap-1.5 rounded-control px-3 py-1.5 text-left font-mono text-small";
 
+/** An editable rule is a bevel key that opens its menu; it stays pressed in while the menu is open. */
 function EditableRule({ rule, edits }: { rule: Criterion; edits: RuleEdits }) {
   const strict = rule.strength === "hard";
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={`${RULE} hover:border-ink data-[state=open]:border-ink`}>
+      <DropdownMenuTrigger className={`${RULE} bevel`}>
         {rule.label}
         <ChevronDown className="size-3.5 text-graphite" aria-hidden />
       </DropdownMenuTrigger>
