@@ -35,7 +35,8 @@ export function createBrowserPool(opts: {
   const getBrowser = async () => {
     const current = browser ? await browser.catch(() => null) : null;
     if (current?.isConnected()) return current;
-    browser = chromium.launch();
+    // Containers give /dev/shm only 64MB, which crashes Chromium.
+    browser = chromium.launch({ args: ["--disable-dev-shm-usage"] });
     return browser;
   };
 
@@ -43,7 +44,12 @@ export function createBrowserPool(opts: {
     render: (url, { signal, timeoutMs = 20_000 }) =>
       limit(async () => {
         signal?.throwIfAborted();
-        const context = await (await getBrowser()).newContext({ userAgent: opts.userAgent, javaScriptEnabled: true });
+        const context = await (await getBrowser()).newContext({
+          userAgent: opts.userAgent,
+          javaScriptEnabled: true,
+          // Service-worker requests bypass page.route and so the private-network guard below.
+          serviceWorkers: "block",
+        });
         const abort = () => void context.close().catch(() => {});
         signal?.addEventListener("abort", abort, { once: true });
         try {

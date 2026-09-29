@@ -17,8 +17,9 @@ import { createWorkflowMemory } from "../memory/workflowMemory";
  * Process-wide service instances shared by every run in this process, so robots.txt rules,
  * per-host rate limits and circuit breakers apply across runs.
  */
-// RUVO's own demo site (see fixtures/careersSite) is reachable despite the private-network guards.
-const trustedOrigins = [`http://localhost:${env.PORT}`];
+// RUVO's own demo site (see fixtures/careersSite) is reachable despite the private-network guards;
+// it isn't served in production, so nothing local is trusted there.
+const trustedOrigins = env.NODE_ENV === "production" ? [] : [`http://localhost:${env.PORT}`];
 export const browser = createBrowserPool({ userAgent: env.USER_AGENT, maxPages: 2, trustedOrigins });
 /** Shared with web discovery, so it never plans a page the fetcher would refuse. */
 export const robots = createRobots({ userAgent: env.USER_AGENT });
