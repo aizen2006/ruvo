@@ -28,7 +28,7 @@ describe("mode presets", () => {
     const byId = Object.fromEntries(modeOptions({ ...models, ...ceilings }).map((m) => [m.id, m]));
     expect(byId.quick!.budgets.maxLlmCalls).toBeLessThan(byId.balanced!.budgets.maxLlmCalls);
     expect(byId.balanced!.budgets.maxLlmCalls).toBeLessThan(byId.thorough!.budgets.maxLlmCalls);
-    expect(byId.quick!.models).toEqual({ planner: "gpt-6-luna", worker: "gpt-6-luna" });
+    expect(byId.quick!.models).toEqual({ planner: "gpt-6-sol", worker: "gpt-6-luna" });
     expect(byId.balanced!.models).toEqual({ planner: "gpt-6-sol", worker: "gpt-6-luna" });
     expect(byId.thorough!.models).toEqual({ planner: "gpt-6-sol", worker: "gpt-6-sol" });
   });
@@ -41,7 +41,7 @@ describe("mode presets", () => {
 
   test("an explicit model choice overrides the mode's, blanks do not", () => {
     expect(modelsForMode("balanced", { worker: "gpt-6-astra" }, models)).toEqual({ planner: "gpt-6-sol", worker: "gpt-6-astra" });
-    expect(modelsForMode("quick", { planner: "" }, models)).toEqual({ planner: "gpt-6-luna", worker: "gpt-6-luna" });
+    expect(modelsForMode("quick", { planner: "" }, models)).toEqual({ planner: "gpt-6-sol", worker: "gpt-6-luna" });
   });
 
   test("estimates grow with the models and the call budget", () => {
@@ -108,8 +108,8 @@ describe("per-run models and cost", () => {
     await worker.stop();
 
     expect(fake.calls.map((c) => [c.name, c.model])).toEqual([
-      ["dataset_contract", "gpt-6-luna"],
-      ["plan_draft", "gpt-6-luna"],
+      ["dataset_contract", "gpt-6-sol"],
+      ["plan_draft", "gpt-6-sol"],
     ]);
     const detail = (await api.get(`/api/runs/${body.runId}`)).body;
     expect(detail.costUsd).toBeGreaterThan(0);

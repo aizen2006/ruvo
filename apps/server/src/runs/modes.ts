@@ -19,8 +19,10 @@ interface Preset {
 const PRESETS: Record<RunMode, Preset> = {
   quick: {
     label: "Quick",
-    blurb: "A first look from fewer sources, using the cheapest model",
-    models: (e) => ({ planner: e.MODEL_WORKER, worker: e.MODEL_WORKER }),
+    blurb: "A first look from fewer sources, with little AI help",
+    // Understanding stays on the planner model: the golden eval fails with luna there
+    // ("preferably remote" read as a hard requirement).
+    models: (e) => ({ planner: e.MODEL_PLANNER, worker: e.MODEL_WORKER }),
     budgets: { maxPages: 40, maxBrowserPages: 3, maxLlmCalls: 15, maxDurationMs: 120_000 },
   },
   balanced: {
