@@ -33,6 +33,9 @@ export class ApiError extends Error {
   }
 }
 
+/** A 4xx answer (e.g. not found) won't change if asked again. */
+export const isClientError = (error: unknown) => error instanceof ApiError && error.status >= 400 && error.status < 500;
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
@@ -87,7 +90,7 @@ export const api = {
       headers: { "Idempotency-Key": idempotencyKey },
     }),
   getOptions: () => request<RunOptions>("/api/options"),
-  listRuns: () => request<RunSummary[]>("/api/runs"),
+  listRuns: (limit: number) => request<RunSummary[]>(`/api/runs?limit=${limit}`),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),
   startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),
   cancelRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/cancel`, { method: "POST" }),

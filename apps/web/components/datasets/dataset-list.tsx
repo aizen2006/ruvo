@@ -4,6 +4,7 @@ import { isTerminal, type RunStatus, type RunSummary } from "@repo/contracts";
 import { RotateCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
@@ -12,6 +13,10 @@ import { formatNumber, timeAgo } from "@/lib/format";
 import { DATASET_STATUS, usd } from "@/lib/plain";
 import { useRunAction, useRuns } from "@/lib/queries";
 import { cn } from "@/lib/utils";
+
+const PAGE = 50;
+/** The most runs the API lists in one request. */
+const MAX_RUNS = 200;
 
 const DOT: Record<RunStatus, string> = {
   queued: "bg-pencil",
@@ -31,7 +36,10 @@ export function StatusDot({ status }: { status: RunStatus }) {
 
 /** Every list the person has made, newest first: open it, or run it again for fresh rows. */
 export function DatasetList() {
-  const { data: runs, isLoading, error } = useRuns();
+  const [limit, setLimit] = useState(PAGE);
+  const { data: runs, isLoading, isPlaceholderData, error } = useRuns(limit);
+  // A full page may have more runs behind it.
+  const full = runs?.length === limit;
 
   if (isLoading) {
     return (
@@ -55,11 +63,19 @@ export function DatasetList() {
   }
 
   return (
-    <ul className="divide-y divide-hairline overflow-hidden rounded-panel border border-hairline bg-sheet">
-      {runs.map((run) => (
-        <DatasetRow key={run.id} run={run} />
-      ))}
-    </ul>
+    <div className="space-y-item">
+      <ul className="divide-y divide-hairline overflow-hidden rounded-panel border border-hairline bg-sheet">
+        {runs.map((run) => (
+          <DatasetRow key={run.id} run={run} />
+        ))}
+      </ul>
+      {full && limit < MAX_RUNS && (
+        <Button disabled={isPlaceholderData} onClick={() => setLimit(limit + PAGE)}>
+          Show more
+        </Button>
+      )}
+      {full && limit >= MAX_RUNS && <p className="text-small text-graphite">Showing your latest {MAX_RUNS} lists.</p>}
+    </div>
   );
 }
 
@@ -71,8 +87,9 @@ function DatasetRow({ run }: { run: RunSummary }) {
   return (
     <li className="flex flex-col gap-tight px-group py-item hover:bg-highlighter-wash/40 sm:flex-row sm:items-center sm:gap-group">
       <div className="min-w-0 flex-1 space-y-1">
-        <Link href={`/runs/${run.id}`} className="block font-semibold hover:underline">
-          {run.title ?? "Getting ready"}
+        <Link href={`/runs/${run.id}`} className="line-clamp-1 font-semibold hover:underline">
+          {/* A run that ended before it was understood has no title; its request names it. */}
+          {run.title ?? (isTerminal(run.status) ? run.prompt : "Getting ready")}
         </Link>
         <p className="line-clamp-1 text-small text-graphite" title={run.prompt}>
           {run.prompt}
@@ -98,7 +115,8 @@ function DatasetRow({ run }: { run: RunSummary }) {
         </div>
       </dl>
       <div className="shrink-0 sm:w-32 sm:text-right">
-        {isTerminal(run.status) && (
+        {/* Only a run that reached a workflow can be run again. */}
+        {isTerminal(run.status) && run.workflowId && (
           <Button
             variant="quiet"
             size="sm"

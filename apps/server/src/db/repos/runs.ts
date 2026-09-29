@@ -60,6 +60,7 @@ function toSummary(row: SummaryRow): RunSummary {
     models: runModels(row, env),
     costUsd: row.costUsd,
     error: row.error,
+    workflowId: row.workflowId,
     createdAt: row.createdAt.toISOString(),
     startedAt: iso(row.startedAt),
     finishedAt: iso(row.finishedAt),
@@ -141,7 +142,7 @@ export async function getRunDetail(runId: string): Promise<RunDetail> {
     .orderBy(desc(datasetContracts.version))
     .limit(1);
 
-  return { ...toSummary(row), contract: latestContract?.contract ?? null, workflowId: row.workflowId };
+  return { ...toSummary(row), contract: latestContract?.contract ?? null };
 }
 
 /** Approves a run that is waiting for review, handing it to the worker queue. */

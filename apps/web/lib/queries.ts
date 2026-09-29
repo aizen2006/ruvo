@@ -3,7 +3,7 @@
 import { isTerminal, type RunEvent, type RunStatus } from "@repo/contracts";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
-import { api, type RecordFilters } from "./api";
+import { api, isClientError, type RecordFilters } from "./api";
 
 /**
  * React Query hooks. A run in progress polls once a second; a run waiting for review polls
@@ -34,13 +34,21 @@ export const runKeys = {
 /** Modes, models and prices for a new run; they only change when the server restarts. */
 export const useRunOptions = () => useQuery({ queryKey: ["options"], queryFn: api.getOptions, staleTime: 5 * 60_000 });
 
-export const useRuns = () => useQuery({ queryKey: runKeys.all, queryFn: api.listRuns, refetchInterval: 5_000 });
+/** The newest `limit` runs; refreshed while any of them is still in progress. */
+export const useRuns = (limit: number) =>
+  useQuery({
+    queryKey: [...runKeys.all, { limit }],
+    queryFn: () => api.listRuns(limit),
+    placeholderData: keepPreviousData,
+    refetchInterval: (q) => (q.state.data?.some((r) => !isTerminal(r.status)) ? 5_000 : false),
+  });
 
 export function useRun(id: string) {
   return useQuery({
     queryKey: runKeys.run(id),
     queryFn: () => api.getRun(id),
-    refetchInterval: (q) => pollInterval(q.state.data?.status),
+    // A missing run stays missing: stop asking.
+    refetchInterval: (q) => (isClientError(q.state.error) ? false : pollInterval(q.state.data?.status)),
   });
 }
 
@@ -89,6 +97,8 @@ export function useRunEvents(id: string, status: RunStatus | undefined) {
   const lastSeq = useRef(0);
 
   useEffect(() => {
+    // Wait for the run itself: one that failed to load has no events to poll for.
+    if (!status) return;
     let cancelled = false;
     let inFlight = false;
     const poll = async () => {

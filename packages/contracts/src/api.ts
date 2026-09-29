@@ -34,12 +34,13 @@ export const RunSummary = z.object({
   startedAt: z.string().nullable(),
   finishedAt: z.string().nullable(),
   error: z.string().nullable(),
+  /** The workflow it runs; null until planned. A run without one can't be run again. */
+  workflowId: z.string().nullable(),
 });
 export type RunSummary = z.infer<typeof RunSummary>;
 
 export const RunDetail = RunSummary.extend({
   contract: DatasetContract.nullable(),
-  workflowId: z.string().nullable(),
 });
 export type RunDetail = z.infer<typeof RunDetail>;
 

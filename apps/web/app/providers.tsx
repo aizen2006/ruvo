@@ -4,10 +4,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Tooltip } from "radix-ui";
 import { useState } from "react";
 import { Toaster } from "@/components/ui/sonner";
-import { ApiError } from "@/lib/api";
+import { isClientError } from "@/lib/api";
 
-/** Retry once on network or server errors; a 4xx answer (e.g. not found) will not change. */
-const retry = (failures: number, error: Error) => !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failures < 1;
+/** Retry once on network or server errors; a 4xx answer will not change. */
+const retry = (failures: number, error: Error) => !isClientError(error) && failures < 1;
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // One client per browser session; created lazily so server renders don't share it.
