@@ -15,12 +15,16 @@ import { withPages } from "@/lib/url";
 import { Examples, type Example } from "./examples";
 import { ModelPicker } from "./model-picker";
 import { ModePicker } from "./mode-picker";
+import { VoiceButton } from "./voice-button";
 
 /** A random key; crypto.randomUUID only exists on secure origins (https or localhost). */
 const newKey = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
 
 const MIN_PROMPT = 10;
+
+/** Spoken phrases continue the typed request, separated by a space. */
+const appendSpoken = (prompt: string, spoken: string) => (prompt && !/\s$/.test(prompt) ? `${prompt} ${spoken}` : `${prompt}${spoken}`);
 
 /**
  * The ask screen: what list you want, optional pages to read, how thorough, and (advanced)
@@ -30,6 +34,7 @@ export function AskComposer() {
   const router = useRouter();
   const options = useRunOptions();
   const [prompt, setPrompt] = useState("");
+  const [heard, setHeard] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
   const [mode, setMode] = useState<RunMode>("balanced");
   const [models, setModels] = useState<Partial<ModelChoice>>({});
@@ -85,7 +90,11 @@ export function AskComposer() {
             placeholder="Remote backend jobs at AI companies, with salary"
             className="block w-full resize-none rounded-t-panel bg-transparent px-group pt-group pb-item text-heading placeholder:text-pencil focus:outline-none"
           />
-          <PageList urls={urls} onChange={setUrls} className="border-t border-hairline px-group py-3" />
+          {heard && <p className="-mt-tight px-group pb-item text-heading text-pencil">{heard}</p>}
+          <div className="flex items-start gap-item border-t border-hairline px-group py-3">
+            <PageList urls={urls} onChange={setUrls} className="min-w-0 flex-1" />
+            <VoiceButton onInterim={setHeard} onFinal={(spoken) => setPrompt((p) => appendSpoken(p, spoken))} />
+          </div>
         </div>
 
         {options.isPending ? (
