@@ -1,7 +1,7 @@
 import type { Certainty, RunStatus } from "@repo/contracts";
 
 /**
- * RUVO's everyday vocabulary (docs/design-system.md, "Words"). The default screens speak in
+ * RUVO's everyday vocabulary (docs/design.md, "Words"). The default screens speak in
  * these terms; pipeline names (contract, workflow, recipe, method codes) stay behind "Show details".
  */
 

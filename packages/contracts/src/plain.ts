@@ -1,7 +1,7 @@
 import type { EvidenceMethod } from "./record";
 
 /**
- * Plain words shared by the dashboard and exported files (docs/design-system.md, "Words"),
+ * Plain words shared by the dashboard and exported files (docs/design.md, "Words"),
  * so a spreadsheet says the same thing as the screen it was downloaded from.
  */
 

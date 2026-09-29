@@ -154,7 +154,7 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 apps/server         Bun + Express 5 API and a separate run worker. Drizzle on Postgres
                     (including the job queue), Playwright, cheerio, OpenAI, Jev.
 apps/web            Next.js 16 dashboard: Tailwind v4, shadcn/ui-style components on Radix,
-                    TanStack Query. docs/design-system.md covers tokens, words and components.
+                    TanStack Query. docs/design.md covers tokens, words and components.
 packages/contracts  zod schemas both sides share: contract, plan, workflow IR, records, runs.
 docs/               architecture.md explains the whole path through the code;
                     demo-script.md is an 8-minute walkthrough.
