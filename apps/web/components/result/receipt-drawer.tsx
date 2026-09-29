@@ -16,20 +16,20 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
   const field = contract.fields.find((f) => f.name === item.field);
   const value = text(item.value);
   return (
-    <li className="space-y-tight border-b border-hairline py-item last:border-b-0">
+    <li className="space-y-tight border-t-2 border-ink py-item">
       <div className="flex items-start justify-between gap-item">
         <div className="min-w-0">
-          <p className="text-micro text-graphite">{field ? columnTitle(field) : item.field}</p>
-          <p className="break-words">{value || "—"}</p>
+          <p className="text-small font-semibold text-graphite">{field ? columnTitle(field) : item.field}</p>
+          <p className="text-heading font-semibold break-words">{value || "—"}</p>
         </div>
         <CertaintyMark confidence={item.verified ? item.confidence : 0} />
       </div>
       {item.snippet && <Quote snippet={item.snippet} value={value} />}
-      {!item.verified && <p className="text-small text-brick">The quoted text wasn&apos;t found on the page, so this value isn&apos;t trusted.</p>}
-      <p className="flex flex-wrap items-center gap-x-item gap-y-1 text-micro text-graphite">
+      {!item.verified && <p className="text-small font-semibold text-brick">The quoted text wasn&apos;t found on the page, so this value isn&apos;t trusted.</p>}
+      <p className="flex flex-wrap items-center gap-x-item gap-y-1 text-micro font-medium text-graphite">
         <span>{SOURCE_PHRASE[item.method]}</span>
         {item.method !== "DERIVED" && (
-          <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-ink underline underline-offset-2">
+          <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 font-semibold text-ink underline decoration-2 underline-offset-2 hover:bg-highlighter">
             Open the page <ExternalLink className="size-3" aria-hidden />
           </a>
         )}
@@ -54,10 +54,10 @@ function RowVerdict({ record }: { record: RecordDTO }) {
                 key={s.criterionId}
                 className={
                   s.passed === true
-                    ? "inline-flex items-center gap-1 rounded-full bg-stamp-wash px-2.5 py-0.5 text-micro text-stamp"
+                    ? "inline-flex items-center gap-1 bg-stamp-wash px-2 py-0.5 text-micro font-bold text-stamp"
                     : s.passed === false
-                      ? "inline-flex items-center gap-1 rounded-full bg-brick-wash px-2.5 py-0.5 text-micro text-brick"
-                      : "inline-flex items-center gap-1 rounded-full bg-ink/6 px-2.5 py-0.5 text-micro text-graphite"
+                      ? "inline-flex items-center gap-1 bg-brick-wash px-2 py-0.5 text-micro font-bold text-brick"
+                      : "inline-flex items-center gap-1 bg-newsprint px-2 py-0.5 text-micro font-bold text-graphite"
                 }
               >
                 <Icon className="size-3" aria-hidden />
@@ -69,7 +69,7 @@ function RowVerdict({ record }: { record: RecordDTO }) {
         </ul>
       )}
       {record.rejectReasons.length > 0 && (
-        <ul className="list-disc space-y-1 pl-5 text-small text-brick">
+        <ul className="list-disc space-y-1 pl-5 text-small font-semibold text-brick">
           {record.rejectReasons.map((r) => (
             <li key={r}>{r}</li>
           ))}

@@ -17,9 +17,9 @@ import { SiteList } from "./site-list";
 
 function Part({ title, hint, children }: { title: string; hint?: ReactNode; children: ReactNode }) {
   return (
-    <section className="space-y-item border-t border-hairline px-group py-group first:border-t-0">
+    <section className="space-y-item border-t-2 border-ink py-group first:border-t-0 first:pt-0">
       <div className="space-y-1">
-        <h2 className="text-body font-semibold">{title}</h2>
+        <h2 className="font-display text-[1.875rem] leading-none font-black">{title}</h2>
         {hint && <p className="text-small text-graphite">{hint}</p>}
       </div>
       {children}
@@ -70,7 +70,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
 
   return (
     <div className="space-y-group">
-      <div className="overflow-hidden rounded-panel border border-hairline bg-sheet">
+      <div className="border-t-[6px] border-ink pt-group">
         <Part title="The columns" hint="Solid columns must be filled in for a row to count; dashed ones are nice to have. Press one to switch it.">
           <ColumnChips
             fields={draft.fields}
@@ -138,7 +138,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
           ) : null}
           {ir?.search && ir.search.queries.length > 0 && <SearchedFor queries={ir.search.queries} />}
           {noSources && (
-            <p className="rounded-control bg-amber-wash px-3 py-2 text-small text-amber">
+            <p className="border-l-4 border-amber bg-amber-wash px-3 py-2 text-small font-semibold text-amber">
               {ir.search ? "The web search found no page RUVO may read." : "Nothing to read yet."} Add a website that lists these, then save your
               changes.
             </p>
@@ -161,12 +161,12 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
             title="Sensitive details"
             hint={`This list filters on ${draft.sensitive.join(", ")}. RUVO counts that only when people say it about themselves in public, never guessing from a name, photo or looks. Rows without their own words are marked Check this.`}
           >
-            <label className="flex items-start gap-tight text-small">
+            <label className="flex items-start gap-tight border-2 border-ink p-3 text-small font-semibold has-checked:bg-highlighter">
               <input
                 type="checkbox"
                 checked={purposeConfirmed}
                 onChange={(e) => setPurposeConfirmed(e.target.checked)}
-                className="mt-0.5 size-4 accent-(--color-ink)"
+                className="mt-0.5 size-5 shrink-0 accent-(--color-ink)"
               />
               I&apos;ll use this list only for outreach these people would reasonably expect.
             </label>
@@ -180,7 +180,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
         )}
       </div>
 
-      <div className="sticky bottom-0 -mx-4 flex flex-col gap-tight border-t border-hairline bg-canvas/95 px-4 py-item backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:rounded-panel sm:border sm:px-item">
+      <div className="sticky bottom-0 -mx-4 flex flex-col gap-tight border-t-[3px] border-ink bg-sheet px-4 py-item sm:mx-0 sm:flex-row sm:items-center sm:border-[3px] sm:px-item">
         {dirty ? (
           <>
             <Button

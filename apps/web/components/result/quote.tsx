@@ -6,7 +6,7 @@
 export function Quote({ snippet, value }: { snippet: string; value: string }) {
   const at = value ? snippet.toLowerCase().indexOf(value.toLowerCase()) : -1;
   return (
-    <blockquote className="rounded-control bg-canvas px-3 py-2 font-mono text-small leading-relaxed break-words">
+    <blockquote className="border-l-4 border-ink bg-newsprint px-3 py-2.5 font-mono text-small leading-relaxed break-words">
       {at < 0 ? (
         <span className="mark">{snippet}</span>
       ) : (

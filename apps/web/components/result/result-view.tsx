@@ -39,8 +39,8 @@ export function ResultView({ run }: { run: RunDetail }) {
   return (
     <div className="space-y-stack">
       {run.status !== "completed" && (
-        <div role="status" className={run.status === "failed" ? "rounded-panel bg-brick-wash px-group py-item" : "rounded-panel bg-ink/6 px-group py-item"}>
-          <p className={run.status === "failed" ? "font-medium text-brick" : "font-medium"}>
+        <div role="status" className={run.status === "failed" ? "border-l-8 border-brick bg-brick-wash px-group py-item" : "border-l-8 border-ink bg-newsprint px-group py-item"}>
+          <p className={run.status === "failed" ? "font-bold text-brick" : "font-bold"}>
             {run.status === "failed" ? "This list didn't finish." : "You stopped this list."}
           </p>
           <p className="text-small text-graphite">
@@ -51,12 +51,12 @@ export function ResultView({ run }: { run: RunDetail }) {
         </div>
       )}
 
-      <section className="flex flex-col gap-item sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-display font-semibold tabular">
-            {formatNumber(rows)} <span className="text-heading font-medium text-graphite">{rows === 1 ? "row" : "rows"}</span>
+      <section className="flex flex-col gap-group bg-highlighter p-group sm:flex-row sm:items-end sm:justify-between">
+        <div className="space-y-tight">
+          <p className="font-display text-mega font-black tabular">
+            {formatNumber(rows)} <span className="text-title">{rows === 1 ? "row" : "rows"}</span>
           </p>
-          <p className="flex flex-wrap gap-x-item text-small text-graphite tabular">
+          <p className="flex flex-wrap gap-x-item text-small font-semibold tabular">
             {facts.map((f) => (
               <span key={String(f)}>{f}</span>
             ))}

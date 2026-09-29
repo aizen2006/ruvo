@@ -24,7 +24,7 @@ export function RuleChips({ criteria, edits }: { criteria: Criterion[]; edits?: 
 function RuleGroup({ title, empty, items, edits }: { title: string; empty: string; items: Criterion[]; edits?: RuleEdits }) {
   return (
     <div className="space-y-tight">
-      <h3 className="text-small text-graphite">{title}</h3>
+      <h3 className="text-small font-semibold">{title}</h3>
       {items.length === 0 ? (
         <p className="text-small text-pencil">{empty}</p>
       ) : (
@@ -38,15 +38,15 @@ function RuleGroup({ title, empty, items, edits }: { title: string; empty: strin
   );
 }
 
-const RULE = "inline-flex items-center gap-1 rounded-control border border-hairline-strong bg-sheet px-3 py-1.5 text-small";
+const RULE = "inline-flex items-center gap-1 border-2 border-ink bg-sheet px-3 py-1.5 text-small font-medium";
 
 function EditableRule({ rule, edits }: { rule: Criterion; edits: RuleEdits }) {
   const strict = rule.strength === "hard";
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger className={`${RULE} hover:border-ink data-[state=open]:border-ink`}>
+      <DropdownMenuTrigger className={`${RULE} hover:bg-highlighter-wash data-[state=open]:bg-highlighter`}>
         {rule.label}
-        <ChevronDown className="size-3.5 text-graphite" aria-hidden />
+        <ChevronDown className="size-3.5" aria-hidden />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start">
         <DropdownMenuItem onSelect={() => edits.onToggle(rule.id)}>{strict ? "Make it a preference" : "Make it a must"}</DropdownMenuItem>

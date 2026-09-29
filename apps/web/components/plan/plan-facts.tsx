@@ -27,9 +27,9 @@ export function PlanFacts({ run, ir }: { run: RunDetail; ir: WorkflowIR }) {
   return (
     <dl className="grid grid-cols-1 gap-x-group gap-y-item sm:grid-cols-2">
       {facts.map(([label, value]) => (
-        <div key={label}>
-          <dt className="text-micro text-graphite">{label}</dt>
-          <dd className="text-small font-medium tabular">{value}</dd>
+        <div key={label} className="border-t-2 border-ink pt-tight">
+          <dt className="text-small font-semibold text-graphite">{label}</dt>
+          <dd className="font-display text-[1.75rem] leading-tight font-black tabular">{value}</dd>
         </div>
       ))}
     </dl>

@@ -110,7 +110,8 @@
     -webkit-font-smoothing: antialiased;
   }
   /* The condensed cut sets its spaces tight; open them up so words stay apart. */
-  .font-display {
+  .font-display,
+  .font-display * {
     word-spacing: 0.08em;
   }
   /* Figures line up in tables and counters. */

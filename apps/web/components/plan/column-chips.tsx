@@ -27,8 +27,8 @@ export function ColumnChips({ fields, onToggle }: { fields: FieldSpec[]; onToggl
     <ul className="flex flex-wrap gap-tight" aria-label="Columns">
       {fields.map((f) => {
         const chip = cn(
-          "inline-flex items-center rounded-full border px-3 py-1 text-small",
-          f.required ? "border-ink bg-sheet font-medium" : "border-dashed border-hairline-strong text-graphite",
+          "inline-flex items-center border-2 px-3 py-1 text-small",
+          f.required ? "border-ink bg-ink font-semibold text-sheet" : "border-dashed border-ink text-ink",
         );
         const label = (
           <>
@@ -44,7 +44,7 @@ export function ColumnChips({ fields, onToggle }: { fields: FieldSpec[]; onToggl
                 aria-pressed={f.required}
                 title={f.required ? "Must have. Press to make it nice to have" : "Nice to have. Press to make it a must"}
                 onClick={() => onToggle(f.name)}
-                className={cn(chip, "transition-colors hover:border-ink")}
+                className={cn(chip, "transition-colors hover:bg-highlighter hover:text-ink")}
               >
                 {label}
               </button>
