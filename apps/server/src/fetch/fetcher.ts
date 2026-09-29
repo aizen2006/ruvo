@@ -160,6 +160,8 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   }
 
   async function fetchPage(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
+    // A malformed URL (e.g. scraped from a page) fails this page as a FetchError, not the whole source.
+    if (!URL.canParse(req.url)) throw new FetchError("ssrf_blocked", `Invalid URL: ${req.url}`, { url: req.url });
     const mode = req.mode ?? "http";
     if (mode === "browser") return fetchBrowser(scope, req);
     if (mode === "http") return fetchHttp(scope, req);
@@ -195,7 +197,9 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
 
       const location = res.headers.get("location");
       if (res.status >= 300 && res.status < 400 && location) {
-        url = new URL(location, url).href;
+        const next = URL.parse(location, url);
+        if (!next) throw new FetchError("ssrf_blocked", `Invalid redirect from ${url}: ${location}`, { url });
+        url = next.href;
         await guard(url);
         continue;
       }

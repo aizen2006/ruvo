@@ -19,6 +19,8 @@ const site = Bun.serve({
         return html("<html><title>ok</title></html>");
       case "/data":
         return Response.json({ jobs: [1, 2] });
+      case "/bad-redirect":
+        return new Response(null, { status: 302, headers: { location: "http://[bad" } });
       case "/redirect":
         return new Response(null, { status: 302, headers: { location: "/ok" } });
       case "/flaky":
@@ -97,6 +99,12 @@ describe("fetcher", () => {
     expect(await failureKind(fetcher.fetch(scope(), page("/big", { maxBytes: 1000 })))).toBe("too_large");
     expect(await failureKind(fetcher.fetch(scope(), page("/nope")))).toBe("http_status");
     expect(await failureKind(fetcher.fetch(scope(0), page("/ok")))).toBe("budget_exhausted");
+  });
+
+  test("fails malformed URLs and redirects as FetchErrors", async () => {
+    const fetcher = localFetcher();
+    expect(await failureKind(fetcher.fetch(scope(), { ...page("/ok"), url: "http://[bad" }))).toBe("ssrf_blocked");
+    expect(await failureKind(fetcher.fetch(scope(), page("/bad-redirect")))).toBe("ssrf_blocked");
   });
 
   test("cache_only mode never touches the network", async () => {
