@@ -60,16 +60,25 @@ async function decideSemanticCriteria(ctx: Parameters<StepFn<"match">>[0], crite
 
 /** The state the decision model sees: the facts that matter, without noise. */
 function semanticRequest(contract: DatasetContract, criterion: Criterion, candidate: Candidate): DecisionRequest<"yes" | "no" | "unknown"> {
-  const state = {
-    title: fieldText(candidate, "title"),
-    team: fieldText(candidate, "department") || String(candidate.item.meta.team ?? ""),
-    location: fieldText(candidate, "location"),
-    company: fieldText(candidate, "company"),
-    description: truncate(candidate.item.text?.plain ?? fieldText(candidate, "description"), 800),
-  };
+  const description = truncate(candidate.item.text?.plain ?? fieldText(candidate, "description"), 800);
+  const state =
+    contract.entity === "job_posting"
+      ? {
+          title: fieldText(candidate, "title"),
+          team: fieldText(candidate, "department") || String(candidate.item.meta.team ?? ""),
+          location: fieldText(candidate, "location"),
+          company: fieldText(candidate, "company"),
+          description,
+        }
+      : // Any other record: what kind of thing it is, and its own columns by name.
+        {
+          kind: contract.entityDescription,
+          ...Object.fromEntries(contract.fields.map((f) => [f.name, truncate(fieldText(candidate, itemKeyFor(contract, f.name)), 300)])),
+          description,
+        };
   return {
     task: "CRITERION",
-    subject: state.title || candidate.key,
+    subject: fieldText(candidate, "title") || candidate.key,
     state,
     question: { type: "noul", instructions: criterion.values[0] ?? criterion.label },
     labels: ["yes", "no", "unknown"],

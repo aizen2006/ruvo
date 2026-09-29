@@ -55,7 +55,7 @@ const item = (fields: Record<string, string>, description: string | null): Item 
 describe("jsonLdRung", () => {
   test("reads a Lever posting's JobPosting JSON-LD", async () => {
     const fields = DEMO_CONTRACT.fields.filter((f) => ["title", "company", "location", "posted_at"].includes(f.name));
-    const out = await jsonLdRung.fill({} as RunContext, fields, { text: "", html: leverHtml, sourceUrl: POSTING, pageId: null });
+    const out = await jsonLdRung.fill({ contract: DEMO_CONTRACT } as RunContext, fields, { text: "", html: leverHtml, sourceUrl: POSTING, pageId: null });
     expect(out.company).toMatchObject({ value: "Palantir Technologies", evidence: { method: "JSON_LD", locator: { value: "JobPosting.hiringOrganization.name" } } });
     expect(out.location?.value).toBe("Singapore, Singapore");
     expect(out.posted_at?.value).toBe("2026-08-11");
