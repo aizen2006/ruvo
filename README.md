@@ -36,8 +36,10 @@ dropped, not guessed.
 2. **The contract becomes a plan you can read.** It lists the sources, why each was chosen, the
    steps per source, and the page, browser and AI-call budgets. The LLM proposes the plan;
    a compiler checks it, clamps the budgets, and turns it into typed steps.
-3. **Sources are collected politely.** Greenhouse, Ashby, Lever and Workable APIs, the Hacker
-   News hiring thread, and any list page you link. Plain HTTP comes first. A headless browser is
+3. **Sources are found, then collected politely.** Greenhouse, Ashby, Lever and Workable APIs,
+   the Hacker News hiring thread, and any page you link. With a Firecrawl key, RUVO also searches
+   the web for list pages, single-record pages and public profiles, so you don't have to name a
+   site. List pages are followed across their "next page" links. Plain HTTP comes first. A headless browser is
    used only when a page is an empty JavaScript shell. robots.txt is obeyed, and blocks are never
    worked around.
 4. **Web pages are read with recorded recipes.** The first time RUVO sees a list page, an LLM
@@ -114,6 +116,8 @@ All settings live in `apps/server/.env`. The template lists every variable with 
 | `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. Use `cache_only` for offline replays. |
 | `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 300, 20, 150, 8 min | These are ceilings. No mode goes above them, so lower them to cap what anyone can spend. |
 | `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
+| `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want RUVO to find sources by searching the web. Without a key it uses only known job boards and pages you link. |
+| `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
 
 Each run has a mode, and the mode sets its budgets:
 
@@ -126,8 +130,8 @@ Each run has a mode, and the mode sets its budgets:
 Quick keeps the planner model for understanding the request because the golden eval fails with
 `gpt-6-luna` there: it reads "preferably remote" as a hard requirement. A run's cost counts
 every AI call made for it, including understanding and planning. Estimates use token averages
-measured from real runs.
-| `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
+measured from real runs. Modes also cap web searches (3, 8, 20) and the pages followed per
+list (2, 5, 10).
 
 ## Commands
 
@@ -172,8 +176,11 @@ A few rules shaped the code:
 
 ## Limits, honestly
 
-- **Jobs are the deep domain.** Other kinds of data work only from list pages you link. RUVO
-  reads one page per link: it does not paginate, click, or log in.
+- **Jobs are the deep domain.** Other kinds of data come from web search (Firecrawl, optional)
+  and pages you link. RUVO follows "next page" links but does not click, scroll, or log in.
+- **Social profiles come from search snippets only.** Instagram, X, LinkedIn and similar sites
+  forbid crawlers, so RUVO never fetches them. It reads what the search result itself shows (name,
+  handle, bio, sometimes a follower count) and labels those values "From search results".
 - **Some sites say no.** lib.rs, for example, refuses RUVO's crawler, and RUVO stops there.
   `Crawl-delay` is honoured up to 10 seconds.
 - **The AI judge can be wrong.** It once rejected "Senior Member of Technical Staff, Multimodal

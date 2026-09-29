@@ -17,7 +17,7 @@ unless noted.
 
 ```
 prompt ─ compile (gpt-6-sol) ─▶ DatasetContract ─ user edits while reviewing ─▶ contract vN
-       ─ discover sources (registry, ATS auto-detect, Hacker News, linked pages) ─▶ candidates
+       ─ discover sources (registry, ATS auto-detect, Hacker News, linked pages, web search) ─▶ candidates
        ─ plan (workflow memory, else gpt-6-sol, else template) ─▶ PlanDraft ─ IR compiler ─▶ WorkflowIR vN
        ─ start ─▶ worker claims the run ─▶ one branch per source (3 at a time):
             collect → prefilter → triage | extract_text → enrich → match → validate → store
@@ -49,14 +49,16 @@ queued → compiling → planning → awaiting_approval ─start─▶ queued_ru
 
 Edits made during review go through the same normalization. They produce a new contract version and recompile the IR, with no LLM call.
 
-### Sources (`plan/discovery.ts`, `plan/atsDetect.ts`, `adapters/`)
+### Sources (`plan/discovery.ts`, `plan/webDiscovery.ts`, `plan/atsDetect.ts`, `adapters/`)
 
 **Discovery order:**
 1. Pages the user linked.
 2. For job requests only, registry companies: the ones named in the request (suffixes such as "Inc" are ignored); otherwise, unless the user linked pages, those whose tags match.
 3. For job requests that ask for startups or broad coverage, the Hacker News "Who is hiring?" thread.
 
-Requests for any other kind of data use linked pages only; without one, the run stops for review and asks for a page.
+4. With a Firecrawl key, web search (`plan/webDiscovery.ts`): always for non-job requests, and for job requests with fewer than 3 known boards and no linked page. The contract's `searchQueries` run through a cached, budgeted search runner (`search/`). Hits are classified from URL, title and snippet (one batched worker-LLM call for unclear ones) into list pages (`html_list`), single-record pages (`html_record`) and profiles on sites that forbid crawlers (`search_hits`, grouped per site). Pages robots.txt forbids are dropped.
+
+If nothing is found, the run stops for review and says what was searched.
 
 **Auto-detection:** a named company missing from the registry is looked up by probing slug variants on Greenhouse, Ashby, Lever and Workable. A board with postings is added to the registry.
 
@@ -66,7 +68,9 @@ Requests for any other kind of data use linked pages only; without one, the run 
 |---|---|---|
 | `greenhouse`, `ashby`, `lever`, `workable` | Public board APIs | `API`, with a JSON path |
 | `hn_whoishiring` | Top-level comments from Algolia | Header parser, then `REGEX` / `LLM` |
-| `html_list` | Any list page: fetched over HTTP, or rendered in a browser if it is a JavaScript shell | `DOM`, with a CSS locator |
+| `html_list` | Any list page: fetched over HTTP, or rendered in a browser if it is a JavaScript shell; follows "next page" links up to the mode's cap (`page/pagination.ts`) | `DOM`, with a CSS locator |
+| `html_record` | One page, one record: JSON-LD first, then the LLM for missing columns with quotes verified on the page | `JSON_LD` / `LLM` |
+| `search_hits` | Search results only (title and snippet); the profile page is never fetched | `SEARCH`, linking the profile |
 
 ### Planning (`plan/planner.ts`, `plan/irCompiler.ts`)
 
@@ -102,7 +106,7 @@ Every change the compiler makes is recorded in `provenance.warnings`.
 **`toPageState`** extracts text, links, JSON-LD, embedded state, and repeated sibling groups (the likely list items). Stable selectors are preferred to generated class names. `pageSkeleton` compresses a page into an outline the LLM can read.
 
 **A recipe** is an item selector plus one selector and attribute per field. It is:
-- discovered by the LLM,
+- discovered seed-first (`recipes/seed.ts`): the LLM quotes one example record from a pruned page view (`page/fitText.ts`), code finds that record and its similar siblings (`page/similar.ts`) and writes the selectors; the whole-page LLM prompt is the fallback,
 - **executed and checked before saving**: at least 3 items; title and url filled for at least 80% of items; other required fields for at least 25%,
 - stored per host and URL pattern (`apply.workable.com/*`),
 - replayed with cheerio on later runs, unless it does not read a field the current request requires (then a new one is recorded).
@@ -209,5 +213,5 @@ Qdrant holds one collection, `workflow_memory`. Each point is an embedding of a 
 | `POST /api/runs/:id/start`, `/cancel`, `/rerun` | Run actions |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
 | `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows |
-| `GET /api/datasets/:runId/export?format=csv\|json&scope=valid\|all` | Export |
+| `GET /api/datasets/:runId/export?format=csv\|json\|xlsx&scope=valid\|all` | Export |
 | `GET /api/recipes?host=`, `POST /api/recipes/:id/simulate-drift` | Recipe lineage and the drift demo |

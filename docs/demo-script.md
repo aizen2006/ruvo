@@ -79,7 +79,7 @@ Click a row to open its receipt:
 - **Company**: *Worked out by RUVO* on Ashby and Lever, whose APIs do not state it. The highlight is on the board's address.
 - **Salary**: the pay range with its source text highlighted. On a Hacker News row it may be *Found by AI, quote checked*: RUVO keeps it only because the quote was found on the page.
 
-Then filter by **Has a salary**, **Sure only** and **Remote**. Open **Download** and choose **Spreadsheet (CSV)**.
+Then filter by **Has a salary**, **Sure only** and **Remote**. Open **Download** and choose **Excel workbook (.xlsx)**: it has the rows, a receipt for every value, and how the list was made.
 
 ## 6. Quality and decisions (1 min)
 
