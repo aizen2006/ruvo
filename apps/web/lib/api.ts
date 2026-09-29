@@ -36,9 +36,10 @@ export class ApiError extends Error {
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
+    // Only bodies need a content type; a header-free GET stays a "simple" request with no CORS preflight.
     res = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: { "content-type": "application/json", ...init?.headers },
+      headers: { ...(init?.body !== undefined && { "content-type": "application/json" }), ...init?.headers },
     });
   } catch {
     throw new ApiError(0, `Can't reach the RUVO API at ${API_URL}. Check that the server is running.`);
