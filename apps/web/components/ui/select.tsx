@@ -10,14 +10,14 @@ export function SelectTrigger({ className, children, ...props }: ComponentProps<
   return (
     <SelectPrimitive.Trigger
       className={cn(
-        "flex h-10 w-full items-center justify-between gap-2 rounded-control border border-hairline-strong bg-sheet px-3 text-left text-small hover:border-graphite focus-visible:border-ink focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-highlighter-wash data-[placeholder]:text-pencil",
+        "flex h-10 w-full items-center justify-between gap-2 rounded-control border-2 border-ink bg-sheet px-3 text-left text-small font-semibold hover:bg-highlighter-wash data-[placeholder]:text-pencil data-[state=open]:bg-highlighter",
         className,
       )}
       {...props}
     >
       {children}
       <SelectPrimitive.Icon>
-        <ChevronDown className="size-4 text-graphite" />
+        <ChevronDown className="size-4" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
@@ -30,7 +30,7 @@ export function SelectContent({ className, children, ...props }: ComponentProps<
         position="popper"
         sideOffset={6}
         className={cn(
-          "z-50 max-h-(--radix-select-content-available-height) min-w-(--radix-select-trigger-width) overflow-hidden rounded-panel border border-hairline bg-sheet p-1 shadow-raised",
+          "z-50 max-h-(--radix-select-content-available-height) min-w-(--radix-select-trigger-width) overflow-hidden border-2 border-ink bg-sheet p-1 shadow-raised",
           className,
         )}
         {...props}
@@ -46,7 +46,7 @@ export function SelectItem({ children, hint, className, ...props }: ComponentPro
   return (
     <SelectPrimitive.Item
       className={cn(
-        "relative flex cursor-pointer flex-col rounded-control py-2 pr-3 pl-8 text-small outline-none select-none data-[highlighted]:bg-ink/5 data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+        "relative flex cursor-pointer flex-col rounded-control py-2 pr-3 pl-8 text-small outline-none select-none data-[highlighted]:bg-highlighter data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
         className,
       )}
       {...props}

@@ -20,25 +20,26 @@ export function SheetContent({
 }: ComponentProps<typeof DialogPrimitive.Content> & { title: ReactNode; description?: ReactNode }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 animate-fade-in bg-ink/25" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 animate-fade-in bg-ink/40" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed inset-y-0 right-0 z-50 flex w-full max-w-xl animate-sheet-in flex-col bg-sheet shadow-raised focus:outline-none sm:inset-y-2 sm:right-2 sm:rounded-sheet",
+          "fixed inset-y-0 right-0 z-50 flex w-full max-w-xl animate-sheet-in flex-col border-l-4 border-ink bg-sheet focus:outline-none",
           className,
         )}
         {...props}
       >
-        <header className="flex items-start gap-item border-b border-hairline px-group py-item">
+        {/* A black masthead: the title set big and condensed, like a magazine's section opener. */}
+        <header className="on-ink flex items-start gap-item bg-ink px-group pt-group pb-item text-sheet">
           <div className="min-w-0 flex-1">
-            <DialogPrimitive.Title className="text-heading font-semibold">{title}</DialogPrimitive.Title>
+            <DialogPrimitive.Title className="font-display text-[2.25rem] leading-[0.95] font-black text-balance">{title}</DialogPrimitive.Title>
             {description ? (
-              <DialogPrimitive.Description className="mt-1 text-small text-graphite">{description}</DialogPrimitive.Description>
+              <DialogPrimitive.Description className="mt-tight text-small text-sheet/80">{description}</DialogPrimitive.Description>
             ) : (
               <DialogPrimitive.Description className="sr-only">Details</DialogPrimitive.Description>
             )}
           </div>
-          <DialogPrimitive.Close className="-mr-2 rounded-control p-2 text-graphite hover:bg-ink/5 hover:text-ink" aria-label="Close">
-            <X className="size-5" />
+          <DialogPrimitive.Close className="-mt-2 -mr-2 p-2 text-sheet hover:bg-highlighter hover:text-ink" aria-label="Close">
+            <X className="size-6" />
           </DialogPrimitive.Close>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto px-group py-group">{children}</div>

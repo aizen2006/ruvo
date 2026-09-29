@@ -9,7 +9,7 @@ export function Toaster() {
       position="bottom-center"
       toastOptions={{
         classNames: {
-          toast: "!rounded-panel !border-hairline !bg-ink !text-sheet !shadow-raised !font-sans !text-small",
+          toast: "!rounded-none !border-0 !border-l-8 !border-highlighter !bg-ink !text-sheet !shadow-none !font-sans !text-small !font-bold",
           description: "!text-sheet/75",
         },
       }}

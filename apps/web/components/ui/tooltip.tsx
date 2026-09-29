@@ -9,7 +9,7 @@ export function Tooltip({ content, children }: { content: ReactNode; children: R
       <TooltipPrimitive.Portal>
         <TooltipPrimitive.Content
           sideOffset={6}
-          className="z-50 max-w-64 animate-fade-in rounded-control bg-ink px-3 py-2 text-micro text-sheet shadow-raised"
+          className="z-50 max-w-64 animate-fade-in border-l-4 border-highlighter bg-ink px-3 py-2 text-micro font-medium text-sheet"
         >
           {content}
         </TooltipPrimitive.Content>
