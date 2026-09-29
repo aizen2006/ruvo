@@ -31,7 +31,7 @@ const DOT: Record<RunStatus, string> = {
 };
 
 export function StatusDot({ status }: { status: RunStatus }) {
-  return <span className={cn("inline-block size-3 shrink-0", DOT[status])} aria-hidden />;
+  return <span className={cn("inline-block size-2.5 shrink-0 rounded-full", DOT[status])} aria-hidden />;
 }
 
 /** Every list the person has made, newest first: open it, or run it again for fresh rows. */
@@ -45,7 +45,7 @@ export function DatasetList() {
     return (
       <div className="space-y-tight">
         {[0, 1, 2, 3].map((i) => (
-          <Skeleton key={i} className="h-20" />
+          <Skeleton key={i} className="h-20 rounded-panel" />
         ))}
       </div>
     );
@@ -53,7 +53,7 @@ export function DatasetList() {
   if (error) return <p className="text-small text-brick">{error.message}</p>;
   if (!runs?.length) {
     return (
-      <div className="space-y-item border-t-[6px] border-ink py-stack">
+      <div className="space-y-item rounded-panel border border-dashed border-hairline-strong px-group py-stack text-center">
         <p className="text-graphite">No lists yet. Describe the first one and RUVO will make it.</p>
         <Button variant="primary" asChild>
           <Link href="/">Make a list</Link>
@@ -64,7 +64,7 @@ export function DatasetList() {
 
   return (
     <div className="space-y-item">
-      <ul className="divide-y-2 divide-ink border-y-[6px] border-ink">
+      <ul className="divide-y divide-hairline overflow-hidden rounded-panel border border-hairline bg-sheet">
         {runs.map((run) => (
           <DatasetRow key={run.id} run={run} />
         ))}
@@ -85,9 +85,9 @@ function DatasetRow({ run }: { run: RunSummary }) {
   const rows = run.metrics.validRecords;
 
   return (
-    <li className="flex flex-col gap-tight py-item hover:bg-highlighter-wash sm:flex-row sm:items-center sm:gap-group sm:px-tight">
+    <li className="flex flex-col gap-tight px-group py-item hover:bg-highlighter-wash/40 sm:flex-row sm:items-center sm:gap-group">
       <div className="min-w-0 flex-1 space-y-1">
-        <Link href={`/runs/${run.id}`} className="line-clamp-1 font-display text-[1.875rem] leading-tight font-black hover:underline">
+        <Link href={`/runs/${run.id}`} className="line-clamp-1 font-semibold hover:underline">
           {/* A run that ended before it was understood has no title; its request names it. */}
           {run.title ?? (isTerminal(run.status) ? run.prompt : "Getting ready")}
         </Link>
@@ -99,11 +99,11 @@ function DatasetRow({ run }: { run: RunSummary }) {
         <div className="flex items-center gap-tight">
           <dt className="sr-only">Status</dt>
           <StatusDot status={run.status} />
-          <dd className="font-semibold">{DATASET_STATUS[run.status]}</dd>
+          <dd>{DATASET_STATUS[run.status]}</dd>
         </div>
-        <div className="sm:w-28 sm:text-right">
+        <div className="sm:w-20 sm:text-right">
           <dt className="sr-only">Rows</dt>
-          <dd className="font-display text-[1.875rem] leading-none font-black">{rows ? `${formatNumber(rows)} rows` : "—"}</dd>
+          <dd>{rows ? `${formatNumber(rows)} rows` : "—"}</dd>
         </div>
         <div className="text-graphite sm:w-20 sm:text-right">
           <dt className="sr-only">Spent</dt>

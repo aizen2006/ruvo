@@ -27,9 +27,9 @@ export function BehindTheScenes({
 }) {
   const [tab, setTab] = useState("workflow");
   return (
-    <section aria-labelledby="behind" className="space-y-item border-t-[6px] border-ink pt-group">
+    <section aria-labelledby="behind" className="space-y-item border-t border-hairline pt-stack">
       <div className="space-y-1">
-        <h2 id="behind" className="font-display text-title font-black">
+        <h2 id="behind" className="text-heading font-semibold">
           Behind the scenes
         </h2>
         <p className="text-small text-graphite">How RUVO planned, collected and checked this list.</p>

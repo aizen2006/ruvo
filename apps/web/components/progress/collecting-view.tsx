@@ -23,18 +23,19 @@ export function CollectingView({ run, events }: { run: RunDetail; events: RunEve
 
   return (
     <div className="space-y-stack">
-      <section className="space-y-stack border-t-[6px] border-ink pt-group">
+      <section className="space-y-group rounded-panel border border-hairline bg-sheet p-group">
+        <ProgressTrack status={run.status} stage={run.stage} />
+
         <div className="flex flex-col gap-item sm:flex-row sm:items-end sm:justify-between">
-          <div className="space-y-item">
-            {/* The live count is what RUVO has found, so it sits on the highlighter. */}
+          <div className="space-y-1">
             {collecting ? (
-              <p className="font-display text-mega font-black tabular">
-                <span className="inline-block bg-highlighter px-3 pt-2 pb-4">{formatNumber(rawRecords)}</span> <span className="text-title">found so far</span>
+              <p className="text-title font-semibold tabular">
+                {formatNumber(rawRecords)} <span className="text-heading font-medium text-graphite">found so far</span>
               </p>
             ) : (
-              <p className="font-display text-display font-black">Getting ready</p>
+              <p className="text-heading font-semibold">Getting ready</p>
             )}
-            <p className="text-heading" aria-live="polite">
+            <p className="text-small text-graphite" aria-live="polite">
               {stopping ? "Stopping after the current step…" : line}
               {collecting && pagesVisited > 0 && `. ${formatNumber(pagesVisited)} pages read.`}
             </p>
@@ -47,8 +48,7 @@ export function CollectingView({ run, events }: { run: RunDetail; events: RunEve
             {stopping ? "Stopping…" : "Stop"}
           </Button>
         </div>
-        {stop.error && <p className="text-small font-semibold text-brick">{stop.error.message}</p>}
-        <ProgressTrack status={run.status} stage={run.stage} />
+        {stop.error && <p className="text-small text-brick">{stop.error.message}</p>}
       </section>
 
       {collecting && run.contract && <PreviewRows run={run} />}

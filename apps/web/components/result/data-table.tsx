@@ -35,8 +35,8 @@ function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "h-9 border-2 border-ink px-3 text-small font-semibold transition-colors",
-        pressed ? "bg-highlighter" : "bg-sheet hover:bg-highlighter-wash",
+        "h-9 rounded-full border px-3 text-small transition-colors",
+        pressed ? "border-ink bg-highlighter font-medium" : "border-hairline-strong bg-sheet text-graphite hover:border-ink hover:text-ink",
       )}
     >
       {children}
@@ -105,21 +105,21 @@ export function DataTable({ run }: { run: RunDetail }) {
   return (
     <section aria-label="Your list" className="space-y-item">
       <div className="flex flex-wrap items-center gap-tight">
-        <div role="group" aria-label="Which rows" className="flex max-w-full overflow-x-auto border-2 border-ink">
+        <div role="group" aria-label="Which rows" className="flex max-w-full gap-1 overflow-x-auto rounded-full bg-ink/6 p-1">
           {STATUS_TABS.map(([value, label]) => (
             <button
               key={value}
               type="button"
               aria-pressed={status === value}
               onClick={() => refilter(setStatus)(value)}
-              className={cn("shrink-0 px-3 py-1.5 text-small font-semibold whitespace-nowrap focus-visible:outline-offset-[-3px]", status === value ? "bg-ink text-sheet" : "hover:bg-highlighter")}
+              className={cn("shrink-0 rounded-full px-3 py-1.5 text-small whitespace-nowrap", status === value ? "bg-sheet font-medium shadow-sm" : "text-graphite hover:text-ink")}
             >
               {label}
             </button>
           ))}
         </div>
         <div className="relative min-w-48 flex-1 sm:max-w-72">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" aria-hidden />
+          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-pencil" aria-hidden />
           <Input type="search" value={search} onChange={(e) => refilter(setSearch)(e.target.value)} placeholder="Search the list" aria-label="Search the list" className="pl-9" />
         </div>
       </div>
@@ -135,7 +135,7 @@ export function DataTable({ run }: { run: RunDetail }) {
         )}
         {hasRemote && (
           <Select value={remote} onValueChange={(v) => refilter(setRemote)(v as typeof remote)}>
-            <SelectTrigger aria-label="Where the work is" className="h-9 w-auto">
+            <SelectTrigger aria-label="Where the work is" className="h-9 w-auto rounded-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -148,7 +148,7 @@ export function DataTable({ run }: { run: RunDetail }) {
         )}
         {workflow && workflow.ir.sources.length > 1 && (
           <Select value={source} onValueChange={refilter(setSource)}>
-            <SelectTrigger aria-label="Source" className="h-9 w-auto max-w-56">
+            <SelectTrigger aria-label="Source" className="h-9 w-auto max-w-56 rounded-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -163,9 +163,9 @@ export function DataTable({ run }: { run: RunDetail }) {
         )}
       </div>
 
-      {error && <p className="text-small font-semibold text-brick">{error.message}</p>}
+      {error && <p className="text-small text-brick">{error.message}</p>}
 
-      <div className={cn("border-t-[6px] border-b-[3px] border-ink bg-sheet transition-opacity", isFetching && "opacity-70")}>
+      <div className={cn("overflow-hidden rounded-panel border border-hairline bg-sheet transition-opacity", isFetching && "opacity-70")}>
         {/* Wide screens: a table. Phones: one stacked row per record. */}
         <div className="hidden sm:block">
           <Table>
@@ -195,13 +195,13 @@ export function DataTable({ run }: { run: RunDetail }) {
                     e.preventDefault();
                     open(record.id, e.currentTarget);
                   }}
-                  className="cursor-pointer hover:bg-highlighter-wash focus-visible:bg-highlighter-wash focus-visible:outline-offset-[-3px]"
+                  className="cursor-pointer hover:bg-highlighter-wash/60 focus-visible:bg-highlighter-wash/60"
                 >
                   {columns.map((f) => (
                     <TableCell
                       key={f.name}
                       className={cn(
-                        f.catalogKey === "title" && "min-w-56 font-semibold",
+                        f.catalogKey === "title" && "min-w-56 font-medium",
                         f.catalogKey === "match_reason" && "max-w-xs text-graphite",
                         f.catalogKey === "location" && "max-w-56",
                         f.catalogKey === "salary" && "whitespace-nowrap",
@@ -226,9 +226,9 @@ export function DataTable({ run }: { run: RunDetail }) {
         <ul className="divide-y divide-hairline sm:hidden">
           {data?.items.map((record) => (
             <li key={record.id}>
-              <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-1 py-3 text-left hover:bg-highlighter-wash">
+              <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-item py-3 text-left">
                 <span className="flex items-start justify-between gap-tight">
-                  <span className="font-semibold">{cellText(record.data[primary?.name ?? ""])}</span>
+                  <span className="font-medium">{cellText(record.data[primary?.name ?? ""])}</span>
                   <CertaintyMark confidence={record.confidence} />
                 </span>
                 <span className="block text-small text-graphite">
@@ -265,8 +265,8 @@ export function DataTable({ run }: { run: RunDetail }) {
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-small">
-          <p className="font-semibold tabular">
+        <div className="flex items-center justify-between text-small text-graphite">
+          <p className="tabular">
             {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)}
           </p>
           <div className="flex gap-tight">
@@ -293,7 +293,7 @@ function OpenLink({ href }: { href: string }) {
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 text-small font-semibold underline decoration-2 underline-offset-2 hover:bg-highlighter"
+      className="inline-flex items-center gap-1 text-small text-ink underline underline-offset-2"
       aria-label="Open the original page"
     >
       Open <ExternalLink className="size-3" aria-hidden />

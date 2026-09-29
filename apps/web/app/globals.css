@@ -4,63 +4,54 @@
  * RUVO design tokens. The full system (principles, vocabulary, components) is in
  * docs/design-system.md; /design renders every token in development.
  *
- * A list-maker with receipts, set like a Swiss magazine: black ink on white paper, thick rules,
- * square corners, and one signature, the highlighter. Yellow means "found, proven or chosen":
- * quoted evidence, the option you picked, what RUVO found, and progress. It is always a
- * background behind black ink, never a text colour.
+ * A list-maker with receipts: quiet ink on cool paper, and one signature, the highlighter.
+ * Yellow appears only where it means "found, proven or chosen": quoted evidence, the
+ * selected option and progress. It is always a background behind ink, never a text colour.
  */
 @theme {
-  /* Paper and ink */
-  --color-canvas: #ffffff;
+  /* Surfaces and ink */
+  --color-canvas: #eef1f3;
   --color-sheet: #ffffff;
-  --color-newsprint: #ededed; /* quotes, zebra rows, empty tracks, disabled fields */
-  --color-ink: #000000;
-  --color-graphite: #474747;
-  --color-pencil: #666666; /* placeholders, hints and inactive labels */
-  --color-hairline: #d4d4d4;
-  --color-hairline-strong: #000000; /* control outlines are ink */
+  --color-ink: #16202a;
+  --color-graphite: #4a5761;
+  --color-pencil: #646f79; /* placeholders, hints and inactive labels */
+  --color-hairline: #dce2e6;
+  --color-hairline-strong: #c5ced4;
 
   /* The signature */
-  --color-highlighter: #ffe500;
-  --color-highlighter-wash: #fff6a3;
+  --color-highlighter: #ffe45c;
+  --color-highlighter-wash: #fff6c7;
 
   /* Meaning: sure / check this / error. Each ships with a label or icon, never colour alone. */
-  --color-stamp: #0f6b3f;
-  --color-stamp-wash: #dcf0e4;
-  --color-amber: #8a4f00;
-  --color-amber-wash: #fcecd0;
-  --color-brick: #c0150c;
-  --color-brick-wash: #fde3e1;
+  --color-stamp: #1e7a4f;
+  --color-stamp-wash: #e3f1e9;
+  --color-amber: #9a5b00;
+  --color-amber-wash: #fbefd9;
+  --color-brick: #b42318;
+  --color-brick-wash: #fbe6e4;
 
   /* Where values came from, for the charts behind "Show details" (trust tiers). */
-  --color-structured: #0f6b3f;
-  --color-structured-wash: #dcf0e4;
-  --color-pattern: #8a4f00;
-  --color-pattern-wash: #fcecd0;
-  --color-model: #4b3aa8;
-  --color-model-wash: #e7e4f7;
-  --color-derived: #474747;
-  --color-derived-wash: #e6e6e6;
+  --color-structured: #1e7a4f;
+  --color-structured-wash: #e3f1e9;
+  --color-pattern: #9a5b00;
+  --color-pattern-wash: #fbefd9;
+  --color-model: #5b4b9a;
+  --color-model-wash: #ebe8f5;
+  --color-derived: #4a5761;
+  --color-derived-wash: #e6eaed;
 
-  /*
-   * Type: Archivo in two widths, the way Swiss designers used one grotesque family. Extra
-   * condensed and heavy (font-display) for headlines and big numbers; normal width for reading.
-   * Mono only for text quoted from a source page.
-   */
-  --font-sans: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-  --font-sans--font-variation-settings: normal; /* resets the width inside display type */
-  --font-display: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
-  --font-display--font-variation-settings: "wdth" 62;
+
+  /* Type: one grotesque for everything; mono only for text quoted from a source page. */
+  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-spline-mono), ui-monospace, monospace;
 
-  /* Display sizes scale with the viewport; set them in font-display, heavy. */
-  --text-mega: clamp(5rem, 2.5rem + 10vw, 11rem);
-  --text-mega--line-height: 0.8;
-  --text-display: clamp(3.25rem, 1.75rem + 5vw, 6.5rem);
-  --text-display--line-height: 0.86;
-  --text-title: clamp(2.25rem, 1.6rem + 2.2vw, 3.5rem);
-  --text-title--line-height: 0.95;
-  --text-heading: 1.375rem;
+  --text-display: 2.75rem;
+  --text-display--line-height: 3rem;
+  --text-display--letter-spacing: -0.025em;
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.125rem;
+  --text-title--letter-spacing: -0.015em;
+  --text-heading: 1.25rem;
   --text-heading--line-height: 1.75rem;
   --text-body: 1rem;
   --text-body--line-height: 1.5rem;
@@ -70,19 +61,19 @@
   --text-micro--line-height: 1rem;
 
   /* Rhythm on a 4px grid: sections, stacked parts, groups, items, tight pairs. Avoid names Tailwind already uses as values (block, inline, …). */
-  --spacing-section: 3.5rem;
+  --spacing-section: 3rem;
   --spacing-stack: 2rem;
   --spacing-group: 1.5rem;
   --spacing-item: 1rem;
   --spacing-tight: 0.5rem;
 
-  /* Square everywhere. The names stay so hierarchy can come back without touching components. */
-  --radius-control: 0px;
-  --radius-panel: 0px;
-  --radius-sheet: 0px;
+  /* Radius follows hierarchy: controls < panels < sheets. */
+  --radius-control: 8px;
+  --radius-panel: 14px;
+  --radius-sheet: 20px;
 
-  /* What floats casts a hard ink shadow, like a block printed off-register. */
-  --shadow-raised: 6px 6px 0 var(--color-ink);
+  /* One elevation, for things that float over the page. Static panels have none. */
+  --shadow-raised: 0 16px 40px -16px rgb(22 32 42 / 0.28), 0 2px 6px rgb(22 32 42 / 0.06);
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 
@@ -109,23 +100,14 @@
     line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
   }
-  /* The condensed cut sets its spaces tight; open them up so words stay apart. */
-  .font-display,
-  .font-display * {
-    word-spacing: 0.08em;
-  }
   /* Figures line up in tables and counters. */
   table,
   .tabular {
     font-variant-numeric: tabular-nums;
   }
   :focus-visible {
-    outline: 3px solid var(--color-ink);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
-  }
-  /* On black blocks the focus ring turns highlighter so it stays visible. */
-  .on-ink :focus-visible {
-    outline-color: var(--color-highlighter);
   }
   ::selection {
     background: var(--color-highlighter);
@@ -138,11 +120,18 @@
 
 @layer components {
   /*
-   * The highlighter stroke: a flat band behind the text, like a marker on a printout.
+   * The highlighter stroke: a slightly inset band behind the text, like a marker on a printout.
    * Wraps across lines, and falls back to an underline in forced-colours mode.
    */
   .mark {
-    background: linear-gradient(to bottom, transparent 6%, var(--color-highlighter) 6%, var(--color-highlighter) 96%, transparent 96%);
+    background: linear-gradient(
+      to bottom,
+      transparent 14%,
+      var(--color-highlighter) 14%,
+      var(--color-highlighter) 90%,
+      transparent 90%
+    );
+    border-radius: 3px;
     padding-inline: 0.15em;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
@@ -159,7 +148,7 @@
   from {
     opacity: 0;
     transform: translateY(6px);
-    background-color: var(--color-highlighter);
+    background-color: var(--color-highlighter-wash);
   }
   to {
     opacity: 1;
@@ -169,7 +158,7 @@
 
 @keyframes sheet-in {
   from {
-    transform: translateX(48px);
+    transform: translateX(32px);
     opacity: 0;
   }
   to {

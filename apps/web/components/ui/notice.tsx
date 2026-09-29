@@ -14,8 +14,8 @@ export function PageNotice({ error, what }: { error: unknown; what: string }) {
       ? error.message
       : `The ${what} couldn't be loaded.`;
   return (
-    <div className="max-w-2xl space-y-group border-t-8 border-ink pt-group">
-      <h1 className="font-display text-display font-black">{missing ? `${what[0]!.toUpperCase()}${what.slice(1)} not found` : "Something went wrong"}</h1>
+    <div className="max-w-xl space-y-item py-section">
+      <h1 className="text-title font-semibold">{missing ? `${what[0]!.toUpperCase()}${what.slice(1)} not found` : "Something went wrong"}</h1>
       <p className="text-graphite">{message}</p>
       <Button asChild>
         <Link href="/datasets">Go to your datasets</Link>

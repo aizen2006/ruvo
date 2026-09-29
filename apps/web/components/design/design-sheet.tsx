@@ -16,36 +16,33 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tooltip } from "@/components/ui/tooltip";
 
 const COLOURS: Array<[token: string, hex: string, role: string]> = [
-  ["canvas", "#FFFFFF", "Paper: page and surfaces"],
-  ["newsprint", "#EDEDED", "Quotes, zebra rows, empty tracks"],
-  ["ink", "#000000", "Text, rules, control outlines, focus"],
-  ["graphite", "#474747", "Secondary text"],
-  ["pencil", "#666666", "Placeholders, hints, inactive labels"],
-  ["hairline", "#D4D4D4", "Row rules inside tables and lists"],
-  ["highlighter", "#FFE500", "Found, proven, chosen, progress"],
-  ["highlighter-wash", "#FFF6A3", "Hover and focused fields"],
-  ["stamp", "#0F6B3F", "Sure, verified, done"],
-  ["amber", "#8A4F00", "Check this, warnings"],
-  ["brick", "#C0150C", "Errors, destructive actions"],
+  ["canvas", "#EEF1F3", "Page background"],
+  ["sheet", "#FFFFFF", "Surfaces: composer, table, drawers"],
+  ["ink", "#16202A", "Text, primary buttons, focus"],
+  ["graphite", "#4A5761", "Secondary text"],
+  ["pencil", "#646F79", "Placeholders, hints, inactive labels"],
+  ["hairline", "#DCE2E6", "Rules and borders"],
+  ["highlighter", "#FFE45C", "Found, proven, chosen, progress"],
+  ["highlighter-wash", "#FFF6C7", "Soft highlight, focus halo"],
+  ["stamp", "#1E7A4F", "Sure, verified, done"],
+  ["amber", "#9A5B00", "Check this, warnings"],
+  ["brick", "#B42318", "Errors, destructive actions"],
 ];
 
 // Literal class names, so Tailwind finds them.
 const TYPE: Array<[name: string, className: string, spec: string]> = [
-  ["mega", "font-display text-mega font-black", "80–176, display black"],
-  ["display", "font-display text-display font-black", "52–104, display black"],
-  ["title", "font-display text-title font-black", "36–56, display black"],
-  ["heading", "text-heading font-semibold", "22 / 28, semibold"],
+  ["display", "text-display font-semibold", "44 / 48, semibold"],
+  ["title", "text-title font-semibold", "28 / 34, semibold"],
+  ["heading", "text-heading font-semibold", "20 / 28, semibold"],
   ["body", "text-body", "16 / 24"],
   ["small", "text-small", "14 / 20"],
   ["micro", "text-micro", "12 / 16"],
 ];
 
-// Rule weights, lightest to heaviest.
-const RULES = [
-  ["hairline", "border-t border-hairline"],
-  ["control", "border-t-2 border-ink"],
-  ["header", "border-t-[3px] border-ink"],
-  ["section", "border-t-[6px] border-ink"],
+const RADII = [
+  ["control", "rounded-control"],
+  ["panel", "rounded-panel"],
+  ["sheet", "rounded-sheet"],
 ] as const;
 
 const SPACE: Array<[name: string, px: number]> = [
@@ -58,8 +55,8 @@ const SPACE: Array<[name: string, px: number]> = [
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-group border-t-[6px] border-ink pt-group">
-      <h2 className="font-display text-title font-black">{title}</h2>
+    <section className="space-y-group border-t border-hairline pt-stack">
+      <h2 className="text-heading font-semibold">{title}</h2>
       {children}
     </section>
   );
@@ -68,18 +65,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export function DesignSheet() {
   return (
     <div className="mx-auto max-w-5xl space-y-section pb-section">
-      <header className="space-y-item">
-        <h1 className="font-display text-display font-black">Design system</h1>
-        <p className="max-w-prose text-heading text-graphite">
-          A list-maker with receipts, set like a Swiss magazine: black ink on white paper, thick rules, and <span className="mark">one highlighter</span> for what RUVO found or you chose.
+      <header className="space-y-tight">
+        <h1 className="text-display font-semibold">Design system</h1>
+        <p className="max-w-prose text-graphite">
+          A list-maker with receipts: quiet ink on cool paper, and <span className="mark">one highlighter</span> for what RUVO found or you chose.
         </p>
       </header>
 
       <Section title="Colour">
         <ul className="grid grid-cols-2 gap-item sm:grid-cols-3 lg:grid-cols-4">
           {COLOURS.map(([token, hex, role]) => (
-            <li key={token} className="border-2 border-ink bg-sheet">
-              <div className="h-16 border-b-2 border-ink" style={{ background: `var(--color-${token})` }} />
+            <li key={token} className="overflow-hidden rounded-panel border border-hairline bg-sheet">
+              <div className="h-16" style={{ background: `var(--color-${token})` }} />
               <div className="space-y-0.5 p-3">
                 <p className="text-small font-medium">{token}</p>
                 <p className="text-micro text-graphite">{hex}</p>
@@ -91,7 +88,7 @@ export function DesignSheet() {
       </Section>
 
       <Section title="Type">
-        <p className="text-small text-graphite">Archivo in two widths: extra condensed black for display and big numbers, normal width for reading. Spline Sans Mono only for text quoted from a source page.</p>
+        <p className="text-small text-graphite">Bricolage Grotesque for everything. Spline Sans Mono only for text quoted from a source page.</p>
         <div className="space-y-item">
           {TYPE.map(([name, className, spec]) => (
             <div key={name} className="flex flex-wrap items-baseline gap-x-group">
@@ -106,19 +103,19 @@ export function DesignSheet() {
         </div>
       </Section>
 
-      <Section title="Space and rules">
+      <Section title="Space and radius">
         <div className="space-y-tight">
           {SPACE.map(([name, px]) => (
             <div key={name} className="flex items-center gap-item">
               <span className="w-20 text-micro text-graphite">{name}</span>
-              <span className="h-3 bg-ink" style={{ width: px * 2 }} />
+              <span className="h-3 rounded-sm bg-ink/70" style={{ width: px * 2 }} />
               <span className="text-micro text-pencil">{px}px</span>
             </div>
           ))}
         </div>
-        <div className="grid gap-item sm:grid-cols-4">
-          {RULES.map(([name, rule]) => (
-            <div key={name} className={`pt-tight text-micro text-graphite ${rule}`}>
+        <div className="flex flex-wrap gap-item">
+          {RADII.map(([name, radius]) => (
+            <div key={name} className={`flex size-24 items-end border border-hairline-strong bg-sheet p-2 text-micro text-graphite ${radius}`}>
               {name}
             </div>
           ))}
@@ -182,7 +179,7 @@ export function DesignSheet() {
       </Section>
 
       <Section title="Table, sheet, menu, tooltip, toast">
-        <div className="border-t-[6px] border-ink">
+        <div className="overflow-hidden rounded-panel border border-hairline bg-sheet">
           <Table>
             <TableHeader>
               <TableRow>

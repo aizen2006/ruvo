@@ -16,15 +16,15 @@ export function DialogContent({
 }: ComponentProps<typeof DialogPrimitive.Content> & { title: ReactNode; description?: ReactNode }) {
   return (
     <DialogPrimitive.Portal>
-      <DialogPrimitive.Overlay className="fixed inset-0 z-40 animate-fade-in bg-ink/40" />
+      <DialogPrimitive.Overlay className="fixed inset-0 z-40 animate-fade-in bg-ink/25" />
       <DialogPrimitive.Content
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 animate-fade-in border-2 border-ink bg-sheet p-group shadow-raised focus:outline-none",
+          "fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 animate-fade-in rounded-sheet bg-sheet p-group shadow-raised focus:outline-none",
           className,
         )}
         {...props}
       >
-        <DialogPrimitive.Title className="font-display text-[2rem] leading-none font-black">{title}</DialogPrimitive.Title>
+        <DialogPrimitive.Title className="text-heading font-semibold">{title}</DialogPrimitive.Title>
         {description && <DialogPrimitive.Description className="mt-2 text-small text-graphite">{description}</DialogPrimitive.Description>}
         <div className="mt-group">{children}</div>
       </DialogPrimitive.Content>

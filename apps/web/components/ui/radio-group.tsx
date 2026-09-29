@@ -7,14 +7,15 @@ export function RadioGroup({ className, ...props }: ComponentProps<typeof RadioP
 }
 
 /**
- * A choice shown as a block with an ink frame. The chosen block fills with highlighter; arrow
- * keys move between tiles (Radix).
+ * A choice shown as a tile. The chosen tile gets the highlighter bar on its left edge and an ink
+ * border; arrow keys move between tiles (Radix).
  */
 export function RadioTile({ className, children, ...props }: ComponentProps<typeof RadioPrimitive.Item>) {
   return (
     <RadioPrimitive.Item
       className={cn(
-        "group relative flex h-full flex-col items-start border-2 border-ink bg-sheet px-item py-item text-left transition-colors duration-(--duration-fast) hover:bg-highlighter-wash focus-visible:z-10 data-[state=checked]:bg-highlighter",
+        "group relative flex h-full flex-col items-start overflow-hidden rounded-panel border border-hairline-strong bg-sheet px-item py-3 text-left transition-colors duration-(--duration-fast) hover:border-graphite data-[state=checked]:border-ink",
+        "before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:bg-highlighter before:opacity-0 before:transition-opacity data-[state=checked]:before:opacity-100",
         className,
       )}
       {...props}

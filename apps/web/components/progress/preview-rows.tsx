@@ -19,10 +19,10 @@ export function PreviewRows({ run }: { run: RunDetail }) {
 
   return (
     <section aria-labelledby="preview" className="space-y-item">
-      <h2 id="preview" className="font-display text-title font-black">
+      <h2 id="preview" className="text-body font-semibold">
         First rows
       </h2>
-      <div className="border-t-[6px] border-b-[3px] border-ink bg-sheet">
+      <div className="overflow-hidden rounded-panel border border-hairline bg-sheet">
         <Table>
           <TableHeader>
             <TableRow>
