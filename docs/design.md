@@ -119,7 +119,19 @@ motion. Loading inside a panel keeps the dither `Skeleton`.
 
 ## Screens
 
-**Ask** (the only hero):
+**Landing** (`/`, `app/page.tsx`, `components/landing/`): the one marketing page.
+
+- Hero: the headline in Doto over a full-strength interactive field that fades in from the right
+  (a band above the text on phones), so the text block always sits on clear paper. "Make a list"
+  goes to `/new`; the secondary bevel button goes to the source on GitHub.
+- Then the four steps, a real sequence, each shown with the product's own pieces: the request
+  with mode tiles, the plan's column chips, a pinned black band where scrolling stands in for time
+  (the count climbs and the field resolves into rows), and a list with its receipts.
+- Then honest limits, the Docker command to run it yourself, and a minimal footer.
+- The ambient field steps aside on `/`; the page marks itself `data-bleed` to lay out
+  full-width bands.
+
+**Ask** (`/new`):
 
 ```
 ┌ ruvo ▪▪ ───────────────────────────── Your datasets   [New list] ┐
