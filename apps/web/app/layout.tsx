@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Doto, Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
-import { DotField } from "@/components/dot-field";
+import { AmbientField } from "@/components/ambient-field";
 import { NavLinks } from "@/components/nav-links";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -32,8 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${doto.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">
-        {/* The ambient dot field behind every screen; the centre stays clear for reading. */}
-        <DotField tone="ink" intensity={0.25} interactive className="pointer-events-none fixed inset-0 -z-10 [mask-image:linear-gradient(90deg,black,transparent_calc(50%-600px),transparent_calc(50%+600px),black)]" />
+        <AmbientField />
         <Providers>
           <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-ink focus:px-3 focus:py-2 focus:text-sheet">
             Skip to content
@@ -47,7 +46,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <NavLinks />
             </nav>
           </header>
-          <main id="main" className="mx-auto max-w-[1200px] px-4 py-stack sm:px-6 sm:py-section">{children}</main>
+          {/* A page marked data-bleed (the landing) lays out its own full-width bands. */}
+          <main id="main" className="mx-auto max-w-[1200px] px-4 py-stack sm:px-6 sm:py-section has-[[data-bleed]]:max-w-none has-[[data-bleed]]:p-0 sm:has-[[data-bleed]]:p-0">{children}</main>
         </Providers>
       </body>
     </html>
