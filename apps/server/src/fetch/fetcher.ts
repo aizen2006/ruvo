@@ -5,6 +5,7 @@ import type { BrowserPool } from "./browser";
 import { FetchError } from "./errors";
 import { createHostLimiter, type HostLimiter } from "./hostLimiter";
 import { findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
+import { readCapped } from "./readCapped";
 import { createRobots, type Robots } from "./robots";
 import { assertPublicUrl } from "./ssrf";
 import { assessHtml } from "./sufficiency";
@@ -240,27 +241,6 @@ function acceptsContentType(expect: FetchRequest["expect"], contentType: string 
   if (expect === "json") return type.includes("json") || type.startsWith("text/");
   if (expect === "html") return type.includes("html") || type === "";
   return type.startsWith("text/") || type.includes("json") || type.includes("xml");
-}
-
-async function readCapped(res: Response, maxBytes: number, url: string): Promise<string> {
-  const tooLarge = () => new FetchError("too_large", `Response from ${url} exceeds ${maxBytes} bytes`, { url });
-  if (Number(res.headers.get("content-length")) > maxBytes) throw tooLarge();
-  if (!res.body) return "";
-
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > maxBytes) {
-      await reader.cancel();
-      throw tooLarge();
-    }
-    chunks.push(value);
-  }
-  return new TextDecoder().decode(Buffer.concat(chunks));
 }
 
 function toResult(page: PageRow, fromCache: boolean): FetchResult {

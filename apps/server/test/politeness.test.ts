@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, setSystemTime, test } from "bun:test";
 import { FetchError } from "../src/fetch/errors";
 import { createHostLimiter } from "../src/fetch/hostLimiter";
 import { createRobots } from "../src/fetch/robots";
@@ -55,6 +55,29 @@ describe("robots.txt (RFC 9309)", () => {
 
   test("5xx means disallow all", async () => {
     expect((await robotsWith(503).check("https://example.com/x")).allowed).toBe(false);
+  });
+
+  test("an unreachable robots.txt is retried once, and disallows for two minutes only", async () => {
+    const statuses = [503, 200, 503, 503, 200];
+    const robots = createRobots({ userAgent: "RUVO/0.1", fetchText: async () => ({ status: statuses.shift()!, text: "" }) });
+    expect((await robots.check("https://a.example.com/x")).allowed).toBe(true);
+    try {
+      setSystemTime(new Date("2026-01-01T00:00:00Z"));
+      expect((await robots.check("https://b.example.com/x")).allowed).toBe(false);
+      setSystemTime(new Date("2026-01-01T00:02:01Z"));
+      expect((await robots.check("https://b.example.com/x")).allowed).toBe(true);
+    } finally {
+      setSystemTime();
+    }
+  });
+
+  test("a robots.txt over 500 KiB is not read", async () => {
+    let body = "User-agent: *\nAllow: /\n";
+    using server = Bun.serve({ port: 0, fetch: () => new Response(body) });
+    const url = `http://127.0.0.1:${server.port}/x`;
+    expect((await createRobots({ userAgent: "RUVO/0.1" }).check(url)).allowed).toBe(true);
+    body += `# ${"x".repeat(600 * 1024)}\n`;
+    expect((await createRobots({ userAgent: "RUVO/0.1" }).check(url)).allowed).toBe(false);
   });
 
   test("applies disallow rules and crawl-delay", async () => {
