@@ -1,42 +1,105 @@
 @import "tailwindcss";
 
 /*
- * RUVO design tokens.
- * Cool mineral paper, slate ink, one verdigris accent for actions.
- * Evidence methods are coloured by trust tier: structured (verdigris), pattern (ochre),
- * model (violet), derived (slate).
+ * RUVO design tokens. The full system (principles, vocabulary, components) is in
+ * docs/design-system.md; /design renders every token in development.
+ *
+ * A list-maker with receipts: quiet ink on cool paper, and one signature, the highlighter.
+ * Yellow appears only where it means "found, proven or chosen": quoted evidence, the
+ * selected option and progress. It is always a background behind ink, never a text colour.
  */
 @theme {
-  --color-paper: #f4f6f5;
-  --color-surface: #ffffff;
-  --color-ink: #1c2b30;
-  --color-muted: #5a6b70;
-  --color-faint: #8b9a9e;
-  --color-rule: #d3dcdb;
-  --color-rule-strong: #b7c4c3;
+  /* Surfaces and ink */
+  --color-canvas: #eef1f3;
+  --color-sheet: #ffffff;
+  --color-ink: #16202a;
+  --color-graphite: #4a5761;
+  --color-pencil: #6e7a84; /* placeholders and micro text, on sheet only */
+  --color-hairline: #dce2e6;
+  --color-hairline-strong: #c5ced4;
 
-  --color-accent: #1f6f5c;
-  --color-accent-strong: #185a4a;
-  --color-accent-wash: #e3efeb;
+  /* The signature */
+  --color-highlighter: #ffe45c;
+  --color-highlighter-wash: #fff6c7;
 
-  --color-structured: #1f6f5c;
-  --color-structured-wash: #e3efeb;
-  --color-pattern: #8a6410;
-  --color-pattern-wash: #f5ecd6;
-  --color-model: #62489a;
-  --color-model-wash: #ece7f5;
-  --color-derived: #4f6166;
-  --color-derived-wash: #e7ecec;
+  /* Meaning: sure / check this / error. Each ships with a label or icon, never colour alone. */
+  --color-stamp: #1e7a4f;
+  --color-stamp-wash: #e3f1e9;
+  --color-amber: #9a5b00;
+  --color-amber-wash: #fbefd9;
+  --color-brick: #b42318;
+  --color-brick-wash: #fbe6e4;
 
-  --color-danger: #a33a2f;
-  --color-danger-wash: #f6e4e1;
-  --color-warn: #8a6410;
+  /* Where values came from, for the charts behind "Show details" (trust tiers). */
+  --color-structured: #1e7a4f;
+  --color-structured-wash: #e3f1e9;
+  --color-pattern: #9a5b00;
+  --color-pattern-wash: #fbefd9;
+  --color-model: #5b4b9a;
+  --color-model-wash: #ebe8f5;
+  --color-derived: #4a5761;
+  --color-derived-wash: #e6eaed;
 
-  --font-sans: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
-  --font-serif: var(--font-newsreader), ui-serif, Georgia, serif;
-  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+  /* Legacy names, kept until every screen has moved to the tokens above. */
+  --color-paper: var(--color-canvas);
+  --color-surface: var(--color-sheet);
+  --color-muted: var(--color-graphite);
+  --color-faint: var(--color-pencil);
+  --color-rule: var(--color-hairline);
+  --color-rule-strong: var(--color-hairline-strong);
+  --color-accent: var(--color-ink);
+  --color-accent-strong: #0b1117;
+  --color-accent-wash: var(--color-highlighter-wash);
+  --color-danger: var(--color-brick);
+  --color-danger-wash: var(--color-brick-wash);
+  --color-warn: var(--color-amber);
 
-  --radius-control: 6px;
+  /* Type: one grotesque for everything; mono only for text quoted from a source page. */
+  --font-sans: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-sans);
+  --font-mono: var(--font-spline-mono), ui-monospace, monospace;
+
+  --text-display: 2.75rem;
+  --text-display--line-height: 3rem;
+  --text-display--letter-spacing: -0.025em;
+  --text-title: 1.75rem;
+  --text-title--line-height: 2.125rem;
+  --text-title--letter-spacing: -0.015em;
+  --text-heading: 1.25rem;
+  --text-heading--line-height: 1.75rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5rem;
+  --text-small: 0.875rem;
+  --text-small--line-height: 1.25rem;
+  --text-micro: 0.75rem;
+  --text-micro--line-height: 1rem;
+
+  /* Rhythm on a 4px grid: space between sections, blocks, groups, items, and tight pairs. */
+  --spacing-section: 3rem;
+  --spacing-block: 2rem;
+  --spacing-group: 1.5rem;
+  --spacing-item: 1rem;
+  --spacing-tight: 0.5rem;
+
+  /* Radius follows hierarchy: controls < panels < sheets. */
+  --radius-control: 8px;
+  --radius-panel: 14px;
+  --radius-sheet: 20px;
+
+  /* One elevation, for things that float over the page. Static panels have none. */
+  --shadow-raised: 0 16px 40px -16px rgb(22 32 42 / 0.28), 0 2px 6px rgb(22 32 42 / 0.06);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --animate-row-in: row-in 320ms var(--ease-standard) both;
+  --animate-sheet-in: sheet-in 320ms var(--ease-standard) both;
+  --animate-fade-in: fade-in 200ms var(--ease-standard) both;
+}
+
+:root {
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
 }
 
 @layer base {
@@ -44,18 +107,98 @@
     color-scheme: light;
   }
   body {
-    background: var(--color-paper);
+    background: var(--color-canvas);
     color: var(--color-ink);
     font-family: var(--font-sans);
-    font-feature-settings: "tnum" 1;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
     -webkit-font-smoothing: antialiased;
   }
+  /* Figures line up in tables and counters. */
+  table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-ink);
     outline-offset: 2px;
   }
   ::selection {
-    background: var(--color-accent-wash);
+    background: var(--color-highlighter);
+    color: var(--color-ink);
+  }
+  ::placeholder {
+    color: var(--color-pencil);
+  }
+}
+
+@layer components {
+  /*
+   * The highlighter stroke: a slightly inset band behind the text, like a marker on a printout.
+   * Wraps across lines, and falls back to an underline in forced-colours mode.
+   */
+  .mark {
+    background: linear-gradient(
+      to bottom,
+      transparent 14%,
+      var(--color-highlighter) 14%,
+      var(--color-highlighter) 90%,
+      transparent 90%
+    );
+    border-radius: 3px;
+    padding-inline: 0.15em;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    color: var(--color-ink);
+  }
+  @media (forced-colors: active) {
+    .mark {
+      text-decoration: underline 3px;
+    }
+  }
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+    background-color: var(--color-highlighter-wash);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateX(32px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* The evidence panel slides in from the right when opened (legacy name). */
+@keyframes slide-in {
+  from {
+    transform: translateX(24px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
   }
 }
 
@@ -65,17 +208,5 @@
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
-  }
-}
-
-/* The evidence panel slides in from the right when opened. */
-@keyframes slide-in {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
   }
 }
