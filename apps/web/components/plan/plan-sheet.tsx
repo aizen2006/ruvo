@@ -70,7 +70,9 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
   const ir = workflow.data?.ir;
   const noSources = ir !== undefined && ir.sources.length === 0;
   const found = new Set(ir?.search?.sources.map((s) => s.ref));
-  const sensitive = draft.sensitive.length > 0;
+  // Plans saved before sensitive flags existed have no list.
+  const sensitiveAttributes = draft.sensitive ?? [];
+  const sensitive = sensitiveAttributes.length > 0;
 
   return (
     <div className="space-y-group">
@@ -163,7 +165,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
         {sensitive && (
           <Part
             title="Sensitive details"
-            hint={`This list filters on ${draft.sensitive.join(", ")}. RUVO counts that only when people say it about themselves in public, never guessing from a name, photo or looks. Rows without their own words are marked Check this.`}
+            hint={`This list filters on ${sensitiveAttributes.join(", ")}. RUVO counts that only when people say it about themselves in public, never guessing from a name, photo or looks. Rows without their own words are marked Check this.`}
           >
             <label className="flex items-start gap-tight text-small">
               <input
