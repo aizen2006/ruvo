@@ -222,7 +222,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
               {start.isPending ? "Starting…" : "Start collecting"}
             </Button>
             <Button variant="quiet" asChild>
-              <Link href="/">Change my request</Link>
+              <Link href="/new">Change my request</Link>
             </Button>
           </>
         )}

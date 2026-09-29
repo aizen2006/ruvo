@@ -60,7 +60,7 @@ export function DatasetList() {
       <div className="space-y-item rounded-control border border-dashed border-hairline-strong bg-sheet px-group py-stack text-center">
         <p className="text-graphite">No lists yet. Describe the first one and RUVO will make it.</p>
         <Button variant="primary" asChild>
-          <Link href="/">Make a list</Link>
+          <Link href="/new">Make a list</Link>
         </Button>
       </div>
     );

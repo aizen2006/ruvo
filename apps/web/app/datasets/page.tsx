@@ -13,7 +13,7 @@ export default function DatasetsPage() {
           <p className="max-w-[60ch] text-graphite">Every list you have made. Run one again to get fresh rows and see what changed.</p>
         </div>
         <Button variant="primary" asChild className="hidden sm:inline-flex">
-          <Link href="/">New list</Link>
+          <Link href="/new">New list</Link>
         </Button>
       </div>
       <DatasetList />

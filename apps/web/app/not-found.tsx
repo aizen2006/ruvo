@@ -8,7 +8,7 @@ export default function NotFound() {
       <p className="text-graphite">There&apos;s nothing at this address. It may have moved, or the link is incomplete.</p>
       <div className="flex flex-wrap gap-tight">
         <Button variant="primary" asChild>
-          <Link href="/">Make a list</Link>
+          <Link href="/new">Make a list</Link>
         </Button>
         <Button asChild>
           <Link href="/datasets">Your datasets</Link>

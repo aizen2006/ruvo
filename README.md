@@ -77,7 +77,7 @@ bun run --filter server smoke                       # optional: checks every dep
 bun run dev                                         # API :3000, worker, dashboard :3001
 ```
 
-Open **http://localhost:3001**:
+Open **http://localhost:3001/new**:
 
 1. **Say what you want a list of**, or pick an example. You can add websites for RUVO to read.
 2. **Choose how thorough**: Quick, Balanced or Thorough. Each shows what it will cost and how

@@ -22,7 +22,7 @@ Keep the seeded "golden run" link open in a tab as a fallback for steps 3 to 6.
 
 ## 1. The request (30 s)
 
-Open http://localhost:3001. Under **Or try one**, choose *Backend and AI roles at good tech companies*. It fills in:
+Open http://localhost:3001/new. Under **Or try one**, choose *Backend and AI roles at good tech companies*. It fills in:
 
 > Find me backend + AI engineering roles, preferably remote, from good technology companies. Return company, title, location, salary if available, job URL, and why the role matches.
 

@@ -14,7 +14,7 @@ export function NavLinks() {
       <Link href="/datasets" aria-current={inDatasets ? "page" : undefined} className={cn("hover:text-ink", inDatasets ? "text-ink" : "text-graphite")}>
         Your datasets
       </Link>
-      <Link href="/" aria-current={path === "/" ? "page" : undefined} className={buttonVariants({ size: "sm" })}>
+      <Link href="/new" aria-current={path === "/new" ? "page" : undefined} className={buttonVariants({ size: "sm" })}>
         New list
       </Link>
     </div>
