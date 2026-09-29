@@ -36,6 +36,13 @@ const EnvSchema = z.object({
   FETCH_CACHE_MODE: z.enum(["off", "ttl", "prefer_cache", "cache_only"]).default("ttl"),
   USER_AGENT: z.string().default("RUVO/0.1 (+https://github.com/aizen2006/ruvo)"),
 
+  /** Firecrawl (optional): powers web search, crawl and extraction. Without a key, RUVO uses only its own fetcher. */
+  FIRECRAWL_API_KEY: optionalSecret,
+  FIRECRAWL_BASE_URL: z.string().url().default("https://api.firecrawl.dev"),
+  /** USD per Firecrawl credit, for cost estimates (Hobby: ~$16/5k credits). */
+  FIRECRAWL_USD_PER_CREDIT: z.coerce.number().nonnegative().default(0.0032),
+  MAX_SEARCHES: z.coerce.number().int().nonnegative().default(20),
+
   /** Ceilings for every run; each mode (quick, balanced, thorough) sets its own budgets below them. */
   MAX_PAGES: z.coerce.number().int().positive().default(300),
   MAX_BROWSER_PAGES: z.coerce.number().int().nonnegative().default(20),

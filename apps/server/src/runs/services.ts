@@ -5,6 +5,7 @@ import { createBrowserPool } from "../fetch/browser";
 import { createFetcher } from "../fetch/fetcher";
 import { createLlmClient } from "../llm/client";
 import { logger } from "../libs/logger";
+import { createFirecrawl, firecrawlDisabled, type MaybeFirecrawl } from "../search/firecrawl";
 import { createEmbedder } from "../memory/embeddings";
 import { createQdrant } from "../memory/qdrant";
 import { createWorkflowMemory } from "../memory/workflowMemory";
@@ -23,6 +24,11 @@ export const fetcher = createFetcher({
   trustedOrigins,
 });
 export const llm = createLlmClient({ env });
+
+/** Firecrawl for web search, crawl and extraction; disabled (RUVO's own fetcher only) without a key. */
+export const firecrawl: MaybeFirecrawl = env.FIRECRAWL_API_KEY
+  ? createFirecrawl({ apiKey: env.FIRECRAWL_API_KEY, baseUrl: env.FIRECRAWL_BASE_URL })
+  : firecrawlDisabled;
 
 /** Jev (hosted) or Laya (self-hosted) behind one client; null when the decision layer is off. */
 const provider =
