@@ -75,9 +75,23 @@ bun run --filter server smoke                       # optional: checks every dep
 bun run dev                                         # API :3000, worker, dashboard :3001
 ```
 
-Open **http://localhost:3001** and pick one of the example requests. Read the contract RUVO
-compiled and change anything that's wrong. Press **Start collecting** and watch the Activity
-tab. When the run finishes, click any row in the Dataset tab to see its receipts.
+Open **http://localhost:3001**:
+
+1. **Say what you want a list of**, or pick an example. You can add websites for RUVO to read.
+2. **Choose how thorough**: Quick, Balanced or Thorough. Each shows what it will cost and how
+   long it may take. *Choose models* picks the model for each job yourself.
+3. **Check the plan.** It lists the columns (must have or nice to have), the rules, how RUVO
+   read vague words, and where it will look. Change anything that's wrong, then press
+   **Start collecting**.
+4. **Open the list.** Click a row to see its receipt: each value, how sure RUVO is, and the
+   source text with the value highlighted. **Download** gives you a spreadsheet.
+
+The contract, workflow, recipes, decisions and full activity log are all still there, behind
+**Show details**.
+
+![The ask screen: one question, three modes with their cost and time](docs/images/ask.png)
+
+![A finished list with a row's receipt open](docs/images/receipt.png)
 
 To rehearse a full demo, including a live self-repair on a bundled fake careers site, follow
 [docs/demo-script.md](docs/demo-script.md).
@@ -92,7 +106,21 @@ All settings live in `apps/server/.env`. The template lists every variable with 
 | `TYPESAFE_API_KEY`, `DECIDER_PROVIDER` | unset, `jev` | You have Jev access. `off` uses rules and the LLM judge only. For a self-hosted Laya, run `docker compose --profile laya up -d` and set `laya` with `DECIDER_BASE_URL=http://localhost:8000`. |
 | `FETCH_CACHE_MODE` | `ttl` | You want repeatable demos (`prefer_cache`) or no network at all (`cache_only`). |
 | `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. Use `cache_only` for offline replays. |
-| `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 150, 10, 60, 4 min | You want bigger or cheaper runs. Plans are clamped to these limits. |
+| `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 300, 20, 150, 8 min | These are ceilings. No mode goes above them, so lower them to cap what anyone can spend. |
+| `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
+
+Each run has a mode, and the mode sets its budgets:
+
+| Mode | Understands with | Reads with | Pages (browser) | AI calls | Time |
+|---|---|---|---|---|---|
+| Quick | planner | worker | 40 (3) | 15 | 2 min |
+| Balanced (default) | planner | worker | 150 (10) | 60 | 4 min |
+| Thorough | planner | planner | 300 (20) | 150 | 8 min |
+
+Quick keeps the planner model for understanding the request because the golden eval fails with
+`gpt-6-luna` there: it reads "preferably remote" as a hard requirement. A run's cost counts
+every AI call made for it, including understanding and planning. Estimates use token averages
+measured from real runs.
 | `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
 
 ## Commands
@@ -115,7 +143,8 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 ```
 apps/server         Bun + Express 5 API and a separate run worker. Drizzle on Postgres
                     (including the job queue), Playwright, cheerio, OpenAI, Jev.
-apps/web            Next.js 16 dashboard: Tailwind v4, Radix, TanStack Query.
+apps/web            Next.js 16 dashboard: Tailwind v4, shadcn/ui-style components on Radix,
+                    TanStack Query. docs/design-system.md covers tokens, words and components.
 packages/contracts  zod schemas both sides share: contract, plan, workflow IR, records, runs.
 docs/               architecture.md explains the whole path through the code;
                     demo-script.md is an 8-minute walkthrough.
@@ -145,9 +174,9 @@ A few rules shaped the code:
   AI" as not an AI role. Rules settle the clear cases first, so the judge only sees ambiguous ones.
 - **The private-network guard checks DNS before fetching, not at connect time.** A hostile DNS
   server could still rebind a name between the two lookups. Run RUVO where that matters.
-- **Some numbers are approximate.** The LLM cost of compiling and planning is logged but not
-  counted in a run's metrics. The workflow-memory threshold (0.9 similarity) is tuned on a
-  handful of requests.
+- **Some numbers are approximate.** Cost estimates are averages; budgets cap the number of AI
+  calls, not their length. The workflow-memory threshold (0.9 similarity) is tuned on a handful
+  of requests.
 - **There are no accounts.** The API has no authentication. It is built for one person on one
   machine.
 

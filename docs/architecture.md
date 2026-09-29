@@ -172,9 +172,13 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 
 ### Budgets and time limits
 
+**Modes** (`runs/modes.ts`): a run is Quick, Balanced or Thorough. The mode picks the planner and worker models (unless the user chose them) and sets the budgets. The environment's `MAX_*` values are ceilings no mode exceeds. The models are stored on the run; `scopeLlm` (`llm/client.ts`) gives compile, plan and every in-run call the run's models, and tags each call with the run id.
+
 **Budgets:** each run has page, browser-page and LLM-call budgets. Steps ask the budget before spending, and when it refuses, they degrade instead of failing the run. The first refusal of each budget is announced in Activity.
 
-**Time limit:** the run's limit (`MAX_RUN_MS`) stops slow work such as collection and enrichment. Records that were already gathered still go through match, validate and store.
+**Time limit:** the run's time limit (from its mode) stops slow work such as collection and enrichment. Records that were already gathered still go through match, validate and store.
+
+**Cost:** `llm_calls` is the one record of spend. A run's `costUsd` is the sum of its calls, understanding and planning included. `estimateRunCost` (`packages/contracts/src/options.ts`) is shared by the server and the dashboard. It turns a mode's models and AI-call budget into a typical figure and an upper figure, using token averages measured from real runs.
 
 ## Data model (`db/schema.ts`)
 
@@ -183,7 +187,7 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 | `requests` | The prompt (plus an idempotency key) |
 | `dataset_contracts` | Contract versions per request (written by the LLM, the template, or a user edit) |
 | `workflows` | IR versions with parent and reused-from links and the PlanDraft |
-| `runs` | Status, stage, attempt, heartbeat, metrics, quality report, diff, error |
+| `runs` | Status, stage, mode and models, attempt, heartbeat, metrics, quality report, diff, error |
 | `run_events` | The run's activity feed, numbered per run |
 | `pages` | Fetched pages: the fetch cache and the evidence snapshots |
 | `records` | One row per item, with status, scores, signals, dedupe keys |
@@ -199,7 +203,8 @@ Qdrant holds one collection, `workflow_memory`. Each point is an embedding of a 
 
 | Route | Purpose |
 |---|---|
-| `POST /api/runs` | Create a run from a prompt (`autoStart`, `Idempotency-Key`) |
+| `GET /api/options` | Modes with their budgets, and the models on offer with prices |
+| `POST /api/runs` | Create a run from a prompt (`mode`, optional `models`, `autoStart`, `Idempotency-Key`) |
 | `GET /api/runs`, `GET /api/runs/:id` | History and run detail |
 | `POST /api/runs/:id/start`, `/cancel`, `/rerun` | Run actions |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
