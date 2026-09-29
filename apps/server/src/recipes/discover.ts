@@ -1,11 +1,15 @@
 import { RecipeDef, type FieldSpec, type Recipe } from "@repo/contracts";
+import { fitText } from "../page/fitText";
 import type { PageState } from "../page/pageState";
-import { pageSkeleton } from "../page/skeleton";
 import type { RunContext } from "../runs/runContext";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "./replay";
+import { seedRecipe } from "./seed";
 import { saveRecipe, urlPatternOf } from "./store";
 
+/** Whole-recipe proposals after the example record: one, plus one retry with the failure report. */
 const MAX_ATTEMPTS = 2;
+/** Size of the pruned page view the LLM reads. */
+const VIEW_CHARS = 12_000;
 
 const SYSTEM_PROMPT = `You write extraction recipes for list pages. A recipe has:
 - itemSelector: a CSS selector matching every record on the page (e.g. each job listing) and nothing else
@@ -17,13 +21,17 @@ Only include fields the page actually shows for each item.`;
 export interface Discovered {
   recipe: Recipe;
   result: ReplayResult;
+  /** LLM calls made, the example record included. */
   attempts: number;
+  /** "seed": expanded from one example record; "prompt": proposed whole by the LLM. */
+  method: "seed" | "prompt";
 }
 
 /**
- * Discovers a recipe for a list page with the planner model. Each proposal is executed
- * against the page and must pass acceptance before it is saved; a failed attempt is
- * retried once with the failure report. Returns null if no proposal passes.
+ * Discovers a recipe for a list page with the planner model. First the LLM copies one
+ * example record, which code expands into a recipe (seed.ts); if that fails, the LLM proposes
+ * a whole recipe, retried once with the failure report. Every candidate is executed against
+ * the page and must pass acceptance before it is saved. Returns null if none passes.
  */
 export async function discoverRecipe(
   ctx: Pick<RunContext, "runId" | "llm" | "signal" | "budget" | "metrics">,
@@ -32,8 +40,26 @@ export async function discoverRecipe(
   opts: { origin: Recipe["origin"]; parent?: Recipe | null; failureReport?: string } = { origin: "llm_discovery" },
 ): Promise<Discovered | null> {
   const acceptance = acceptanceFor(fields);
-  let feedback = opts.failureReport ?? null;
+  const view = fitText(page.html, fields.map((f) => `${f.name} ${f.description}`).join(" "), VIEW_CHARS);
+  const accept = async (def: RecipeDef, result: ReplayResult, attempts: number, method: Discovered["method"]): Promise<Discovered> => {
+    const recipe = await saveRecipe({
+      ...urlPatternOf(page.url),
+      pageType: "job_list",
+      parentId: opts.parent?.id ?? null,
+      origin: opts.origin,
+      def,
+      acceptance,
+    });
+    return { recipe, result, attempts, method };
+  };
 
+  const seeded = await seedRecipe(ctx, { url: page.url, html: page.html, view }, fields);
+  if (seeded) {
+    const result = replayRecipe(page.html, page.url, seeded);
+    if (!acceptanceFailure(result, acceptance)) return accept(seeded, result, 1, "seed");
+  }
+
+  let feedback = opts.failureReport ?? null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     const { data: def } = await ctx.llm.parse({
       stage: "discover_recipe",
@@ -47,7 +73,7 @@ export async function discoverRecipe(
         likelyItemGroups: page.state.groups.map((g) => ({ selector: g.selector, count: g.count, samples: g.samples })),
         previousRecipe: opts.parent?.def ?? null,
         problemWithPreviousAttempt: feedback,
-        pageOutline: pageSkeleton(page.html),
+        pageView: view,
       }),
       signal: ctx.signal,
       run: ctx,
@@ -55,17 +81,7 @@ export async function discoverRecipe(
 
     const result = replayRecipe(page.html, page.url, def);
     const failure = acceptanceFailure(result, acceptance);
-    if (!failure) {
-      const recipe = await saveRecipe({
-        ...urlPatternOf(page.url),
-        pageType: "job_list",
-        parentId: opts.parent?.id ?? null,
-        origin: opts.origin,
-        def,
-        acceptance,
-      });
-      return { recipe, result, attempts: attempt };
-    }
+    if (!failure) return accept(def, result, attempt + 1, "prompt");
     feedback = `${failure.kind}: ${failure.detail}. Selectors used: ${JSON.stringify(def)}`;
   }
   return null;

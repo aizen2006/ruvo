@@ -71,8 +71,8 @@ describe("planning linked pages", () => {
       rationale: "",
     };
     const ir = compileIr(STORIES, draft, [candidate!], { caps, provenance: { plannedBy: "llm", model: null, reusedFrom: null, parentVersion: null } });
-    expect(ir.budgets.maxLlmCalls).toBe(2);
-    expect(ir.provenance.warnings).toContain("Raised the LLM budget from 0 to 2 calls to cover page recipes and judged criteria");
+    expect(ir.budgets.maxLlmCalls).toBe(3);
+    expect(ir.provenance.warnings).toContain("Raised the LLM budget from 0 to 3 calls to cover page recipes and judged criteria");
   });
 
   test("with nothing to plan, the planner is not called", async () => {

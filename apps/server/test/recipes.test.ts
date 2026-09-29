@@ -86,6 +86,8 @@ describe("discoverRecipe", () => {
   test("retries with the failure report and saves only a recipe that passes", async () => {
     let attempt = 0;
     const llm = fakeLlm({
+      // An example that cannot be placed on the page sends discovery to the recipe prompt.
+      example_record: { fields: [] },
       recipe: ({ input }: { input: Array<{ content: string }> }) => {
         attempt++;
         const request = JSON.parse(input.at(-1)!.content) as { problemWithPreviousAttempt: string | null };
@@ -96,19 +98,19 @@ describe("discoverRecipe", () => {
     });
 
     const discovered = await discoverRecipe(ctx(llm), page, fields);
-    expect(discovered).toMatchObject({ attempts: 2, recipe: { version: 1, origin: "llm_discovery", status: "active" } });
+    expect(discovered).toMatchObject({ attempts: 3, method: "prompt", recipe: { version: 1, origin: "llm_discovery", status: "active" } });
     expect(discovered!.result.itemCount).toBe(8);
     expect((await findActiveRecipe("https://apply.workable.com/another-board/"))?.id).toBe(discovered!.recipe.id);
   });
 
   test("gives up after two failing proposals and saves nothing", async () => {
-    const llm = fakeLlm({ recipe: { ...workableRecipe, itemSelector: "li.nope" } });
+    const llm = fakeLlm({ example_record: { fields: [] }, recipe: { ...workableRecipe, itemSelector: "li.nope" } });
     expect(await discoverRecipe(ctx(llm), page, fields)).toBeNull();
     expect(await listRecipes()).toEqual([]);
   });
 
   test("a new version retires the previous one", async () => {
-    const llm = fakeLlm({ recipe: workableRecipe });
+    const llm = fakeLlm({ example_record: { fields: [] }, recipe: workableRecipe });
     const first = await discoverRecipe(ctx(llm), page, fields);
     const second = await discoverRecipe(ctx(llm), page, fields, { origin: "llm_repair", parent: first!.recipe });
     expect(second!.recipe).toMatchObject({ version: 2, parentId: first!.recipe.id, origin: "llm_repair" });

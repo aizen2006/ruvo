@@ -130,7 +130,8 @@ describe("recipe repair in html_list", () => {
     expect(events.map((e) => e.type)).toEqual(["recipe.failed", "repair.decided", "repair.local_failed", "recipe.repaired"]);
     expect(ctx.repairs).toMatchObject([{ toVersion: 2, origin: "llm_repair" }]);
     // The LLM was told what broke.
-    expect(JSON.parse(llm.calls[0]!.input.find((m) => m.role === "user")!.content).problemWithPreviousAttempt).toContain("SELECTOR_MISS");
+    const recipeCall = llm.calls.find((c) => c.name === "recipe")!;
+    expect(JSON.parse(recipeCall.input.find((m) => m.role === "user")!.content).problemWithPreviousAttempt).toContain("SELECTOR_MISS");
   });
 
   test("an empty HTTP shell switches to the browser and keeps the recipe", async () => {

@@ -158,7 +158,7 @@ async function discoverOrThrow(run: RunContext, page: FetchedPage, fields: Field
   run.emit({
     stage: "extracting",
     type: "recipe.discovered",
-    message: `${host}: recorded recipe v${discovered.recipe.version} (${discovered.result.itemCount} items, ${discovered.attempts} LLM attempt${discovered.attempts > 1 ? "s" : ""}); later runs replay it`,
+    message: `${host}: recorded recipe v${discovered.recipe.version} (${discovered.result.itemCount} items, ${discovered.method === "seed" ? "from one example record, " : ""}${discovered.attempts} LLM call${discovered.attempts > 1 ? "s" : ""}); later runs replay it`,
     data: { recipeId: discovered.recipe.id, version: discovered.recipe.version, def: discovered.recipe.def },
   });
   return { recipe: discovered.recipe, result: discovered.result, page };

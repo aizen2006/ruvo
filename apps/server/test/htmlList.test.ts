@@ -60,7 +60,15 @@ function run(llm: ReturnType<typeof fakeLlm>, contract: DatasetContract = DEMO_C
 
 describe("html_list adapter", () => {
   test("discovers a recipe on first use, then replays it without the LLM", async () => {
-    const llm = fakeLlm({ recipe });
+    const example = {
+      fields: [
+        { name: "title", quote: "Wild Card" },
+        { name: "url", quote: "/huggingface/j/0BD8C06DB3/" },
+        { name: "location", quote: "United States" },
+        { name: "remote", quote: "Remote" },
+      ],
+    };
+    const llm = fakeLlm({ example_record: example });
     const first = run(llm);
     const items = await htmlList.collect({ fetcher: boardFetcher, scope: first.ctx, run: first.ctx }, { url: BOARD, company: "Hugging Face", tags: ["ai_lab"] });
 
@@ -81,7 +89,7 @@ describe("html_list adapter", () => {
   });
 
   test("fails clearly when no reliable recipe can be found", async () => {
-    const { ctx } = run(fakeLlm({ recipe: { ...recipe, itemSelector: "li.nope" } }));
+    const { ctx } = run(fakeLlm({ example_record: { fields: [] }, recipe: { ...recipe, itemSelector: "li.nope" } }));
     await expect(htmlList.collect({ fetcher: boardFetcher, scope: ctx, run: ctx }, { url: BOARD, tags: [] })).rejects.toThrow(
       "Could not find a reliable way to read apply.workable.com",
     );

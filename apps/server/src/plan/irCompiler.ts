@@ -12,8 +12,8 @@ const ENRICH_PAGE_FETCHES = 15;
 /** Posts per free-text source that may use the LLM rung (the run's LLM budget still applies). */
 const TEXT_SOURCE_LLM_ITEMS = 30;
 const DEFAULT_ITEMS_PER_SOURCE = 40;
-/** LLM calls a list page may need to discover (or rediscover) its recipe: one proposal plus one retry. */
-const RECIPE_DISCOVERY_CALLS = 2;
+/** LLM calls a list page may need to discover (or rediscover) its recipe: an example record, then one proposal plus one retry. */
+const RECIPE_DISCOVERY_CALLS = 3;
 /** Records the LLM judge decides per call. */
 const JUDGE_BATCH = 20;
 
