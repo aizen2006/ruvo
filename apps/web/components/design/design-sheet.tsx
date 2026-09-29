@@ -1,7 +1,8 @@
 "use client";
 
 import { Download, Play } from "lucide-react";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
+import { DotField } from "@/components/dot-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -62,6 +63,24 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Both tones at full strength; the slider stands in for rows arriving. Hover to read rows with the lens. */
+function DotFieldDemo() {
+  const [resolve, setResolve] = useState(0);
+  return (
+    <div className="space-y-item">
+      <div className="grid gap-item sm:grid-cols-2">
+        <DotField resolve={resolve} interactive className="h-72 rounded-control border border-hairline bg-canvas" />
+        <DotField tone="void" resolve={resolve} interactive className="h-72 rounded-control" />
+      </div>
+      <label className="flex max-w-md items-center gap-item font-mono text-small">
+        Resolve
+        <input type="range" min={0} max={1} step={0.01} value={resolve} onChange={(e) => setResolve(Number(e.target.value))} className="flex-1 accent-ink" />
+        <span className="tabular w-10 text-right">{resolve.toFixed(2)}</span>
+      </label>
+    </div>
+  );
+}
+
 export function DesignSheet() {
   return (
     <div className="mx-auto max-w-5xl space-y-section pb-section">
@@ -71,6 +90,10 @@ export function DesignSheet() {
           A list-maker with receipts: quiet ink on cool paper, and <span className="mark">one highlighter</span> for what RUVO found or you chose.
         </p>
       </header>
+
+      <Section title="Dot field">
+        <DotFieldDemo />
+      </Section>
 
       <Section title="Colour">
         <ul className="grid grid-cols-2 gap-item sm:grid-cols-3 lg:grid-cols-4">

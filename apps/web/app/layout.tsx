@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Doto, Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { DotField } from "@/components/dot-field";
 import { NavLinks } from "@/components/nav-links";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -31,11 +32,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${doto.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">
+        {/* The ambient dot field behind every screen; the centre stays clear for reading. */}
+        <DotField tone="ink" intensity={0.25} interactive className="pointer-events-none fixed inset-0 -z-10 [mask-image:radial-gradient(45%_55%_at_50%_45%,transparent_40%,black)]" />
         <Providers>
           <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-ink focus:px-3 focus:py-2 focus:text-sheet">
             Skip to content
           </a>
-          <header className="border-b border-hairline">
+          <header className="border-b border-hairline bg-canvas">
             <nav aria-label="Main" className="mx-auto flex h-14 max-w-[1200px] items-center gap-group px-4 sm:px-6">
               <Link href="/" className="flex items-center gap-2 text-body font-semibold">
                 ruvo

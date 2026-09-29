@@ -20,8 +20,9 @@ The references share one language, and RUVO takes these parts of it:
 
 ## Principles
 
-1. **Noise resolves into rows.** The dot field is the one memorable thing. It appears on the ask
-   screen and while collecting, where it settles into lines as rows arrive. Nowhere else.
+1. **Noise resolves into rows.** The dot field is the one memorable thing. It sits behind every
+   screen at low intensity, faded out of the reading centre, and runs at full strength on the
+   landing hero, the ask screen and while collecting, where it settles into lines as rows arrive.
 2. **Signal means found.** The orange signal marks found, proven or chosen: quoted evidence,
    the selected option, progress. It is always a background behind black text, never text or
    decoration.
@@ -90,16 +91,22 @@ On phones `display` drops to 40/40, `count` to 64/60, `title` to 28/32.
 
 ## The dot field (`components/dot-field.tsx`)
 
-One canvas component, no images or libraries.
+One WebGL fragment shader on a full-screen triangle, no images or libraries.
 
-- A smooth noise field (a few octaves of value noise) drifting slowly.
-- Rendered with an 8×8 Bayer ordered dither into square dots on a 6px grid, like the halftone
-  and dither references.
-- `resolve` (0–1) blends the noise towards horizontal bands, so as rows are collected the
-  field settles into lines, the look of a table.
-- `tone`: `ink` (black dots on paper, ask screen) or `void` (paper dots on black, collecting).
-  A few dots take the signal colour where rows were found.
-- Pauses when off screen and freezes under reduced motion; `aria-hidden`.
+- **Field**: warped fbm value noise cut into soft cumulus clouds, drifting slowly to the right.
+- **Marks**: an 8×8 Bayer ordered dither on a 7px grid; each lit cell draws a small plus mark,
+  like the dot-matrix flower. A rare few twinkle in signal orange, like found items.
+- **`resolve`** (0–1): cells dissolve one by one into horizontal scanlines whose thickness
+  follows the cloud, like the scanline cat: the look of rows. Changes glide.
+- **`interactive`**: within about 160px of the mouse the field resolves into scanlines with a
+  smooth falloff and an eased follow, so moving the pointer reads the noise into rows. Touch is
+  ignored.
+- **`tone`**: `ink` (black marks on paper) or `void` (paper marks on black). **`intensity`**
+  (0–1) sets density and contrast.
+- **Ambient layer**: `app/layout.tsx` puts a fixed `ink` field at intensity 0.25 behind every
+  screen, masked out of the reading centre; the header sits on flat paper above it.
+- WebGL2 with a WebGL1 fallback (renders nothing without GL); ~30fps; pauses off screen or in a
+  hidden tab; one still frame under reduced motion; `aria-hidden`.
 
 ## Screens
 
@@ -180,5 +187,5 @@ Base components are shadcn/ui-style files on `radix-ui`, restyled to the tokens,
 | `Table`, `Skeleton`, `Toaster` | Skeletons shimmer as a dither pattern, not a gradient |
 
 Do: one primary button per view; say the cost next to the action that spends it.
-Don't: use signal as decoration, put the dot field anywhere but the ask and collecting screens,
-stack frosted panels, or show a percentage where Sure / Likely / Check this will do.
+Don't: use signal as decoration, run the dot field at full strength anywhere but the landing
+hero, the ask screen and collecting, stack frosted panels, or show a percentage where Sure / Likely / Check this will do.
