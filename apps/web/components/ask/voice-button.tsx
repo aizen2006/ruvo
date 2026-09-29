@@ -3,7 +3,6 @@
 import { Mic } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Tooltip } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 
 /** The slice of the Web Speech API this button uses (TypeScript's DOM types don't include it). */
 interface SpeechResultList {
@@ -123,23 +122,26 @@ export function VoiceButton({ onInterim, onFinal }: { onInterim: (text: string) 
 
   return (
     <div className="flex shrink-0 flex-col items-end gap-1">
-      <span className="relative inline-flex">
-        {listening && <span aria-hidden className="absolute inset-0 rounded-full bg-ink/25 motion-safe:animate-ping" />}
-        <Tooltip content="Your browser turns your speech into text. Chrome does this by sending the audio to Google.">
-          <button
-            type="button"
-            aria-pressed={listening}
-            onClick={listening ? stop : start}
-            className={cn(
-              "relative inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-small transition-colors",
-              listening ? "bg-ink text-sheet" : "text-graphite hover:bg-ink/6 hover:text-ink",
-            )}
-          >
-            <Mic className="size-4" aria-hidden /> Speak
-          </button>
-        </Tooltip>
-      </span>
-      {listening && <p className="text-micro text-pencil">Listening. Press Esc to stop.</p>}
+      {/* A bevel key that stays pressed in while listening, with a pulsing dot for the live microphone. */}
+      <Tooltip content="Your browser turns your speech into text. Chrome does this by sending the audio to Google.">
+        <button
+          type="button"
+          aria-pressed={listening}
+          onClick={listening ? stop : start}
+          className="bevel inline-flex h-8 items-center gap-1.5 rounded-full px-3 font-mono text-micro text-ink"
+        >
+          {listening ? (
+            <span aria-hidden className="relative flex size-2">
+              <span className="absolute inset-0 rounded-full bg-ink motion-safe:animate-ping" />
+              <span className="relative size-2 rounded-full bg-ink" />
+            </span>
+          ) : (
+            <Mic className="size-3.5" aria-hidden />
+          )}
+          Speak
+        </button>
+      </Tooltip>
+      {listening && <p className="font-mono text-micro text-pencil">Listening. Press Esc to stop.</p>}
       {error && (
         <p role="alert" className="max-w-64 text-right text-micro text-brick">
           {error}

@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 /** Starting points, grouped by what RUVO can read: job boards it knows, or any list page you link. */
 const GROUPS: Array<{ label: string; examples: Array<{ short: string; prompt: string; urls?: string[] }> }> = [
   {
@@ -26,25 +28,27 @@ const GROUPS: Array<{ label: string; examples: Array<{ short: string; prompt: st
 
 export type Example = { prompt: string; urls?: string[] };
 
-export function Examples({ onPick }: { onPick: (example: Example) => void }) {
+/** Plain links in two columns; each starts with a small square, the dot of the dot field. */
+export function Examples({ onPick, className }: { onPick: (example: Example) => void; className?: string }) {
   return (
-    <section aria-labelledby="examples" className="space-y-item">
-      <h2 id="examples" className="text-small font-medium text-graphite">
+    <section aria-labelledby="examples" className={cn("space-y-item border-t border-hairline pt-group", className)}>
+      <h2 id="examples" className="font-mono text-micro text-graphite">
         Or try one
       </h2>
       <div className="grid gap-group sm:grid-cols-2">
         {GROUPS.map((group) => (
           <div key={group.label} className="space-y-tight">
-            <h3 className="text-micro font-semibold text-graphite">{group.label}</h3>
-            <ul className="space-y-1">
+            <h3 className="font-mono text-micro text-pencil">{group.label}</h3>
+            <ul className="space-y-1.5">
               {group.examples.map((example) => (
                 <li key={example.short}>
                   <button
                     type="button"
                     onClick={() => onPick(example)}
-                    className="text-left text-small text-ink underline decoration-hairline-strong underline-offset-4 hover:decoration-ink"
+                    className="group inline-flex items-baseline gap-tight text-left text-small text-ink"
                   >
-                    {example.short}
+                    <span aria-hidden className="size-1.5 shrink-0 -translate-y-0.5 bg-ink" />
+                    <span className="underline decoration-hairline-strong underline-offset-4 group-hover:decoration-ink">{example.short}</span>
                   </button>
                 </li>
               ))}

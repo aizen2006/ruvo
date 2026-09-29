@@ -33,7 +33,7 @@ export function ModelPicker({
 
   return (
     <Collapsible className="group/models">
-      <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-control py-1 text-small text-graphite hover:text-ink">
+      <CollapsibleTrigger className="inline-flex items-center gap-1 rounded-control py-1 font-mono text-micro text-graphite hover:text-ink">
         <ChevronRight className="size-4 transition-transform duration-(--duration-base) group-data-[state=open]/models:rotate-90" />
         Choose models{chosen > 0 && <span className="text-ink"> ({chosen} changed)</span>}
       </CollapsibleTrigger>
@@ -41,7 +41,7 @@ export function ModelPicker({
         <div className="grid gap-item sm:grid-cols-2">
           {JOBS.map(({ role, label, hint }) => (
             <label key={role} className="space-y-1.5">
-              <span className="block text-small font-medium">{label}</span>
+              <span className="block font-mono text-micro text-graphite">{label}</span>
               <Select
                 value={value[role] ?? MODE_DEFAULT}
                 onValueChange={(v) => onChange({ ...value, [role]: v === MODE_DEFAULT ? undefined : v })}
