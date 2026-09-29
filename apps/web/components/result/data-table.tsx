@@ -18,6 +18,8 @@ import { CertaintyMark } from "./certainty-mark";
 import { ReceiptDrawer } from "./receipt-drawer";
 
 const PAGE_SIZE = 50;
+// Column headers in mono on a 2px ink rule, like the head of a printout.
+const HEAD = "border-b-2 border-ink font-mono font-normal text-ink";
 const ANY = "any";
 
 type Status = RecordDTO["status"] | typeof ANY;
@@ -35,7 +37,7 @@ function Chip({ pressed, onClick, children }: { pressed: boolean; onClick: () =>
       aria-pressed={pressed}
       onClick={onClick}
       className={cn(
-        "h-9 rounded-full border px-3 text-small transition-colors",
+        "h-9 rounded-full border px-3 font-mono text-small transition-colors",
         pressed ? "border-ink bg-highlighter font-medium" : "border-hairline-strong bg-sheet text-graphite hover:border-ink hover:text-ink",
       )}
     >
@@ -105,14 +107,14 @@ export function DataTable({ run }: { run: RunDetail }) {
   return (
     <section aria-label="Your list" className="space-y-item">
       <div className="flex flex-wrap items-center gap-tight">
-        <div role="group" aria-label="Which rows" className="flex max-w-full gap-1 overflow-x-auto rounded-full bg-ink/6 p-1">
+        <div role="group" aria-label="Which rows" className="flex max-w-full gap-0.5 overflow-x-auto rounded-full border border-hairline-strong bg-sheet p-0.5">
           {STATUS_TABS.map(([value, label]) => (
             <button
               key={value}
               type="button"
               aria-pressed={status === value}
               onClick={() => refilter(setStatus)(value)}
-              className={cn("shrink-0 rounded-full px-3 py-1.5 text-small whitespace-nowrap", status === value ? "bg-sheet font-medium shadow-sm" : "text-graphite hover:text-ink")}
+              className={cn("h-8 shrink-0 rounded-full px-3 font-mono text-small whitespace-nowrap", status === value ? "bg-highlighter text-ink" : "text-graphite hover:text-ink")}
             >
               {label}
             </button>
@@ -135,10 +137,10 @@ export function DataTable({ run }: { run: RunDetail }) {
         )}
         {hasRemote && (
           <Select value={remote} onValueChange={(v) => refilter(setRemote)(v as typeof remote)}>
-            <SelectTrigger aria-label="Where the work is" className="h-9 w-auto rounded-full">
+            <SelectTrigger aria-label="Where the work is" className="h-9 w-auto rounded-full font-mono">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="font-mono">
               <SelectItem value={ANY}>Remote or not</SelectItem>
               <SelectItem value="remote">Remote</SelectItem>
               <SelectItem value="hybrid">Hybrid</SelectItem>
@@ -148,10 +150,10 @@ export function DataTable({ run }: { run: RunDetail }) {
         )}
         {workflow && workflow.ir.sources.length > 1 && (
           <Select value={source} onValueChange={refilter(setSource)}>
-            <SelectTrigger aria-label="Source" className="h-9 w-auto max-w-56 rounded-full">
+            <SelectTrigger aria-label="Source" className="h-9 w-auto max-w-56 rounded-full font-mono">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="font-mono">
               <SelectItem value={ANY}>Every source</SelectItem>
               {workflow.ir.sources.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
@@ -165,18 +167,20 @@ export function DataTable({ run }: { run: RunDetail }) {
 
       {error && <p className="text-small text-brick">{error.message}</p>}
 
-      <div className={cn("overflow-hidden rounded-panel border border-hairline bg-sheet transition-opacity", isFetching && "opacity-70")}>
+      <div className={cn("overflow-hidden rounded-control border border-hairline bg-sheet transition-opacity", isFetching && "opacity-70")}>
         {/* Wide screens: a table. Phones: one stacked row per record. */}
         <div className="hidden sm:block">
           <Table>
             <TableHeader>
               <TableRow>
                 {columns.map((f) => (
-                  <TableHead key={f.name}>{columnTitle(f)}</TableHead>
+                  <TableHead key={f.name} className={HEAD}>
+                    {columnTitle(f)}
+                  </TableHead>
                 ))}
-                <TableHead>How sure</TableHead>
+                <TableHead className={HEAD}>How sure</TableHead>
                 {link && (
-                  <TableHead>
+                  <TableHead className={HEAD}>
                     <span className="sr-only">Link</span>
                   </TableHead>
                 )}
@@ -195,7 +199,7 @@ export function DataTable({ run }: { run: RunDetail }) {
                     e.preventDefault();
                     open(record.id, e.currentTarget);
                   }}
-                  className="cursor-pointer hover:bg-highlighter-wash/60 focus-visible:bg-highlighter-wash/60"
+                  className="cursor-pointer transition-colors hover:bg-canvas/70 focus-visible:bg-highlighter-wash/60"
                 >
                   {columns.map((f) => (
                     <TableCell
@@ -226,7 +230,7 @@ export function DataTable({ run }: { run: RunDetail }) {
         <ul className="divide-y divide-hairline sm:hidden">
           {data?.items.map((record) => (
             <li key={record.id}>
-              <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-item py-3 text-left">
+              <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-item py-3 text-left active:bg-canvas/70">
                 <span className="flex items-start justify-between gap-tight">
                   <span className="font-medium">{cellText(record.data[primary?.name ?? ""])}</span>
                   <CertaintyMark confidence={record.confidence} />
@@ -265,7 +269,7 @@ export function DataTable({ run }: { run: RunDetail }) {
       </div>
 
       {total > 0 && (
-        <div className="flex items-center justify-between text-small text-graphite">
+        <div className="flex items-center justify-between font-mono text-small text-graphite">
           <p className="tabular">
             {formatNumber(first)}–{formatNumber(last)} of {formatNumber(total)}
           </p>
@@ -293,7 +297,7 @@ function OpenLink({ href }: { href: string }) {
       target="_blank"
       rel="noreferrer"
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex items-center gap-1 text-small text-ink underline underline-offset-2"
+      className="inline-flex items-center gap-1 font-mono text-micro text-ink underline underline-offset-4 hover:decoration-2"
       aria-label="Open the original page"
     >
       Open <ExternalLink className="size-3" aria-hidden />

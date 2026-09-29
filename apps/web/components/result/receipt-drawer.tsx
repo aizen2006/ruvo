@@ -5,8 +5,9 @@ import { Check, ExternalLink, Minus, X } from "lucide-react";
 import { columnTitle } from "@/components/plan/column-chips";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useEvidence } from "@/lib/queries";
 import { SOURCE_PHRASE } from "@/lib/plain";
+import { useEvidence } from "@/lib/queries";
+import { cn } from "@/lib/utils";
 import { CertaintyMark } from "./certainty-mark";
 import { Quote } from "./quote";
 
@@ -16,20 +17,20 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
   const field = contract.fields.find((f) => f.name === item.field);
   const value = text(item.value);
   return (
-    <li className="space-y-tight border-b border-hairline py-item last:border-b-0">
+    <li className="space-y-tight border-t border-hairline py-group first:border-t-0 first:pt-0">
       <div className="flex items-start justify-between gap-item">
         <div className="min-w-0">
-          <p className="text-micro text-graphite">{field ? columnTitle(field) : item.field}</p>
-          <p className="break-words">{value || "—"}</p>
+          <p className="font-mono text-micro text-graphite">{field ? columnTitle(field) : item.field}</p>
+          <p className="mt-0.5 font-medium break-words">{value || "—"}</p>
         </div>
         <CertaintyMark confidence={item.verified ? item.confidence : 0} />
       </div>
       {item.snippet && <Quote snippet={item.snippet} value={value} />}
       {!item.verified && <p className="text-small text-brick">The quoted text wasn&apos;t found on the page, so this value isn&apos;t trusted.</p>}
-      <p className="flex flex-wrap items-center gap-x-item gap-y-1 text-micro text-graphite">
+      <p className="flex flex-wrap items-center gap-x-item gap-y-1 font-mono text-micro text-graphite">
         <span>{SOURCE_PHRASE[item.method]}</span>
         {item.method !== "DERIVED" && (
-          <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-ink underline underline-offset-2">
+          <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-ink underline underline-offset-4 hover:decoration-2">
             Open the page <ExternalLink className="size-3" aria-hidden />
           </a>
         )}
@@ -40,27 +41,20 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
 }
 
 const SIGNAL_ICON = { true: Check, false: X, null: Minus } as const;
+const SIGNAL_TONE = { true: "text-stamp", false: "text-brick", null: "text-pencil" } as const;
 
-/** Why this row is in the list: each rule with its outcome. */
+/** Why this row is in the list: each rule with its outcome, as a checklist. */
 function RowVerdict({ record }: { record: RecordDTO }) {
   return (
-    <section className="space-y-tight pb-item">
+    <section className="space-y-tight border-b border-hairline pb-group">
       {record.signals.length > 0 && (
-        <ul className="flex flex-wrap gap-tight">
+        <ul className="grid gap-x-item gap-y-1.5 font-mono text-micro sm:grid-cols-2">
           {record.signals.map((s) => {
-            const Icon = SIGNAL_ICON[String(s.passed) as keyof typeof SIGNAL_ICON];
+            const key = String(s.passed) as keyof typeof SIGNAL_ICON;
+            const Icon = SIGNAL_ICON[key];
             return (
-              <li
-                key={s.criterionId}
-                className={
-                  s.passed === true
-                    ? "inline-flex items-center gap-1 rounded-full bg-stamp-wash px-2.5 py-0.5 text-micro text-stamp"
-                    : s.passed === false
-                      ? "inline-flex items-center gap-1 rounded-full bg-brick-wash px-2.5 py-0.5 text-micro text-brick"
-                      : "inline-flex items-center gap-1 rounded-full bg-ink/6 px-2.5 py-0.5 text-micro text-graphite"
-                }
-              >
-                <Icon className="size-3" aria-hidden />
+              <li key={s.criterionId} className={cn("flex items-start gap-1.5", s.passed === null && "text-graphite")}>
+                <Icon className={cn("mt-0.5 size-3 shrink-0", SIGNAL_TONE[key])} strokeWidth={3} aria-hidden />
                 {s.label}
                 <span className="sr-only">{s.passed === true ? "(yes)" : s.passed === false ? "(no)" : "(unknown)"}</span>
               </li>
@@ -108,7 +102,9 @@ export function ReceiptDrawer({
 
   return (
     <Sheet open={recordId !== null} onOpenChange={(open) => !open && onClose()}>
+      {/* Frosted, since it floats over the table; nearly solid on phones, where it covers the whole screen. */}
       <SheetContent
+        className="frost bg-transparent max-sm:bg-sheet/95"
         onCloseAutoFocus={(e) => {
           if (!returnFocusTo) return;
           e.preventDefault();
@@ -126,7 +122,7 @@ export function ReceiptDrawer({
         {record && (
           <>
             <RowVerdict record={record} />
-            <ul>
+            <ul className="pt-group">
               {evidence.map((item) => (
                 <ValueReceipt key={item.field} item={item} contract={contract} />
               ))}

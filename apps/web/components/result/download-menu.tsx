@@ -20,7 +20,7 @@ export function DownloadMenu({ runId }: { runId: string }) {
           <Download /> Download <ChevronDown />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="font-mono">
         {files.map((f) => (
           <DropdownMenuItem key={f.label} asChild>
             <a href={f.href} download>

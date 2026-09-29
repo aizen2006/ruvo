@@ -39,7 +39,7 @@ export function ResultView({ run }: { run: RunDetail }) {
   return (
     <div className="space-y-stack">
       {run.status !== "completed" && (
-        <div role="status" className={run.status === "failed" ? "rounded-panel bg-brick-wash px-group py-item" : "rounded-panel bg-ink/6 px-group py-item"}>
+        <div role="status" className={run.status === "failed" ? "rounded-control bg-brick-wash px-group py-item" : "rounded-control bg-ink/6 px-group py-item"}>
           <p className={run.status === "failed" ? "font-medium text-brick" : "font-medium"}>
             {run.status === "failed" ? "This list didn't finish." : "You stopped this list."}
           </p>
@@ -51,35 +51,42 @@ export function ResultView({ run }: { run: RunDetail }) {
         </div>
       )}
 
-      <section className="flex flex-col gap-item sm:flex-row sm:items-end sm:justify-between">
-        <div className="space-y-1">
-          <p className="text-display font-semibold tabular">
-            {formatNumber(rows)} <span className="text-heading font-medium text-graphite">{rows === 1 ? "row" : "rows"}</span>
-          </p>
-          <p className="flex flex-wrap gap-x-item text-small text-graphite tabular">
-            {facts.map((f) => (
-              <span key={String(f)}>{f}</span>
-            ))}
-          </p>
+      {/* The readout: the count and what to do with it, beside how far to trust it. */}
+      <div className="grid gap-group border-y border-hairline py-group lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+        <section aria-label="This list" className="space-y-group">
+          <div className="space-y-tight">
+            <p className="flex items-baseline gap-item">
+              <span className="font-dot text-count font-black tabular">{formatNumber(rows)}</span>
+              <span className="text-heading text-graphite">{rows === 1 ? "row" : "rows"}</span>
+            </p>
+            <p className="flex flex-wrap gap-x-item font-mono text-small text-graphite tabular">
+              {facts.map((f) => (
+                <span key={String(f)}>{f}</span>
+              ))}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-tight">
+            {rows > 0 && <DownloadMenu runId={run.id} />}
+            {run.workflowId && (
+              <Button disabled={rerun.isPending} onClick={follow(rerun, "Running again")}>
+                <RotateCw /> Run again
+              </Button>
+            )}
+            {/* Finding more searches the web again, so it is offered for lists web search found. */}
+            {run.workflowId && workflow?.ir.search && (
+              <Button disabled={more.isPending} onClick={follow(more, "Looking for more")}>
+                <ListPlus /> Find more
+              </Button>
+            )}
+          </div>
+          {(rerun.error ?? more.error) && <p className="text-small text-brick">{(rerun.error ?? more.error)!.message}</p>}
+        </section>
+        {/* Hidden when there is no report yet, so no stray rule is left behind. */}
+        <div className="empty:hidden lg:border-l lg:border-hairline lg:pl-group">
+          <TrustSummary run={run} />
         </div>
-        <div className="flex flex-wrap gap-tight">
-          {run.workflowId && (
-            <Button disabled={rerun.isPending} onClick={follow(rerun, "Running again")}>
-              <RotateCw /> Run again
-            </Button>
-          )}
-          {/* Finding more searches the web again, so it is offered for lists web search found. */}
-          {run.workflowId && workflow?.ir.search && (
-            <Button disabled={more.isPending} onClick={follow(more, "Looking for more")}>
-              <ListPlus /> Find more
-            </Button>
-          )}
-          {rows > 0 && <DownloadMenu runId={run.id} />}
-        </div>
-      </section>
-      {(rerun.error ?? more.error) && <p className="text-small text-brick">{(rerun.error ?? more.error)!.message}</p>}
+      </div>
 
-      <TrustSummary run={run} />
       <WhatChanged run={run} />
       {run.contract && <DataTable run={run} />}
     </div>

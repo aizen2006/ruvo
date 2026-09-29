@@ -18,24 +18,24 @@ export function WhatChanged({ run }: { run: RunDetail }) {
   const parts = [added && `${formatNumber(added)} new`, removed && `${formatNumber(removed)} gone`, changed && `${formatNumber(changed)} changed`].filter(Boolean);
 
   return (
-    <Collapsible className="group/diff rounded-panel border border-hairline bg-sheet px-group py-item">
+    <Collapsible className="group/diff rounded-control border border-hairline bg-sheet px-item py-3 sm:px-group">
       <div className="flex flex-wrap items-center justify-between gap-tight">
         <p className="text-small">
           <span className="font-medium">Since </span>
-          <Link href={`/runs/${diff.previousRunId}`} className="font-medium underline underline-offset-2">
+          <Link href={`/runs/${diff.previousRunId}`} className="font-medium underline underline-offset-4 hover:decoration-2">
             the last run{diff.previousFinishedAt ? `, ${timeAgo(diff.previousFinishedAt)}` : ""}
           </Link>
           <span className="font-medium">: </span>
           {parts.length ? parts.join(", ") : "nothing changed"}.
         </p>
         {parts.length > 0 && (
-          <CollapsibleTrigger className="inline-flex items-center gap-1 text-small text-graphite hover:text-ink">
+          <CollapsibleTrigger className="inline-flex items-center gap-1 font-mono text-small text-graphite hover:text-ink">
             <ChevronRight className="size-4 transition-transform group-data-[state=open]/diff:rotate-90" />
             See the rows
           </CollapsibleTrigger>
         )}
       </div>
-      <CollapsibleContent className="grid gap-group pt-item sm:grid-cols-3">
+      <CollapsibleContent className="mt-3 grid gap-group border-t border-hairline pt-item sm:grid-cols-3">
         <Rows title="New" items={diff.added} total={added} />
         <Rows title="Gone" items={diff.removed} total={removed} gone />
         <Rows title="Changed" items={diff.changed} total={changed} />
@@ -48,7 +48,9 @@ function Rows({ title, items, total, gone }: { title: string; items: RunDiff["ad
   if (total === 0) return null;
   return (
     <div className="space-y-1">
-      <h3 className="text-micro font-semibold text-graphite">{title}</h3>
+      <h3 className="font-mono text-micro text-graphite">
+        {title} <span className="text-ink tabular">{formatNumber(total)}</span>
+      </h3>
       <ul className="space-y-1 text-small">
         {items.slice(0, SHOWN).map((r) => (
           <li key={r.key} className={gone ? "text-graphite line-through decoration-hairline-strong" : undefined}>

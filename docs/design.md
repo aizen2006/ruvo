@@ -136,7 +136,8 @@ count in Doto on top; the step track below it; first rows underneath on paper.
 coloured block), the trust summary as dot-matrix bars (rows of squares, filled in `ink`, the
 "checked against the page" share in signal), then the table.
 
-**Table**: Geist Mono column headers on a 2px ink rule, hairline rows, no zebra.
+**Table**: Geist Mono column headers on a 2px ink rule, hairline rows, no zebra. How sure a row
+is reads as a three-cell meter beside the word (Sure, Likely, Check this).
 
 **Receipt drawer**: frosted, 20px radius. Each value's quote is set in Geist Mono on `sheet`
 with the found words behind signal.

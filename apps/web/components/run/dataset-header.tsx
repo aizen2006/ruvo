@@ -13,18 +13,18 @@ const MODE_LABEL = { quick: "Quick", balanced: "Balanced", thorough: "Thorough" 
 export function DatasetHeader({ run, showDetails, onShowDetails }: { run: RunDetail; showDetails: boolean; onShowDetails: (on: boolean) => void }) {
   const title = run.contract?.title ?? "New list";
   return (
-    <header className="space-y-item">
-      <Link href="/datasets" className="inline-flex items-center gap-1 text-small text-graphite hover:text-ink">
+    <header className="space-y-group">
+      <Link href="/datasets" className="inline-flex items-center gap-1 font-mono text-small text-graphite hover:text-ink">
         <ArrowLeft className="size-4" /> Your datasets
       </Link>
       <div className="flex flex-col gap-item sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-tight">
-          <h1 className="text-title font-semibold">{title}</h1>
-          <p className="line-clamp-2 max-w-3xl text-graphite" title={run.prompt}>
+        <div className="min-w-0 space-y-item">
+          <h1 className="font-dot text-title font-black text-balance">{title}</h1>
+          <p className="line-clamp-2 max-w-[68ch] text-graphite" title={run.prompt}>
             &ldquo;{run.prompt}&rdquo;
           </p>
-          <p className="flex flex-wrap items-center gap-x-item gap-y-1 text-small">
-            <span className="inline-flex items-center gap-tight font-medium">
+          <p className="flex flex-wrap items-center gap-x-group gap-y-1 font-mono text-small">
+            <span className="inline-flex items-center gap-tight">
               <StatusDot status={run.status} />
               {DATASET_STATUS[run.status]}
             </span>
@@ -32,7 +32,7 @@ export function DatasetHeader({ run, showDetails, onShowDetails }: { run: RunDet
             <span className="text-graphite tabular">{run.costUsd > 0 ? `${usd(run.costUsd)} spent` : "Nothing spent yet"}</span>
           </p>
         </div>
-        <label className="flex shrink-0 items-center gap-tight text-small text-graphite">
+        <label className="flex shrink-0 cursor-pointer items-center gap-tight font-mono text-small text-graphite sm:pt-2">
           <Switch checked={showDetails} onCheckedChange={onShowDetails} />
           Show details
         </label>
