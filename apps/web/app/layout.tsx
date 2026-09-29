@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${doto.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen">
         {/* The ambient dot field behind every screen; the centre stays clear for reading. */}
-        <DotField tone="ink" intensity={0.25} interactive className="pointer-events-none fixed inset-0 -z-10 [mask-image:radial-gradient(45%_55%_at_50%_45%,transparent_40%,black)]" />
+        <DotField tone="ink" intensity={0.25} interactive className="pointer-events-none fixed inset-0 -z-10 [mask-image:linear-gradient(90deg,black,transparent_calc(50%-600px),transparent_calc(50%+600px),black)]" />
         <Providers>
           <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-control focus:bg-ink focus:px-3 focus:py-2 focus:text-sheet">
             Skip to content
