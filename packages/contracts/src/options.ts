@@ -48,6 +48,8 @@ export const RunOptions = z.object({
 export type RunOptions = z.infer<typeof RunOptions>;
 
 export interface CostEstimate {
+  /** Understanding and planning the request (spent before anything is collected). */
+  setupUsd: number;
   /** What a typical run of this size costs. */
   typicalUsd: number;
   /** What the run costs if it spends its whole AI-call budget. */
@@ -80,6 +82,7 @@ export function estimateRunCost(models: ModelChoice, maxLlmCalls: number, catalo
   const setup = 2 * callCost(models.planner, "planner");
   const perCall = callCost(models.worker, "worker");
   return {
+    setupUsd: setup,
     typicalUsd: setup + Math.ceil(maxLlmCalls * TYPICAL_BUDGET_SHARE) * perCall,
     highUsd: setup + maxLlmCalls * perCall,
   };

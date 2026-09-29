@@ -1,83 +1,74 @@
 "use client";
 
-import { isTerminal, type DatasetContract } from "@repo/contracts";
+import type { DatasetContract } from "@repo/contracts";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { ContractView } from "@/components/contract/contract-view";
 import { DatasetView } from "@/components/dataset/dataset-view";
-import { QualityView } from "@/components/quality/quality-view";
-import { DecisionsView } from "@/components/run/decisions-view";
-import { EventFeed, LatestEvent } from "@/components/run/event-feed";
-import { MetricsLine } from "@/components/run/metrics-line";
+import { BehindTheScenes } from "@/components/details/behind-the-scenes";
+import { PlanSheet } from "@/components/plan/plan-sheet";
+import { DatasetHeader } from "@/components/run/dataset-header";
+import { LatestEvent } from "@/components/run/event-feed";
 import { RunHeader } from "@/components/run/run-header";
 import { StageTimeline } from "@/components/run/stage-timeline";
 import { PageNotice } from "@/components/ui/notice";
-import { TabList, TabPanel, Tabs } from "@/components/ui/tabs";
-import { WorkflowView } from "@/components/workflow/workflow-view";
-import { formatNumber } from "@/lib/format";
+import { Skeleton } from "@/components/ui/skeleton";
+import { phaseOf } from "@/lib/plain";
 import { useRun, useRunEvents } from "@/lib/queries";
+import { useShowDetails } from "@/lib/use-show-details";
 
 export default function RunPage() {
   const { id } = useParams<{ id: string }>();
-  // Keyed by id so the tab, unsaved contract edits and filters reset when another run opens.
+  // Keyed by id so unsaved plan edits and filters reset when another dataset opens.
   return <RunWorkspace key={id} id={id} />;
 }
 
+/**
+ * One dataset, whose body follows where it stands: getting ready, checking the plan,
+ * collecting, then the list. The technical views sit behind "Show details".
+ */
 function RunWorkspace({ id }: { id: string }) {
   const { data: run, error, isLoading } = useRun(id);
   const events = useRunEvents(id, run?.status);
-  const [tab, setTab] = useState<string | null>(null);
   const [edited, setEdited] = useState<DatasetContract | null>(null);
+  const [showDetails, setShowDetails] = useShowDetails();
 
-  if (isLoading) return <p className="text-muted">Loading run…</p>;
+  if (isLoading) return <LoadingPage />;
   // A failed background refresh keeps showing the last good data; only a missing run replaces the page.
-  if (!run) return <PageNotice error={error} what="run" />;
+  if (!run) return <PageNotice error={error} what="dataset" />;
 
-  // Open where the user can act: the contract while reviewing, the dataset once records exist.
-  const defaultTab = run.status === "awaiting_approval" || !run.contract ? "contract" : "dataset";
-  const recordCount = run.metrics.validRecords + run.metrics.incompleteRecords;
+  const phase = phaseOf(run.status);
 
   return (
-    <div className="space-y-6">
-      <RunHeader run={run} hasUnsavedEdits={edited !== null} />
-      {error && <p className="text-sm text-pattern">Lost contact with the API ({error.message}); showing the last known state.</p>}
-      <div className="space-y-3">
-        <StageTimeline run={run} />
-        <LatestEvent events={events} active={!isTerminal(run.status)} />
-        {run.status === "failed" && run.error && <p className="text-sm text-danger">This run failed: {run.error}</p>}
-      </div>
-      <MetricsLine run={run} />
+    <div className="space-y-block">
+      <DatasetHeader run={run} showDetails={showDetails} onShowDetails={setShowDetails} />
+      {error && <p className="text-small text-amber">Lost contact with RUVO ({error.message}). Showing the last known state.</p>}
 
-      <Tabs value={tab ?? defaultTab} onValueChange={setTab}>
-        <TabList
-          tabs={[
-            { value: "contract", label: "Contract" },
-            { value: "workflow", label: "Workflow" },
-            { value: "dataset", label: "Dataset", hint: recordCount ? formatNumber(recordCount) : undefined },
-            { value: "quality", label: "Quality" },
-            { value: "decisions", label: "Decisions" },
-            { value: "activity", label: "Activity", hint: events.length ? formatNumber(events.length) : undefined },
-          ]}
-        />
-        <TabPanel value="contract">
-          <ContractView run={run} edited={edited} onEdit={setEdited} />
-        </TabPanel>
-        <TabPanel value="workflow">
-          <WorkflowView run={run} events={events} />
-        </TabPanel>
-        <TabPanel value="dataset">
-          {run.contract ? <DatasetView run={run} /> : <p className="py-6 text-muted">Records appear here once the request is understood.</p>}
-        </TabPanel>
-        <TabPanel value="quality">
-          <QualityView run={run} />
-        </TabPanel>
-        <TabPanel value="decisions">
-          <DecisionsView run={run} />
-        </TabPanel>
-        <TabPanel value="activity" className="py-4">
-          <EventFeed events={events} />
-        </TabPanel>
-      </Tabs>
+      {phase === "plan" && run.contract ? (
+        <div className="max-w-[720px]">
+          <PlanSheet run={run} edited={edited} onEdit={setEdited} />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          <RunHeader run={run} />
+          <StageTimeline run={run} />
+          <LatestEvent events={events} active={phase !== "list"} />
+          {run.status === "failed" && run.error && <p className="text-sm text-danger">This run failed: {run.error}</p>}
+          {run.contract && <DatasetView run={run} />}
+        </div>
+      )}
+
+      {showDetails && <BehindTheScenes run={run} events={events} edited={edited} onEdit={setEdited} />}
+    </div>
+  );
+}
+
+function LoadingPage() {
+  return (
+    <div className="space-y-item" aria-busy>
+      <Skeleton className="h-4 w-28" />
+      <Skeleton className="h-9 w-2/3" />
+      <Skeleton className="h-5 w-1/2" />
+      <Skeleton className="mt-block h-64 w-full rounded-panel" />
     </div>
   );
 }

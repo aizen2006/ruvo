@@ -73,3 +73,9 @@ export function minutesPhrase(ms: number): string {
 
 /** Dollar amounts for estimates and spend; fractions of a cent read as "under 1¢". */
 export const usd = (n: number): string => (n <= 0 ? "$0" : n < 0.01 ? "under 1¢" : `$${n.toFixed(2)}`);
+
+/** An estimate as a person would say it: "about $0.03, at most around $0.05", or just "under 1¢". */
+export function costRange(typical: number, high: number): string {
+  if (high < 0.01) return "under 1¢";
+  return `${typical < 0.01 ? "usually under 1¢" : `about ${usd(typical)}`}, at most around ${usd(high)}`;
+}

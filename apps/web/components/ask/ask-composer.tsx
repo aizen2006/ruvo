@@ -2,17 +2,16 @@
 
 import { estimateRunCost, type ModelChoice, type RunMode } from "@repo/contracts";
 import { useMutation } from "@tanstack/react-query";
-import { Globe, Plus, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PageList } from "@/components/page-list";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { api } from "@/lib/api";
-import { usd } from "@/lib/plain";
+import { costRange } from "@/lib/plain";
 import { useRunOptions } from "@/lib/queries";
-import { parseWebAddress, withPages } from "@/lib/url";
+import { withPages } from "@/lib/url";
 import { Examples, type Example } from "./examples";
 import { ModelPicker } from "./model-picker";
 import { ModePicker } from "./mode-picker";
@@ -86,7 +85,7 @@ export function AskComposer() {
             placeholder="Remote backend jobs at AI companies, with salary"
             className="block w-full resize-none rounded-t-panel bg-transparent px-group pt-group pb-item text-heading placeholder:text-pencil focus:outline-none"
           />
-          <PageList urls={urls} onChange={setUrls} />
+          <PageList urls={urls} onChange={setUrls} className="border-t border-hairline px-group py-3" />
         </div>
 
         {options.isPending ? (
@@ -112,7 +111,7 @@ export function AskComposer() {
           <div className="flex flex-col gap-tight sm:flex-row sm:items-center sm:gap-item">
             {estimate && (
               <span className="text-small text-graphite tabular">
-                about {usd(estimate.typicalUsd)}, at most around {usd(estimate.highUsd)}
+                {costRange(estimate.typicalUsd, estimate.highUsd)}
               </span>
             )}
             <Button type="submit" variant="primary" size="lg" className="w-full sm:w-auto" disabled={tooShort || create.isPending}>
@@ -128,74 +127,6 @@ export function AskComposer() {
       </form>
 
       <Examples onPick={pick} />
-    </div>
-  );
-}
-
-/** Pages the person wants read, plus an inline field to add one. */
-function PageList({ urls, onChange }: { urls: string[]; onChange: (urls: string[]) => void }) {
-  const [adding, setAdding] = useState(false);
-  const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
-
-  const add = () => {
-    const url = parseWebAddress(value);
-    if (!url) return setError("Enter a web address, such as example.com/jobs");
-    if (!urls.includes(url)) onChange([...urls, url]);
-    setValue("");
-    setError(null);
-    setAdding(false);
-  };
-
-  return (
-    <div className="space-y-tight border-t border-hairline px-group py-3">
-      {urls.length > 0 && (
-        <ul className="flex flex-wrap gap-tight">
-          {urls.map((url) => (
-            <li key={url} className="inline-flex max-w-full items-center gap-1 rounded-full bg-ink/6 py-1 pr-1 pl-3 text-small">
-              <Globe className="size-3.5 shrink-0 text-graphite" aria-hidden />
-              <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
-              <button
-                type="button"
-                onClick={() => onChange(urls.filter((u) => u !== url))}
-                className="rounded-full p-1 text-graphite hover:bg-ink/10 hover:text-ink"
-                aria-label={`Remove ${url}`}
-              >
-                <X className="size-3.5" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-      {adding ? (
-        <div className="space-y-1">
-          <div className="flex gap-tight">
-            <Input
-              autoFocus
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  add();
-                }
-                if (e.key === "Escape") setAdding(false);
-              }}
-              placeholder="example.com/jobs"
-              aria-label="Website address"
-              aria-invalid={Boolean(error)}
-            />
-            <Button type="button" onClick={add}>
-              Add
-            </Button>
-          </div>
-          {error && <p className="text-micro text-brick">{error}</p>}
-        </div>
-      ) : (
-        <button type="button" onClick={() => setAdding(true)} className="inline-flex items-center gap-1 text-small text-graphite hover:text-ink">
-          <Plus className="size-4" /> Add a website to read from
-        </button>
-      )}
     </div>
   );
 }
