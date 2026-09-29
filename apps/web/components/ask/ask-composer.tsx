@@ -72,19 +72,19 @@ export function AskComposer() {
   const estimate = selected && options.data ? estimateRunCost({ ...selected.models, ...models }, selected.budgets.maxLlmCalls, options.data.models) : null;
 
   return (
-    <div className="space-y-section">
+    <div className="grid gap-section lg:grid-cols-12 lg:gap-x-section">
       <form
         onSubmit={(e) => {
           e.preventDefault();
           submit();
         }}
-        className="space-y-stack"
+        className="space-y-group lg:col-span-8"
       >
-        <label htmlFor="prompt" className="block text-title font-semibold sm:text-display">
+        <label htmlFor="prompt" className="block font-display text-display font-black text-balance">
           What do you want a list of?
         </label>
 
-        <div className="rounded-panel border border-hairline-strong bg-sheet transition-colors focus-within:border-ink focus-within:ring-4 focus-within:ring-highlighter-wash">
+        <div className="border-[3px] border-ink bg-sheet transition-shadow duration-(--duration-base) focus-within:shadow-[10px_10px_0_-3px_var(--color-highlighter),10px_10px_0_0_var(--color-ink)]">
           <textarea
             id="prompt"
             value={prompt}
@@ -95,10 +95,10 @@ export function AskComposer() {
             rows={3}
             maxLength={MAX_PROMPT_LENGTH}
             placeholder="Remote backend jobs at AI companies, with salary"
-            className="block w-full resize-none rounded-t-panel bg-transparent px-group pt-group pb-item text-heading placeholder:text-pencil focus:outline-none"
+            className="block w-full resize-none rounded-t-panel bg-transparent px-group pt-group pb-item text-[1.5rem] leading-8 font-medium placeholder:text-pencil focus:outline-none"
           />
-          {heard && <p className="-mt-tight px-group pb-item text-heading text-pencil">{heard}</p>}
-          <div className="flex items-start gap-item border-t border-hairline px-group py-3">
+          {heard && <p className="-mt-tight px-group pb-item text-[1.5rem] leading-8 text-pencil">{heard}</p>}
+          <div className="flex items-start gap-item border-t-2 border-ink px-group py-3">
             <PageList urls={urls} onChange={setUrls} className="min-w-0 flex-1" />
             <VoiceButton onInterim={setHeard} onFinal={(spoken) => setPrompt((p) => appendSpoken(p, spoken))} />
           </div>
@@ -107,7 +107,7 @@ export function AskComposer() {
         {options.isPending ? (
           <div className="grid gap-tight sm:grid-cols-3">
             {[0, 1, 2].map((i) => (
-              <Skeleton key={i} className="h-28 rounded-panel" />
+              <Skeleton key={i} className="h-40" />
             ))}
           </div>
         ) : options.data ? (
@@ -119,14 +119,14 @@ export function AskComposer() {
           <p className="text-small text-graphite">Cost estimates aren&apos;t available right now. RUVO will use the balanced setting.</p>
         )}
 
-        <div className="flex flex-col gap-item border-t border-hairline pt-group sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex items-center gap-tight text-small text-graphite">
+        <div className="flex flex-col gap-item border-t-[3px] border-ink pt-item sm:flex-row sm:items-center sm:justify-between">
+          <label className="flex items-center gap-tight text-small font-medium">
             <Switch checked={skipCheck} onCheckedChange={setSkipCheck} />
             Start without checking the plan
           </label>
           <div className="flex flex-col gap-tight sm:flex-row sm:items-center sm:gap-item">
             {estimate && (
-              <span className="text-small text-graphite tabular">
+              <span className="text-small font-semibold tabular">
                 {costRange(estimate.typicalUsd, estimate.highUsd)}
               </span>
             )}
@@ -136,7 +136,7 @@ export function AskComposer() {
           </div>
         </div>
         {(tooLong || create.error) && (
-          <p role="alert" className="text-small text-brick">
+          <p role="alert" className="border-l-4 border-brick pl-3 text-small font-semibold text-brick">
             {tooLong ? `Keep the request under ${MAX_PROMPT_LENGTH} characters, including added pages.` : errorText(create.error!)}
           </p>
         )}

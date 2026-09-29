@@ -28,21 +28,22 @@ export type Example = { prompt: string; urls?: string[] };
 
 export function Examples({ onPick }: { onPick: (example: Example) => void }) {
   return (
-    <section aria-labelledby="examples" className="space-y-item">
-      <h2 id="examples" className="text-small font-medium text-graphite">
+    // A black sidebar block beside the composer on wide screens, below it on phones.
+    <section aria-labelledby="examples" className="on-ink space-y-group self-start bg-ink p-group text-sheet lg:col-span-4">
+      <h2 id="examples" className="font-display text-[2.5rem] leading-none font-black">
         Or try one
       </h2>
-      <div className="grid gap-group sm:grid-cols-2">
+      <div className="grid gap-group sm:grid-cols-2 lg:grid-cols-1">
         {GROUPS.map((group) => (
-          <div key={group.label} className="space-y-tight">
-            <h3 className="text-micro font-semibold text-graphite">{group.label}</h3>
-            <ul className="space-y-1">
+          <div key={group.label}>
+            <h3 className="pb-tight text-small font-semibold text-sheet/75">{group.label}</h3>
+            <ul className="border-t-2 border-sheet">
               {group.examples.map((example) => (
-                <li key={example.short}>
+                <li key={example.short} className="border-b border-sheet/30">
                   <button
                     type="button"
                     onClick={() => onPick(example)}
-                    className="text-left text-small text-ink underline decoration-hairline-strong underline-offset-4 hover:decoration-ink"
+                    className="-mx-tight block w-[calc(100%+1rem)] px-tight py-2.5 text-left font-semibold hover:bg-highlighter hover:text-ink"
                   >
                     {example.short}
                   </button>
