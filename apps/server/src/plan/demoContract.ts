@@ -72,7 +72,8 @@ export const DEMO_CONTRACT: DatasetContract = {
     },
   ],
   dedupKeys: [["url"], ["company", "title", "location"]],
-  sourceHints: { companies: [], excludeCompanies: [], companyTags: ["ai_lab", "ai_infra", "devtools"], urls: [], includeCommunityBoards: false },
+  sourceHints: { companies: [], excludeCompanies: [], companyTags: ["ai_lab", "ai_infra", "devtools"], urls: [], searchQueries: [], includeCommunityBoards: false },
   maxRecords: 500,
   unsupported: [],
+  sensitive: [],
 };

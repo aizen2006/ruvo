@@ -60,6 +60,8 @@ export const SourceHints = z.object({
   excludeCompanies: z.array(z.string()),
   companyTags: z.array(z.string()),
   urls: z.array(z.string()),
+  /** Web searches that should find pages listing these records (used when no known source covers them). */
+  searchQueries: z.array(z.string()),
   includeCommunityBoards: z.boolean(),
 });
 export type SourceHints = z.infer<typeof SourceHints>;
@@ -75,5 +77,7 @@ export const DatasetContract = z.object({
   sourceHints: SourceHints,
   maxRecords: z.number(),
   unsupported: z.array(z.string()).describe("Parts of the request RUVO cannot satisfy"),
+  /** Sensitive personal attributes the request filters on (e.g. sexual orientation); only self-described public statements count. */
+  sensitive: z.array(z.string()),
 });
 export type DatasetContract = z.infer<typeof DatasetContract>;

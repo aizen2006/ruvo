@@ -9,6 +9,7 @@ const METHOD: Record<EvidenceMethod, { label: string; tier: string }> = {
   DOM: { label: "Page layout", tier: "bg-pattern-wash text-pattern" },
   REGEX: { label: "Text pattern", tier: "bg-pattern-wash text-pattern" },
   LLM: { label: "AI extraction", tier: "bg-model-wash text-model" },
+  SEARCH: { label: "Search result", tier: "bg-model-wash text-model" },
   DERIVED: { label: "Derived", tier: "bg-derived-wash text-derived" },
 };
 

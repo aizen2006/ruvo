@@ -12,6 +12,7 @@ const TIERS: Array<{ label: string; methods: EvidenceMethod[] }> = [
   { label: "Structured (read directly from source data)", methods: ["API", "JSON_LD", "EMBEDDED_JSON"] },
   { label: "Pattern (read from the page by rules)", methods: ["DOM", "REGEX"] },
   { label: "Model (extracted by AI, quote-verified)", methods: ["LLM"] },
+  { label: "Search (read from search-engine results)", methods: ["SEARCH"] },
   { label: "Derived (computed by RUVO)", methods: ["DERIVED"] },
 ];
 

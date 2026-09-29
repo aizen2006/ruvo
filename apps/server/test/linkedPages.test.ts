@@ -37,7 +37,7 @@ const STORIES: DatasetContract = {
   criteria: [],
   assumptions: [],
   dedupKeys: [["link"]],
-  sourceHints: { companies: [], excludeCompanies: [], companyTags: ["ai_lab"], urls: [PAGE], includeCommunityBoards: true },
+  sourceHints: { companies: [], excludeCompanies: [], companyTags: ["ai_lab"], urls: [PAGE], searchQueries: [], includeCommunityBoards: true },
 };
 const registry: RegistryCompany[] = [
   { id: crypto.randomUUID(), name: "Anthropic", ats: "greenhouse", slug: "anthropic", tags: ["ai_lab"], boardUrl: null, origin: "curated", jobCount: 10, verifiedAt: null },

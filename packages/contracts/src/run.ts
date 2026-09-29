@@ -66,7 +66,7 @@ export const emptyMetrics = (): RunMetrics => ({
   llmCalls: 0,
   llmCostUsd: 0,
   decisions: { rules: 0, decider: 0, llm: 0 },
-  fieldsByMethod: { API: 0, JSON_LD: 0, EMBEDDED_JSON: 0, DOM: 0, REGEX: 0, LLM: 0, DERIVED: 0 },
+  fieldsByMethod: { API: 0, JSON_LD: 0, EMBEDDED_JSON: 0, DOM: 0, REGEX: 0, LLM: 0, SEARCH: 0, DERIVED: 0 },
 });
 
 export const RunEvent = z.object({

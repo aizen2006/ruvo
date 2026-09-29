@@ -8,6 +8,8 @@ const METHOD_PRIOR: Record<EvidenceMethod, number> = {
   DOM: 0.88,
   REGEX: 0.8,
   LLM: 0.75,
+  // A search engine's summary of a page, not the page itself.
+  SEARCH: 0.7,
   DERIVED: 0.85,
 };
 

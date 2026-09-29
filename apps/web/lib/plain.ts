@@ -30,6 +30,7 @@ export const SOURCE_PHRASE: Record<EvidenceMethod, string> = {
   DOM: "Read from the page",
   REGEX: "Found in the text",
   LLM: "Found by AI, quote checked",
+  SEARCH: "From search results",
   DERIVED: "Worked out by RUVO",
 };
 

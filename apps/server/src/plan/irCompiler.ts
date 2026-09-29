@@ -1,4 +1,4 @@
-import type { Budgets, CatalogKey, DatasetContract, PlanDraft, Provenance, SourceBranch, Step, WorkflowIR } from "@repo/contracts";
+import { EVIDENCE_METHODS, type Budgets, type CatalogKey, type DatasetContract, type PlanDraft, type Provenance, type SourceBranch, type Step, type WorkflowIR } from "@repo/contracts";
 import { getAdapter } from "../adapters";
 import { itemKeyFor } from "../execute/contractFields";
 import type { SourceCandidate } from "./discovery";
@@ -62,7 +62,7 @@ export function compileIr(contract: DatasetContract, draft: PlanDraft, candidate
     irVersion: 1,
     entity: contract.entity,
     sources,
-    dedupe: { keys: contract.dedupKeys, prefer: ["API", "JSON_LD", "EMBEDDED_JSON", "DOM", "REGEX", "LLM", "DERIVED"] },
+    dedupe: { keys: contract.dedupKeys, prefer: [...EVIDENCE_METHODS] },
     budgets,
     provenance: { ...opts.provenance, warnings },
   };

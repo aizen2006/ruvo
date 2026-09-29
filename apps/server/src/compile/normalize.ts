@@ -27,19 +27,34 @@ export function normalizeContract(input: DatasetContract, prompt: string): { con
     .filter((key) => key.length > 0);
 
   const urls = normalizeUrls(input.sourceHints.urls, warnings);
+  const searchQueries = normalizeQueries(input, warnings);
 
   return {
     contract: {
       ...input,
-      sourceHints: { ...input.sourceHints, urls },
+      sourceHints: { ...input.sourceHints, urls, searchQueries },
       fields,
       criteria,
       assumptions,
       dedupKeys: dedupKeys.length ? dedupKeys : defaultDedupKeys(fieldNames),
       maxRecords: clamp(Math.round(input.maxRecords || 200), 1, 1000),
+      sensitive: [...new Set(input.sensitive.map((s) => s.trim().toLowerCase()).filter(Boolean))],
     },
     warnings,
   };
+}
+
+/** Trimmed, unique search queries (max 8). Non-job requests get a fallback query if the LLM wrote none. */
+function normalizeQueries(input: DatasetContract, warnings: string[]): string[] {
+  const queries = [...new Set(input.sourceHints.searchQueries.map((q) => q.trim()).filter(Boolean))].slice(0, 8);
+  if (queries.length === 0 && input.entity !== "job_posting" && input.sourceHints.urls.length === 0) {
+    const fallback = input.entityDescription.trim() || input.title.trim();
+    if (fallback) {
+      queries.push(fallback);
+      warnings.push("Added a search query from the dataset description, as none were given");
+    }
+  }
+  return queries;
 }
 
 /** Linked pages: absolute http(s) URLs only, each once ("example.com/jobs" gets https://). */

@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** How a field value was obtained, ordered from most to least trustworthy. */
-export const EVIDENCE_METHODS = ["API", "JSON_LD", "EMBEDDED_JSON", "DOM", "REGEX", "LLM", "DERIVED"] as const;
+export const EVIDENCE_METHODS = ["API", "JSON_LD", "EMBEDDED_JSON", "DOM", "REGEX", "LLM", "SEARCH", "DERIVED"] as const;
 export const EvidenceMethod = z.enum(EVIDENCE_METHODS);
 export type EvidenceMethod = z.infer<typeof EvidenceMethod>;
 

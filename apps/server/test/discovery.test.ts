@@ -24,7 +24,7 @@ const registry = [
 const contractWith = (hints: Partial<DatasetContract["sourceHints"]>, criteria = DEMO_CONTRACT.criteria): DatasetContract => ({
   ...DEMO_CONTRACT,
   criteria,
-  sourceHints: { companies: [], excludeCompanies: [], companyTags: [], urls: [], includeCommunityBoards: false, ...hints },
+  sourceHints: { companies: [], excludeCompanies: [], companyTags: [], urls: [], searchQueries: [], includeCommunityBoards: false, ...hints },
 });
 
 const refs = (contract: DatasetContract) => discoverSources(contract, registry).candidates.map((c) => c.ref);

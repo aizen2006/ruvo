@@ -7,7 +7,7 @@ import { EvidenceMethod } from "./record";
  * directly), versioned, and re-runnable. Each source is an independent branch of steps.
  */
 
-export const AdapterId = z.enum(["greenhouse", "ashby", "lever", "workable", "hn_whoishiring", "html_list"]);
+export const AdapterId = z.enum(["greenhouse", "ashby", "lever", "workable", "hn_whoishiring", "html_list", "html_record", "search_hits"]);
 export type AdapterId = z.infer<typeof AdapterId>;
 
 export const FetchMode = z.enum(["auto", "http", "browser"]);
