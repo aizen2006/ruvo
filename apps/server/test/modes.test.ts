@@ -20,7 +20,7 @@ afterAll(api.close);
 beforeEach(resetDb);
 
 const models = { MODEL_PLANNER: "gpt-6-sol", MODEL_WORKER: "gpt-6-luna" };
-const ceilings = { MAX_PAGES: 300, MAX_BROWSER_PAGES: 20, MAX_LLM_CALLS: 150, MAX_RUN_MS: 480_000 };
+const ceilings = { MAX_PAGES: 300, MAX_BROWSER_PAGES: 20, MAX_LLM_CALLS: 150, MAX_RUN_MS: 480_000, MAX_SEARCHES: 20 };
 const prompt = "Find backend and AI engineering roles, preferably remote.";
 
 describe("mode presets", () => {
@@ -34,8 +34,8 @@ describe("mode presets", () => {
   });
 
   test("the environment's limits are ceilings no mode exceeds", () => {
-    const tight = { MAX_PAGES: 100, MAX_BROWSER_PAGES: 5, MAX_LLM_CALLS: 30, MAX_RUN_MS: 60_000 };
-    expect(budgetsForMode("thorough", tight, 200)).toEqual({ maxPages: 100, maxBrowserPages: 5, maxLlmCalls: 30, maxDurationMs: 60_000, maxRecords: 200 });
+    const tight = { MAX_PAGES: 100, MAX_BROWSER_PAGES: 5, MAX_LLM_CALLS: 30, MAX_RUN_MS: 60_000, MAX_SEARCHES: 5 };
+    expect(budgetsForMode("thorough", tight, 200)).toEqual({ maxPages: 100, maxBrowserPages: 5, maxLlmCalls: 30, maxSearches: 5, maxDurationMs: 60_000, maxRecords: 200 });
     expect(budgetsForMode("quick", ceilings).maxPages).toBe(40);
   });
 

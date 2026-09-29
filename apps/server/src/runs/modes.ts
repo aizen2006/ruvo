@@ -2,7 +2,7 @@ import type { Budgets, ModeBudgets, ModelChoice, ModeOption, RunMode } from "@re
 import type { Env } from "../config/env";
 
 type ModelEnv = Pick<Env, "MODEL_PLANNER" | "MODEL_WORKER">;
-type CeilingEnv = Pick<Env, "MAX_PAGES" | "MAX_BROWSER_PAGES" | "MAX_LLM_CALLS" | "MAX_RUN_MS">;
+type CeilingEnv = Pick<Env, "MAX_PAGES" | "MAX_BROWSER_PAGES" | "MAX_LLM_CALLS" | "MAX_RUN_MS" | "MAX_SEARCHES">;
 
 interface Preset {
   label: string;
@@ -23,19 +23,19 @@ const PRESETS: Record<RunMode, Preset> = {
     // Understanding stays on the planner model: the golden eval fails with luna there
     // ("preferably remote" read as a hard requirement).
     models: (e) => ({ planner: e.MODEL_PLANNER, worker: e.MODEL_WORKER }),
-    budgets: { maxPages: 40, maxBrowserPages: 3, maxLlmCalls: 15, maxDurationMs: 120_000 },
+    budgets: { maxPages: 40, maxBrowserPages: 3, maxLlmCalls: 15, maxSearches: 3, maxDurationMs: 120_000 },
   },
   balanced: {
     label: "Balanced",
     blurb: "Good coverage at a low cost; right for most lists",
     models: (e) => ({ planner: e.MODEL_PLANNER, worker: e.MODEL_WORKER }),
-    budgets: { maxPages: 150, maxBrowserPages: 10, maxLlmCalls: 60, maxDurationMs: 240_000 },
+    budgets: { maxPages: 150, maxBrowserPages: 10, maxLlmCalls: 60, maxSearches: 8, maxDurationMs: 240_000 },
   },
   thorough: {
     label: "Thorough",
     blurb: "More sources and the careful model for every step",
     models: (e) => ({ planner: e.MODEL_PLANNER, worker: e.MODEL_PLANNER }),
-    budgets: { maxPages: 300, maxBrowserPages: 20, maxLlmCalls: 150, maxDurationMs: 480_000 },
+    budgets: { maxPages: 300, maxBrowserPages: 20, maxLlmCalls: 150, maxSearches: 20, maxDurationMs: 480_000 },
   },
 };
 
@@ -43,6 +43,7 @@ const clampBudgets = (b: ModeBudgets, e: CeilingEnv): ModeBudgets => ({
   maxPages: Math.min(b.maxPages, e.MAX_PAGES),
   maxBrowserPages: Math.min(b.maxBrowserPages, e.MAX_BROWSER_PAGES),
   maxLlmCalls: Math.min(b.maxLlmCalls, e.MAX_LLM_CALLS),
+  maxSearches: Math.min(b.maxSearches ?? 0, e.MAX_SEARCHES),
   maxDurationMs: Math.min(b.maxDurationMs, e.MAX_RUN_MS),
 });
 

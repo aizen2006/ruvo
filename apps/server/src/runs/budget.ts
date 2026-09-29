@@ -1,6 +1,6 @@
 import type { Budgets } from "@repo/contracts";
 
-export type BudgetKey = "pages" | "browserPages" | "llmCalls";
+export type BudgetKey = "pages" | "browserPages" | "llmCalls" | "searches";
 
 /**
  * Per-run spending caps (the time limit is enforced by the executor). Callers ask before
@@ -16,6 +16,7 @@ const LIMIT_OF: Record<BudgetKey, (b: Budgets) => number> = {
   pages: (b) => b.maxPages,
   browserPages: (b) => b.maxBrowserPages,
   llmCalls: (b) => b.maxLlmCalls,
+  searches: (b) => b.maxSearches ?? 0,
 };
 
 /**
@@ -27,6 +28,7 @@ export function createBudget(limits: Budgets, onExhausted?: (key: BudgetKey, lim
     pages: limits.maxPages,
     browserPages: limits.maxBrowserPages,
     llmCalls: limits.maxLlmCalls,
+    searches: limits.maxSearches ?? 0,
   };
   const announced = new Set<BudgetKey>();
 

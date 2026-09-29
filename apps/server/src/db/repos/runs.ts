@@ -14,7 +14,7 @@ import { env } from "../../config/env";
 import { conflict, notFound } from "../../libs/errors";
 import { runModels } from "../../runs/modes";
 import { db } from "../client";
-import { datasetContracts, llmCalls, requests, runEvents, runs, workflows } from "../schema";
+import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls, workflows } from "../schema";
 
 /** Data access for runs and their events. Routes call these; they never write SQL themselves. */
 
@@ -32,8 +32,10 @@ const summaryColumns = {
   modelWorker: runs.modelWorker,
   // The latest contract names the dataset ("Backend and AI Engineering Roles"); null until compiled.
   title: sql<string | null>`(select ${datasetContracts.contract}->>'title' from ${datasetContracts} where ${datasetContracts.requestId} = ${runs.requestId} order by ${datasetContracts.version} desc limit 1)`,
-  // llm_calls is the one record of spend: compile and plan calls are in it too, not only the run's.
-  costUsd: sql<number>`coalesce((select sum(${llmCalls.costUsd}) from ${llmCalls} where ${llmCalls.runId} = ${runs.id}), 0)`.mapWith(Number),
+  // Total spend for the run: AI calls plus Firecrawl searches, both attributed by run_id.
+  costUsd: sql<number>`
+    coalesce((select sum(${llmCalls.costUsd}) from ${llmCalls} where ${llmCalls.runId} = ${runs.id}), 0)
+    + coalesce((select sum(${searchCalls.costUsd}) from ${searchCalls} where ${searchCalls.runId} = ${runs.id}), 0)`.mapWith(Number),
   workflowId: runs.workflowId,
   error: runs.error,
   createdAt: runs.createdAt,

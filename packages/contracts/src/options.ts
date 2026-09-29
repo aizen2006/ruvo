@@ -16,6 +16,7 @@ export const ModeBudgets = z.object({
   maxPages: z.number(),
   maxBrowserPages: z.number(),
   maxLlmCalls: z.number(),
+  maxSearches: z.number().optional(),
   maxDurationMs: z.number(),
 });
 export type ModeBudgets = z.infer<typeof ModeBudgets>;

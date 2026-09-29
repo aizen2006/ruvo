@@ -250,3 +250,22 @@ export const llmCalls = pgTable(
   },
   (t) => [index("llm_calls_hash_idx").on(t.inputHash), index("llm_calls_run_idx").on(t.runId)],
 );
+
+/** Firecrawl search results: a cache (so re-runs are free and reproducible) and the record of spend. */
+export const searchCalls = pgTable(
+  "search_calls",
+  {
+    id: id(),
+    runId: uuid("run_id"),
+    provider: text("provider").notNull(),
+    query: text("query").notNull(),
+    inputHash: text("input_hash").notNull(),
+    hits: jsonb("hits").$type<Array<{ url: string; title: string; description: string; position?: number }>>(),
+    credits: integer("credits").notNull().default(0),
+    costUsd: real("cost_usd").notNull().default(0),
+    cached: boolean("cached").notNull().default(false),
+    error: text("error"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("search_calls_hash_idx").on(t.inputHash), index("search_calls_run_idx").on(t.runId)],
+);

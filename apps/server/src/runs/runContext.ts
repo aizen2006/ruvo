@@ -53,6 +53,7 @@ const BUDGET_MESSAGE: Record<BudgetKey, (limit: number) => string> = {
   pages: (n) => `Page budget used up (${n} pages); remaining pages are skipped`,
   browserPages: (n) => `Browser budget used up (${n} pages); pages that need a browser are skipped`,
   llmCalls: (n) => `AI call budget used up (${n} calls); remaining steps continue without AI`,
+  searches: (n) => `Search budget used up (${n} searches); no more sources are looked for`,
 };
 
 export async function createRunContext(args: {
