@@ -79,7 +79,8 @@ function PatternLineage({ run, versions }: { run: RunDetail; versions: Recipe[] 
         ))}
       </ol>
 
-      {active && canAct && (
+      {/* The drift demo endpoint is only served outside production. */}
+      {active && canAct && process.env.NODE_ENV !== "production" && (
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="quiet" disabled={drift.isPending} onClick={() => drift.mutate({ recipeId: active.id, mode: "minor" })}>
             Simulate a small site change
