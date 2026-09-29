@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Doto, Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
 import { AmbientField } from "@/components/ambient-field";
+import { Logo } from "@/components/logo";
 import { NavLinks } from "@/components/nav-links";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -17,17 +17,6 @@ export const metadata: Metadata = {
 };
 
 /** The wordmark's dot mark: scattered dots settling into a full row, the product in miniature. */
-function DotMark() {
-  const dots = [[1, 0], [0, 1], [2, 1], [0, 2], [1, 2], [2, 2], [3, 2]];
-  return (
-    <svg aria-hidden viewBox="0 0 15 11" className="h-[11px] w-[15px]">
-      {dots.map(([x, y]) => (
-        <rect key={`${x}${y}`} x={x! * 4} y={y! * 4} width="3" height="3" />
-      ))}
-    </svg>
-  );
-}
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${doto.variable} ${geist.variable} ${geistMono.variable}`}>
@@ -39,10 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </a>
           <header className="border-b border-hairline bg-canvas">
             <nav aria-label="Main" className="mx-auto flex h-14 max-w-[1200px] items-center gap-group px-4 sm:px-6">
-              <Link href="/" className="flex items-center gap-2 text-body font-semibold">
-                ruvo
-                <DotMark />
-              </Link>
+              <Logo />
               <NavLinks />
             </nav>
           </header>
