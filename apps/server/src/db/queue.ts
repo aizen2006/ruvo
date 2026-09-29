@@ -37,7 +37,7 @@ export async function claimNextRun(workerId: string, phases: QueuePhase[] = ["qu
     .set({
       status: sql`case when ${runs.status} = 'queued' then 'compiling' else 'running' end`,
       workerId,
-      heartbeatAt: new Date(),
+      heartbeatAt: sql`now()`,
       attempt: sql`${runs.attempt} + 1`,
       startedAt: sql`case when ${runs.status} = 'queued_run' then coalesce(${runs.startedAt}, now()) else ${runs.startedAt} end`,
     })
@@ -57,7 +57,7 @@ const owned = (runId: string, workerId: string) =>
 export async function heartbeat(runId: string, workerId: string): Promise<{ cancelRequested: boolean } | null> {
   const [row] = await db
     .update(runs)
-    .set({ heartbeatAt: new Date() })
+    .set({ heartbeatAt: sql`now()` })
     .where(owned(runId, workerId))
     .returning({ cancelRequested: runs.cancelRequested });
   return row ?? null;
@@ -83,11 +83,14 @@ export async function finishRun(runId: string, workerId: string, status: FinalSt
     .where(owned(runId, workerId));
 }
 
-/** Returns an in-flight run to the queue immediately, e.g. on graceful worker shutdown. */
+/**
+ * Returns an in-flight run to the queue immediately, e.g. on graceful worker shutdown.
+ * The claim's attempt is given back, so deploys don't use up a run's retries.
+ */
 export async function releaseRun(runId: string, workerId: string) {
   await db
     .update(runs)
-    .set({ status: requeueStatus, workerId: null })
+    .set({ status: requeueStatus, workerId: null, attempt: sql`${runs.attempt} - 1` })
     .where(owned(runId, workerId));
 }
 
@@ -96,7 +99,8 @@ export async function releaseRun(runId: string, workerId: string) {
  * once they have used up their attempts. Returns how many rows were affected.
  */
 export async function recoverStaleRuns(opts: { staleMs: number; maxAttempts: number }) {
-  const cutoff = new Date(Date.now() - opts.staleMs);
+  // Leases are stamped and judged by the database clock, so skew between workers can't requeue a live run.
+  const cutoff = sql`now() - make_interval(secs => ${opts.staleMs / 1000})`;
   const stale = and(inArray(runs.status, ACTIVE), lt(runs.heartbeatAt, cutoff));
 
   const requeued = await db

@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, setSystemTime, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client";
 import { claimNextRun, heartbeat, recoverStaleRuns } from "../src/db/queue";
@@ -35,6 +35,18 @@ describe("run queue", () => {
     const run = await insertRun({ status: "compiling", attempt: 1, heartbeatAt: new Date(Date.now() - 60_000), workerId: "dead" });
     await recoverStaleRuns({ staleMs: 30_000, maxAttempts: 2 });
     expect((await getRun(run.id)).status).toBe("queued");
+  });
+
+  test("leases use the database clock, so a worker with a skewed clock cannot requeue a live run", async () => {
+    const run = await insertRun();
+    await claimNextRun("w1");
+    try {
+      setSystemTime(new Date(Date.now() + 60 * 60_000));
+      expect(await recoverStaleRuns({ staleMs: 30_000, maxAttempts: 2 })).toEqual({ requeued: 0, failed: 0 });
+    } finally {
+      setSystemTime();
+    }
+    expect((await getRun(run.id)).status).toBe("running");
   });
 
   test("ignores runs that are not approved yet", async () => {
@@ -108,6 +120,6 @@ describe("worker", () => {
     });
     await waitFor(() => getRun(run.id), (r) => r.status === "running");
     await worker.stop();
-    expect((await getRun(run.id)).status).toBe("queued_run");
+    expect(await getRun(run.id)).toMatchObject({ status: "queued_run", attempt: 0 });
   }, 15_000);
 });
