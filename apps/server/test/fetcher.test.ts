@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import type { FetchError } from "../src/fetch/errors";
 import { createFetcher, type FetchRequest, type FetchScope } from "../src/fetch/fetcher";
-import type { CacheMode } from "../src/fetch/pageCache";
+import { getPage, type CacheMode } from "../src/fetch/pageCache";
 import { createBudget } from "../src/runs/budget";
 import { createMetrics } from "../src/runs/metrics";
 import { resetDb } from "./helpers/db";
@@ -25,6 +25,10 @@ const site = Bun.serve({
         return ++flakyCalls === 1
           ? new Response("slow down", { status: 429, headers: { "retry-after": "0" } })
           : html("<p>recovered</p>");
+      case "/nul.html":
+        return html("<p>a\u0000b</p>");
+      case "/nul.json":
+        return Response.json({ title: "a\u0000b", path: "C:\\u0000" });
       case "/big":
         return html("x".repeat(5000));
       default:
@@ -65,6 +69,14 @@ describe("fetcher", () => {
   test("parses JSON", async () => {
     const { data } = await localFetcher().json<{ jobs: number[] }>(scope(), `${base}/data`, "test");
     expect(data.jobs).toEqual([1, 2]);
+  });
+
+  test("stores pages containing NUL, raw or JSON-escaped, without it", async () => {
+    const fetcher = localFetcher();
+    expect((await fetcher.fetch(scope(), page("/nul.html"))).body).toBe("<p>ab</p>");
+    const { data, page: stored } = await fetcher.json<{ title: string; path: string }>(scope(), `${base}/nul.json`, "test");
+    expect(data).toEqual({ title: "ab", path: "C:\\u0000" });
+    expect((await getPage(stored.pageId))?.body).toBe(stored.body);
   });
 
   test("follows redirects", async () => {

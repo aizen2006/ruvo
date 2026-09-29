@@ -33,17 +33,18 @@ export async function savePage(input: {
   contentType: string | null;
   body: string;
 }): Promise<PageRow> {
-  const [page] = await db
-    .insert(pages)
-    .values({
-      ...input,
-      host: new URL(input.finalUrl).host,
-      contentHash: sha256(input.body),
-      bytes: Buffer.byteLength(input.body),
-    })
-    .returning();
-  return page!;
+  const body = withoutNul(input.body);
+  const row = { ...input, body, host: new URL(input.finalUrl).host, contentHash: sha256(body), bytes: Buffer.byteLength(body) };
+  // Only the generated columns come back: the body can be megabytes.
+  const [saved] = await db.insert(pages).values(row).returning({ id: pages.id, fetchedAt: pages.fetchedAt });
+  return { ...row, ...saved! };
 }
+
+/**
+ * Postgres text and jsonb reject NUL, so bodies drop it: raw, and as a JSON `\u0000` escape
+ * (one not itself escaped by a backslash), which parsed API data would carry into records.
+ */
+const withoutNul = (body: string) => body.replaceAll("\u0000", "").replace(/(?<!\\)((?:\\\\)*)\\u0000/g, "$1");
 
 export async function getPage(id: string): Promise<PageRow | null> {
   const [page] = await db.select().from(pages).where(eq(pages.id, id));
