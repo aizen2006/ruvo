@@ -1,5 +1,6 @@
 import type { Criterion, DatasetContract, Signal } from "@repo/contracts";
 import type { FieldValue } from "../../adapters/types";
+import { isSafeRegex } from "../../compile/normalize";
 import { thresholdsFor } from "../../decide/calibration";
 import { noulBand, type DecisionRequest } from "../../decide/decider";
 import { truncate } from "../../libs/text";
@@ -149,7 +150,8 @@ export function compileCriterion(contract: DatasetContract, criterion: Criterion
     }
     case "regex": {
       const pattern = safeRegex(criterion.values[0]);
-      return (c) => (pattern ? pattern.test(text(c)) : null);
+      // Capped input bounds even a slow pattern's worst case.
+      return (c) => (pattern ? pattern.test(text(c).slice(0, 20_000)) : null);
     }
     case "company_tag": {
       const wanted = new Set(criterion.values);
@@ -166,10 +168,5 @@ export function compileCriterion(contract: DatasetContract, criterion: Criterion
 }
 
 function safeRegex(source: string | undefined): RegExp | null {
-  if (!source) return null;
-  try {
-    return new RegExp(source, "i");
-  } catch {
-    return null;
-  }
+  return source && isSafeRegex(source) ? new RegExp(source, "i") : null;
 }

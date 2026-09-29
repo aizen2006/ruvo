@@ -123,8 +123,8 @@ function repairCriterion(
     warnings.push(`Dropped criterion "${criterion.label}": it has no values`);
     return null;
   }
-  if (criterion.kind === "regex" && !isValidRegex(values[0]!)) {
-    warnings.push(`Dropped criterion "${criterion.label}": invalid regular expression`);
+  if (criterion.kind === "regex" && !isSafeRegex(values[0]!)) {
+    warnings.push(`Dropped criterion "${criterion.label}": invalid, too long or too slow regular expression`);
     return null;
   }
   return { ...criterion, fields, values, weight: criterion.strength === "hard" ? 1 : clamp(criterion.weight, 0, 1) };
@@ -174,7 +174,13 @@ const snakeCase = (s: string) =>
 
 const clamp = (n: number, min: number, max: number) => Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
 
-function isValidRegex(source: string): boolean {
+/**
+ * Criteria regexes run on scraped text on the worker's only thread, so beyond compiling they
+ * must be short and free of the classic catastrophic-backtracking shape: a quantified group
+ * that itself contains a quantifier, e.g. `(a+)+` or `(\w+\s?)*`.
+ */
+export function isSafeRegex(source: string): boolean {
+  if (source.length > 200 || /\([^)]*[*+}][^)]*\)[*+{]/.test(source)) return false;
   try {
     new RegExp(source);
     return true;

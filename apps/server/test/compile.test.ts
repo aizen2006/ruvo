@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { DatasetContract } from "@repo/contracts";
-import { normalizeContract } from "../src/compile/normalize";
+import { isSafeRegex, normalizeContract } from "../src/compile/normalize";
 import { compileRequirement } from "../src/compile/requirementCompiler";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT, DEMO_PROMPT } from "../src/plan/demoContract";
@@ -59,6 +59,19 @@ describe("normalizeContract", () => {
     const { contract } = normalizeContract({ ...base, maxRecords: 999_999 }, "jobs");
     expect(contract.dedupKeys).toEqual([["url"], ["title", "location"]]);
     expect(contract.maxRecords).toBe(1000);
+  });
+
+  test("accepts ordinary regexes but rejects catastrophic-backtracking and overlong ones", () => {
+    for (const ok of ["\\b(senior|staff)\\b", "\\$\\d{2,3}k", "remote.*(us|usa)", "(?:foo)+", "^[A-Z]{2}-\\d+$"]) {
+      expect(isSafeRegex(ok)).toBe(true);
+    }
+    for (const evil of ["(a+)+$", "(a*)*b", "([a-z]+)*$", "(\\w+\\s?)*$", "(x{1,10}){1,10}", "(unclosed", "a".repeat(201)]) {
+      expect(isSafeRegex(evil)).toBe(false);
+    }
+    const criterion = { id: "r", label: "Evil", kind: "regex" as const, fields: ["title"], values: ["(a+)+$"], strength: "hard" as const, weight: 1 };
+    const { contract, warnings } = normalizeContract({ ...base, criteria: [criterion] }, "jobs");
+    expect(contract.criteria).toEqual([]);
+    expect(warnings).toContain('Dropped criterion "Evil": invalid, too long or too slow regular expression');
   });
 });
 
