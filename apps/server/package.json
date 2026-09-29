@@ -35,6 +35,7 @@
     "cors": "^2.8.6",
     "domhandler": "^6.0.1",
     "drizzle-orm": "^0.45.3",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "openai": "^7.23.0",

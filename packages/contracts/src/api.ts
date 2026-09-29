@@ -64,7 +64,7 @@ export type ListRecordsQuery = z.infer<typeof ListRecordsQuery>;
 export type Page<T> = { items: T[]; total: number; page: number; pageSize: number };
 
 export const ExportQuery = z.object({
-  format: z.enum(["csv", "json"]).default("csv"),
+  format: z.enum(["csv", "json", "xlsx"]).default("csv"),
   scope: z.enum(["valid", "all"]).default("valid"),
 });
 export type ExportQuery = z.infer<typeof ExportQuery>;

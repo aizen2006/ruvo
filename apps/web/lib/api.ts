@@ -4,6 +4,7 @@ import type {
   DatasetContract,
   DecisionSummary,
   Evidence,
+  ExportQuery,
   Page,
   PlanDraft,
   QualityReport,
@@ -104,6 +105,6 @@ export const api = {
   listRecipes: () => request<Recipe[]>("/api/recipes"),
   simulateDrift: (recipeId: string, mode: "minor" | "major") =>
     request<Recipe>(`/api/recipes/${recipeId}/simulate-drift`, { method: "POST", body: JSON.stringify({ mode }) }),
-  exportUrl: (id: string, format: "csv" | "json", scope: "valid" | "all") =>
+  exportUrl: (id: string, format: ExportQuery["format"], scope: ExportQuery["scope"]) =>
     `${API_URL}/api/datasets/${id}/export${query({ format, scope })}`,
 };

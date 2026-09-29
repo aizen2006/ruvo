@@ -1,37 +1,16 @@
-import type { EvidenceMethod, RunStatus } from "@repo/contracts";
+import type { Certainty, RunStatus } from "@repo/contracts";
 
 /**
  * RUVO's everyday vocabulary (docs/design-system.md, "Words"). The default screens speak in
  * these terms; pipeline names (contract, workflow, recipe, method codes) stay behind "Show details".
  */
 
-export type Certainty = "sure" | "likely" | "check";
-
-/** How sure RUVO is of a value, in three plain steps instead of a percentage. */
-export function certaintyOf(confidence: number): Certainty {
-  if (confidence >= 0.9) return "sure";
-  if (confidence >= 0.75) return "likely";
-  return "check";
-}
-
-export const CERTAINTY_LABEL: Record<Certainty, string> = { sure: "Sure", likely: "Likely", check: "Check this" };
+export { certaintyOf, CERTAINTY_LABEL, SOURCE_PHRASE, type Certainty } from "@repo/contracts";
 
 export const CERTAINTY_HINT: Record<Certainty, string> = {
   sure: "Read directly from the source's own data",
   likely: "Read from the page and checked against it",
   check: "Found, but worth a quick look before you rely on it",
-};
-
-/** Where a value came from, said the way a person would say it. */
-export const SOURCE_PHRASE: Record<EvidenceMethod, string> = {
-  API: "From the site's data feed",
-  JSON_LD: "From the page's listing data",
-  EMBEDDED_JSON: "From data inside the page",
-  DOM: "Read from the page",
-  REGEX: "Found in the text",
-  LLM: "Found by AI, quote checked",
-  SEARCH: "From search results",
-  DERIVED: "Worked out by RUVO",
 };
 
 /** The three things a dataset page can be doing, in the order a person meets them. */

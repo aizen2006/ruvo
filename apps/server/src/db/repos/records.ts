@@ -95,21 +95,36 @@ export async function getRecordWithEvidence(runId: string, recordId: string) {
   return { record: toRecordDTO(record), evidence: rows.map(toEvidenceDTO) };
 }
 
-/** All records for export, with the extraction method of each field. */
-export async function exportRecords(runId: string, scope: "valid" | "all") {
+export interface ExportRow {
+  record: RecordDTO;
+  evidence: Evidence[];
+  /** "field:METHOD" pairs, sorted and joined, for flat files. */
+  evidenceMethods: string;
+}
+
+/** All records for export, each with its evidence. */
+export async function exportRecords(runId: string, scope: "valid" | "all"): Promise<ExportRow[]> {
   const where = and(eq(records.runId, runId), isNull(records.duplicateOf), scope === "valid" ? eq(records.status, "valid") : undefined);
   const rows = await db.select().from(records).where(where).orderBy(...ordering);
-  const methods = await db
-    .select({ recordId: evidence.recordId, field: evidence.field, method: evidence.method })
+  const evidenceRows = await db
+    .select({ evidence })
     .from(evidence)
     .innerJoin(records, eq(records.id, evidence.recordId))
-    .where(where);
+    .where(where)
+    .orderBy(evidence.field);
 
-  const methodsByRecord = new Map<string, string[]>();
-  for (const m of methods) {
-    const list = methodsByRecord.get(m.recordId) ?? [];
-    list.push(`${m.field}:${m.method}`);
-    methodsByRecord.set(m.recordId, list);
+  const evidenceByRecord = new Map<string, Evidence[]>();
+  for (const { evidence: e } of evidenceRows) {
+    const list = evidenceByRecord.get(e.recordId) ?? [];
+    list.push(toEvidenceDTO(e));
+    evidenceByRecord.set(e.recordId, list);
   }
-  return rows.map((r) => ({ record: toRecordDTO(r), evidenceMethods: (methodsByRecord.get(r.id) ?? []).sort().join("; ") }));
+  return rows.map((r) => {
+    const found = evidenceByRecord.get(r.id) ?? [];
+    const evidenceMethods = found
+      .map((e) => `${e.field}:${e.method}`)
+      .sort()
+      .join("; ");
+    return { record: toRecordDTO(r), evidence: found, evidenceMethods };
+  });
 }
