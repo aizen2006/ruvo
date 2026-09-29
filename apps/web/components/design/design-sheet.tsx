@@ -3,6 +3,7 @@
 import { Download, Play, RotateCcw, Settings2 } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { DotField } from "@/components/dot-field";
+import { FallingCat } from "@/components/falling-cat";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -105,6 +106,11 @@ export function DesignSheet() {
 
       <Section title="Dot field">
         <DotFieldDemo />
+      </Section>
+
+      <Section title="Loader">
+        <p className="max-w-prose text-small text-graphite">While a whole page loads: a pixel cat falling on its back through the stars. Panels keep their dither skeletons.</p>
+        <FallingCat className="h-80 rounded-panel" />
       </Section>
 
       <Section title="Surfaces">

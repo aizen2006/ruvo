@@ -9,10 +9,10 @@ import { CollectingView } from "@/components/progress/collecting-view";
 import { ResultView } from "@/components/result/result-view";
 import { DatasetHeader } from "@/components/run/dataset-header";
 import { PageNotice } from "@/components/ui/notice";
-import { Skeleton } from "@/components/ui/skeleton";
 import { phaseOf } from "@/lib/plain";
 import { useRun, useRunEvents } from "@/lib/queries";
 import { useShowDetails } from "@/lib/use-show-details";
+import Loading from "@/app/loading";
 
 export default function RunPage() {
   const { id } = useParams<{ id: string }>();
@@ -30,7 +30,7 @@ function RunWorkspace({ id }: { id: string }) {
   const [edited, setEdited] = useState<DatasetContract | null>(null);
   const [showDetails, setShowDetails] = useShowDetails();
 
-  if (isLoading) return <LoadingPage />;
+  if (isLoading) return <Loading />;
   // A failed background refresh keeps showing the last good data; only a missing run replaces the page.
   if (!run) return <PageNotice error={error} what="dataset" />;
 
@@ -52,17 +52,6 @@ function RunWorkspace({ id }: { id: string }) {
       )}
 
       {showDetails && <BehindTheScenes run={run} events={events} edited={edited} onEdit={setEdited} />}
-    </div>
-  );
-}
-
-function LoadingPage() {
-  return (
-    <div className="space-y-item" aria-busy>
-      <Skeleton className="h-4 w-28" />
-      <Skeleton className="h-9 w-2/3" />
-      <Skeleton className="h-5 w-1/2" />
-      <Skeleton className="mt-stack h-64 w-full rounded-panel" />
     </div>
   );
 }
