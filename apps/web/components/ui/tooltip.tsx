@@ -7,10 +7,7 @@ export function Tooltip({ content, children }: { content: ReactNode; children: R
     <TooltipPrimitive.Root delayDuration={300}>
       <TooltipPrimitive.Trigger asChild>{children}</TooltipPrimitive.Trigger>
       <TooltipPrimitive.Portal>
-        <TooltipPrimitive.Content
-          sideOffset={6}
-          className="z-50 max-w-64 animate-fade-in rounded-control bg-ink px-3 py-2 text-micro text-sheet shadow-raised"
-        >
+        <TooltipPrimitive.Content sideOffset={6} className="frost z-50 max-w-64 animate-fade-in rounded-[10px] px-3 py-2 font-mono text-micro text-ink">
           {content}
         </TooltipPrimitive.Content>
       </TooltipPrimitive.Portal>

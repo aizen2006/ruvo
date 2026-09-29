@@ -2,15 +2,15 @@
 
 import { Toaster as Sonner } from "sonner";
 
-/** Short confirmations after an action ("Started", "Stopped"), styled to the tokens. */
+/** Short confirmations after an action ("Started", "Stopped"): a frosted panel with a mono line. */
 export function Toaster() {
   return (
     <Sonner
       position="bottom-center"
       toastOptions={{
         classNames: {
-          toast: "!rounded-panel !border-hairline !bg-ink !text-sheet !shadow-raised !font-sans !text-small",
-          description: "!text-sheet/75",
+          toast: "!frost !rounded-panel !border-0 !font-mono !text-small !text-ink",
+          description: "!text-graphite",
         },
       }}
     />

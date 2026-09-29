@@ -7,15 +7,17 @@ export function RadioGroup({ className, ...props }: ComponentProps<typeof RadioP
 }
 
 /**
- * A choice shown as a tile. The chosen tile gets the highlighter bar on its left edge and an ink
- * border; arrow keys move between tiles (Radix).
+ * A choice shown as a flat tile. The chosen tile fills with signal and its text turns ink; the
+ * square in its corner fills too, so the choice never rests on colour alone. Arrow keys move
+ * between tiles (Radix).
  */
 export function RadioTile({ className, children, ...props }: ComponentProps<typeof RadioPrimitive.Item>) {
   return (
     <RadioPrimitive.Item
       className={cn(
-        "group relative flex h-full flex-col items-start overflow-hidden rounded-panel border border-hairline-strong bg-sheet px-item py-3 text-left transition-colors duration-(--duration-fast) hover:border-graphite data-[state=checked]:border-ink",
-        "before:absolute before:inset-y-0 before:left-0 before:w-1.5 before:bg-highlighter before:opacity-0 before:transition-opacity data-[state=checked]:before:opacity-100",
+        "relative flex h-full flex-col items-start rounded-control border border-hairline-strong bg-sheet py-3 pr-8 pl-item text-left transition-colors duration-(--duration-fast) hover:border-graphite",
+        "data-[state=checked]:border-ink data-[state=checked]:bg-highlighter data-[state=checked]:**:text-ink",
+        "after:absolute after:top-4 after:right-3.5 after:size-2 after:border after:border-graphite data-[state=checked]:after:border-ink data-[state=checked]:after:bg-ink",
         className,
       )}
       {...props}

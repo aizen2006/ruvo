@@ -1,7 +1,7 @@
 import type { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-/** A plain data table: hairline rows, a sticky header, and room to breathe. */
+/** A plain data table: mono column headers on a 2px ink rule, hairline rows, no zebra. */
 export function Table({ className, ...props }: HTMLAttributes<HTMLTableElement>) {
   return (
     <div className="relative w-full overflow-x-auto">
@@ -23,7 +23,7 @@ export function TableRow({ className, ...props }: HTMLAttributes<HTMLTableRowEle
 export function TableHead({ className, ...props }: ThHTMLAttributes<HTMLTableCellElement>) {
   return (
     <th
-      className={cn("h-10 border-b border-hairline-strong px-3 text-left align-bottom text-micro font-semibold whitespace-nowrap text-graphite", className)}
+      className={cn("h-10 border-b-2 border-ink px-3 pb-2 text-left align-bottom font-mono text-micro font-normal whitespace-nowrap text-graphite", className)}
       {...props}
     />
   );

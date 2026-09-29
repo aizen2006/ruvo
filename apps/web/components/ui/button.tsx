@@ -3,21 +3,23 @@ import { Slot } from "radix-ui";
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-/** Buttons are ink, not brand colour: the highlighter is kept for what RUVO found or you chose. */
+/** Buttons are ink, not signal: the signal is kept for what RUVO found or you chose. Labels are mono. */
 export const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-control font-medium whitespace-nowrap transition-colors duration-(--duration-fast) disabled:cursor-not-allowed [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-control font-mono font-medium whitespace-nowrap transition-colors duration-(--duration-fast) select-none disabled:cursor-not-allowed [&_svg]:size-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        primary: "bg-ink text-sheet hover:bg-ink/85 disabled:bg-hairline-strong disabled:text-sheet",
-        secondary: "border border-hairline-strong bg-sheet text-ink hover:border-ink disabled:text-pencil",
-        quiet: "text-graphite hover:bg-ink/5 hover:text-ink disabled:text-pencil",
-        danger: "border border-brick/40 bg-sheet text-brick hover:bg-brick-wash disabled:text-pencil",
+        // A faint top highlight keeps the black face in the same family as the bevel.
+        primary:
+          "bg-ink text-sheet shadow-[inset_0_1px_0_rgb(255_255_255/0.22)] hover:bg-graphite active:bg-ink active:shadow-none disabled:bg-hairline-strong disabled:shadow-none",
+        secondary: "bevel text-ink hover:bg-white disabled:bg-sheet disabled:text-pencil",
+        quiet: "text-graphite hover:bg-ink/6 hover:text-ink active:bg-ink/10 disabled:bg-transparent disabled:text-pencil",
+        danger: "bevel text-brick hover:bg-brick-wash disabled:bg-sheet disabled:text-pencil",
       },
       size: {
-        sm: "h-8 px-3 text-small",
+        sm: "h-8 px-3 text-micro",
         md: "h-10 px-4 text-small",
-        lg: "h-12 px-5 text-body",
+        lg: "h-12 px-5 text-small",
         icon: "size-9",
       },
     },
