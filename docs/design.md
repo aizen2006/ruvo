@@ -110,12 +110,13 @@ One WebGL fragment shader on a full-screen triangle, no images or libraries.
 
 ## Loader (`components/falling-cat.tsx`)
 
-When a whole page is loading, a black `void` panel shows a 1-bit pixel cat falling on its back
-through a starfield, with the label in Geist Mono below it (`app/loading.tsx`, and a dataset's
-first load). The cat is drawn as shapes at 3px art pixels, thresholded, and outlined layer by
-layer, so its slow sway gets real jaggies. Two layers of dots and plus sparkles stream upward; about
-1 in 40 is signal. It runs at 24fps, pauses when hidden, and shows one still frame under reduced
-motion. Loading inside a panel keeps the dither `Skeleton`.
+When a whole page is loading, a small 1-bit pixel cat falls on its back, centred on the page with
+no panel behind it (`app/loading.tsx`, and a dataset's first load). It stays in place, swaying and
+bobbing, while thin `pencil` streaks rush upward past it; that is what makes the fall. It is drawn
+as shapes, thresholded and outlined layer by layer in `ink`, so the sway gets real pixel jaggies;
+the label is for screen readers only. It runs at 30fps and shows one still frame under reduced
+motion.
+Loading inside a panel keeps the dither `Skeleton`.
 
 ## Screens
 
