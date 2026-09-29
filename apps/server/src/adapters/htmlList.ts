@@ -1,11 +1,15 @@
 import type { FieldSpec, Recipe } from "@repo/contracts";
 import { z } from "zod";
+import { FetchError } from "../fetch/errors";
 import type { FetchResult } from "../fetch/fetcher";
+import { canonicalUrl } from "../libs/url";
 import { toPageState } from "../page/pageState";
+import { nextPageUrl } from "../page/pagination";
 import { siteOwner } from "../page/siteOwner";
 import { acceptanceFor, discoverRecipe } from "../recipes/discover";
-import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
+import { acceptanceFailure, replayRecipe, type RecipeRow, type ReplayResult } from "../recipes/replay";
 import { findActiveRecipe, recordRecipeUse } from "../recipes/store";
+import { explainFailure } from "../repair/classify";
 import { repairRecipe, type FetchedPage, type RepairInput } from "../repair/repairRecipe";
 import { itemKeyFor } from "../execute/contractFields";
 import { detectArrangement } from "../extract/parsers/remote";
@@ -61,10 +65,10 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
       return toFetched(again);
     };
     const read = await readWithRecipe(run, toFetched(page), fields, refetch);
-    const { recipe, result } = read;
+    const { recipe } = read;
 
-    return result.rows.map((row, i): Item => {
-      const sourceUrl = read.page.finalUrl;
+    const toItems = (listPage: FetchedPage, rows: RecipeRow[]) => rows.map((row, i): Item => {
+      const sourceUrl = listPage.finalUrl;
       const values = compactFields(
         Object.fromEntries(
           recipe.def.fields.map((f) => [
@@ -74,23 +78,53 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
               fieldOf(run, f.name),
               `${recipe.def.itemSelector} ${f.selector || ":scope"} @${f.attr}`,
               sourceUrl,
-              read.page.pageId,
+              listPage.pageId,
             ),
           ]),
         ),
       );
       if (companyKey && !values[companyKey] && owner) {
-        values[companyKey] = derived(owner.name, owner.basis, owner.rule, sourceUrl, read.page.pageId)!;
+        values[companyKey] = derived(owner.name, owner.basis, owner.rule, sourceUrl, listPage.pageId)!;
       }
       return {
-        externalId: row[fields.find((f) => f.catalogKey === "url")?.name ?? "url"] ?? `${url}#${i}`,
+        externalId: row[fields.find((f) => f.catalogKey === "url")?.name ?? "url"] ?? `${sourceUrl}#${i}`,
         fields: values,
         text: null,
         meta: { companyTags: tags, recipe: { id: recipe.id, version: recipe.version } },
       };
     });
+
+    const items = toItems(read.page, read.result.rows);
+    const seen = new Set([url, read.page.finalUrl].map(canonical));
+    let current = read.page;
+    let pagesRead = 1;
+    // Follow "next" links with the same recipe until a page adds nothing new or the mode's cap is reached.
+    while (pagesRead < (run.maxListPages ?? 1)) {
+      const next = nextPageUrl(current.html, current.finalUrl);
+      if (!next || seen.has(canonical(next))) break;
+      seen.add(canonical(next));
+      try {
+        current = toFetched(await fetcher.fetch(scope, { url: next, expect: "html", purpose: "list page", mode: "auto" }));
+      } catch (err) {
+        if (!(err instanceof FetchError)) throw err;
+        run.emit({ stage: "collecting", type: "pagination.stopped", level: "warn", message: `${new URL(next).host}: stopped paging, ${explainFailure(err)}` });
+        break;
+      }
+      if (canonical(current.finalUrl) !== canonical(next) && seen.has(canonical(current.finalUrl))) break;
+      const known = new Set(items.map((item) => item.externalId));
+      const fresh = toItems(current, replayRecipe(current.html, current.finalUrl, recipe.def).rows).filter((item) => !known.has(item.externalId));
+      if (fresh.length === 0) break;
+      items.push(...fresh);
+      pagesRead++;
+    }
+    if (pagesRead > 1) {
+      run.emit({ stage: "collecting", type: "pagination.followed", message: `${new URL(url).host}: read ${pagesRead} list pages, ${items.length} items` });
+    }
+    return items;
   },
 };
+
+const canonical = (url: string) => canonicalUrl(url) ?? url;
 
 /** The recipe that read the page, its rows, and the page it read (a repair may have refetched it). */
 interface RecipeRead {

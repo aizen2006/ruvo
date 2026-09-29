@@ -28,6 +28,8 @@ export interface RunContext {
   log: Logger;
   /** Recipe repairs made during the run; they become a new workflow version when it ends. */
   repairs: RepairNote[];
+  /** Pages a paginated list source may read (the run mode's cap); 1 when unset. */
+  maxListPages?: number;
   emit(event: EmitInput): void;
   /** Moves the run to a new user-facing stage (persisted and announced). */
   setStage(stage: Stage): Promise<void>;
@@ -66,6 +68,7 @@ export async function createRunContext(args: {
   decider: Decider;
   initialMetrics?: RunMetrics;
   budgets?: Budgets;
+  maxListPages?: number;
 }): Promise<OwnedRunContext> {
   const { runId } = args;
   const bus = createEventBus(runId, { startSeq: await nextEventSeq(runId) });
@@ -90,6 +93,7 @@ export async function createRunContext(args: {
     decider: args.decider,
     log: logger.child({ runId }),
     repairs: [],
+    maxListPages: args.maxListPages,
     emit: bus.emit,
     async setStage(stage) {
       currentStage = stage;

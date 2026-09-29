@@ -72,6 +72,9 @@ export const budgetsForMode = (mode: RunMode, e: CeilingEnv, maxRecords = 500): 
 /** Results asked for per web search; a thorough run looks further down each query's results. */
 export const searchResultsPerQuery = (mode: RunMode) => (mode === "thorough" ? 20 : 10);
 
+/** List pages a paginated source may read; deeper modes follow more "next" links. */
+export const listPagesForMode = (mode: RunMode) => ({ quick: 2, balanced: 5, thorough: 10 })[mode];
+
 /** A stored run's models; runs created before modes existed fall back to the configured pair. */
 export const runModels = (run: { modelPlanner: string | null; modelWorker: string | null }, e: ModelEnv): ModelChoice => ({
   planner: run.modelPlanner ?? e.MODEL_PLANNER,
