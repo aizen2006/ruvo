@@ -3,6 +3,7 @@ import type { FieldValue } from "../../adapters/types";
 import { isSafeRegex } from "../../compile/normalize";
 import { thresholdsFor } from "../../decide/calibration";
 import { noulBand, type DecisionRequest } from "../../decide/decider";
+import { verifyQuote } from "../../extract/verifyQuote";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
 import { itemKeyFor } from "../contractFields";
@@ -14,6 +15,8 @@ import type { StepFn } from "./types";
  * - rule-based criteria (keywords, equals, regex, company tags) are decided in code
  * - semantic criteria go to the decision layer (Jev, then the LLM judge), but only for
  *   candidates that have not already failed a hard rule; undecided ones stay null
+ * - when the contract lists sensitive attributes, the judge must quote the person's own words;
+ *   a record without a verified quote can't be "Sure"
  * - hard criteria that fail become reject reasons
  * - soft criteria earn their weight; matchScore is the share of soft weight earned (0..1)
  * If the contract asks for a match_reason column, it is derived from the signals.
@@ -22,7 +25,7 @@ export const match: StepFn<"match"> = async (ctx, _branch, step, input) => {
   const criteria = ctx.contract.criteria.filter((c) => step.criteria.includes(c.id));
   const evaluators = criteria.map((c) => ({ criterion: c, evaluate: compileCriterion(ctx.contract, c) }));
 
-  const evaluated = input.map((candidate) => ({
+  const evaluated = input.map((candidate): Evaluated => ({
     candidate,
     signals: evaluators.map(({ criterion, evaluate }): Signal => ({
       criterionId: criterion.id,
@@ -34,10 +37,15 @@ export const match: StepFn<"match"> = async (ctx, _branch, step, input) => {
   }));
 
   await decideSemanticCriteria(ctx, criteria, evaluated);
-  return evaluated.map(({ candidate, signals }) => finalize(ctx.contract, criteria, candidate, signals));
+  return evaluated.map(({ candidate, signals, unquoted }) =>
+    finalize(ctx.contract, criteria, unquoted ? { ...candidate, maxConfidence: UNQUOTED_CONFIDENCE } : candidate, signals),
+  );
 };
 
-type Evaluated = { candidate: Candidate; signals: Signal[] };
+/** At most "Check this" (see certaintyOf): a record whose sensitive attribute has no supporting quote. */
+const UNQUOTED_CONFIDENCE = 0.7;
+
+type Evaluated = { candidate: Candidate; signals: Signal[]; unquoted?: boolean };
 
 async function decideSemanticCriteria(ctx: Parameters<StepFn<"match">>[0], criteria: Criterion[], evaluated: Evaluated[]) {
   const failedHardRule = (e: Evaluated) => e.signals.some((s) => s.strength === "hard" && s.passed === false);
@@ -49,15 +57,26 @@ async function decideSemanticCriteria(ctx: Parameters<StepFn<"match">>[0], crite
   if (jobs.length === 0) return;
 
   const results = await ctx.decider.decideMany(ctx, jobs.map((j) => j.request));
-  jobs.forEach(({ e, index }, i) => {
+  jobs.forEach(({ e, index, request }, i) => {
     const decision = results[i]!;
     e.signals[index] = {
       ...e.signals[index]!,
       passed: decision.label === "unknown" ? null : decision.label === "yes",
       decidedBy: decision.decidedBy,
     };
+    // A sensitive attribute counts only with the person's own words, found in their record.
+    const quoted = decision.label === "yes" && decision.quote && verifyQuote(decision.quote, ownText(e.candidate));
+    if (request.quote && !quoted) e.unquoted = true;
   });
 }
+
+/** Everything the record itself says: its text and field values. */
+const ownText = (c: Candidate) => [c.item.text?.plain ?? "", ...Object.values(c.item.fields).map((f) => String(f?.value ?? ""))].join("\n");
+
+/** Added to semantic questions when the contract filters on sensitive attributes (contract.sensitive). */
+const sensitiveRule = (attributes: string[]) =>
+  `Judge ${attributes.join(", ")} only from the person's own words in this data, such as a bio or post where they describe themselves, and quote those words. ` +
+  `Never infer them from a name, photo, appearance, language or who they follow; without such words, answer "unknown".`;
 
 /** The state the decision model sees: the facts that matter, without noise. */
 function semanticRequest(contract: DatasetContract, criterion: Criterion, candidate: Candidate): DecisionRequest<"yes" | "no" | "unknown"> {
@@ -77,14 +96,17 @@ function semanticRequest(contract: DatasetContract, criterion: Criterion, candid
           ...Object.fromEntries(contract.fields.map((f) => [f.name, truncate(fieldText(candidate, itemKeyFor(contract, f.name)), 300)])),
           description,
         };
+  const question = criterion.values[0] ?? criterion.label;
+  const sensitive = contract.sensitive.length > 0;
   return {
     task: "CRITERION",
     subject: fieldText(candidate, "title") || candidate.key,
     state,
-    question: { type: "noul", instructions: criterion.values[0] ?? criterion.label },
+    question: { type: "noul", instructions: sensitive ? `${question}\n${sensitiveRule(contract.sensitive)}` : question },
     labels: ["yes", "no", "unknown"],
     band: noulBand(thresholdsFor("CRITERION").yes, thresholdsFor("CRITERION").no),
     defaultLabel: "unknown",
+    quote: sensitive,
   };
 }
 

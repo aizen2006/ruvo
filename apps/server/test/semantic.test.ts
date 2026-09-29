@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { DatasetContract } from "@repo/contracts";
+import { certaintyOf, type DatasetContract } from "@repo/contracts";
 import { hnWhoIsHiring } from "../src/adapters/hn";
 import { toCandidate, type Candidate } from "../src/execute/candidate";
 import { match } from "../src/execute/steps/match";
 import { triage } from "../src/execute/steps/triage";
+import { validate } from "../src/execute/steps/validate";
 import { createDecider } from "../src/decide/decider";
 import type { SystemOneClient } from "../src/decide/systemOneClient";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
@@ -93,6 +94,52 @@ describe("semantic criteria", () => {
     // Already rejected by a keyword rule, so the model is never asked.
     expect(meaning(sales!).passed).toBeNull();
     expect(seen).toHaveLength(3);
+  });
+});
+
+describe("sensitive attributes", () => {
+  const contract: DatasetContract = {
+    ...DEMO_CONTRACT,
+    entity: "other",
+    entityDescription: "A home cooking creator",
+    fields: [{ name: "title", catalogKey: "title", type: "string", required: true, description: "Creator name" }],
+    criteria: [{ id: "origin", label: "Indian origin", kind: "semantic", fields: ["title"], values: ["Is this creator of Indian origin?"], strength: "soft", weight: 1 }],
+    sensitive: ["ethnicity"],
+  };
+  const creator = (name: string, bio: string): Candidate => ({
+    ...candidate(name),
+    item: { ...candidate(name).item, text: { plain: bio, sourceUrl: "https://x.test", pageId: null } },
+  });
+
+  test("need the person's own quoted words; without them a record is never Sure", async () => {
+    // The judge says yes to both, quoting a line only the first creator wrote.
+    const judge = fakeLlm({
+      decision_batch: ({ input }: { input: Array<{ content: string }> }) => ({
+        answers: (JSON.parse(input.at(-1)!.content) as Array<{ id: string }>).map((item) => ({
+          id: item.id,
+          label: "yes",
+          confidence: 0.95,
+          quote: "I'm an Indian-American home cook",
+        })),
+      }),
+    });
+    const { client, seen } = provider(() => 0.99);
+    const { ctx } = context(contract, client);
+    Object.assign(ctx, {
+      llm: judge,
+      budget: createBudget({ maxPages: 1, maxBrowserPages: 0, maxLlmCalls: 5, maxDurationMs: 60_000, maxRecords: 10 }),
+    });
+
+    const matched = await match(ctx, {} as never, { id: "m", kind: "match", criteria: ["origin"] }, [
+      creator("Asha Rao", "Hi! I'm an Indian-American home cook sharing weeknight dals."),
+      creator("Priya Sharma", "Weeknight dinners from my Chicago kitchen."),
+    ]);
+    const [quoted, unquoted] = await validate(ctx, {} as never, { id: "v", kind: "validate", required: ["title"], requireEvidence: true }, matched);
+
+    expect(seen).toHaveLength(0); // the decision model can't quote, so the judge decides
+    expect(judge.calls[0]!.input.at(-1)!.content).toContain("Never infer them from a name");
+    expect(certaintyOf(quoted!.confidence)).toBe("sure");
+    expect(certaintyOf(unquoted!.confidence)).toBe("check");
   });
 });
 

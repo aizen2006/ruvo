@@ -15,6 +15,8 @@ export interface Candidate {
   matchScore: number;
   /** Trust in the record: the lowest confidence among its required fields (0..1). */
   confidence: number;
+  /** A ceiling on `confidence` set while matching (a sensitive attribute without a supporting quote). */
+  maxConfidence?: number;
   status: RecordStatus | null;
 }
 

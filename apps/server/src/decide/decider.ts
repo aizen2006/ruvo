@@ -30,6 +30,8 @@ export interface DecisionRequest<L extends string> {
   /** Turns a decision-model answer into a label, or null when it is not confident enough. */
   band: (answer: SystemOneAnswer) => { label: L; confidence: number } | null;
   defaultLabel: L;
+  /** Ask the LLM judge to quote the words behind its label. Cached and decision-model answers have no quote, so these skip both. */
+  quote?: boolean;
 }
 
 type Shadow = { label: string; confidence: number };
@@ -42,6 +44,8 @@ export interface Decision<L extends string> {
   providerModel: string | null;
   /** What the decision model said when it did not decide (shadow mode or low confidence). */
   shadow: Shadow | null;
+  /** The judge's supporting words, for requests that ask for a quote (unverified). */
+  quote: string | null;
 }
 
 export type DecisionScope = Pick<RunContext, "runId" | "signal" | "budget" | "metrics" | "llm">;
@@ -53,8 +57,11 @@ export interface Decider {
 export const JUDGE_BATCH = 20;
 const JUDGE_PROMPT = `You classify items. Each item has a question, the allowed labels and the item's data.
 For every item return its id, exactly one allowed label, and your confidence from 0 to 1.
-Judge only from the data given; if it is insufficient, pick the most likely label with low confidence.`;
-const JudgeSchema = z.object({ answers: z.array(z.object({ id: z.string(), label: z.string(), confidence: z.number() })) });
+Judge only from the data given; if it is insufficient, pick the most likely label with low confidence.
+For items marked "quote": true, set quote to the exact words from the item's data that support your label, copied character for character, or null if there are none. For other items quote is null.`;
+const JudgeSchema = z.object({
+  answers: z.array(z.object({ id: z.string(), label: z.string(), confidence: z.number(), quote: z.string().nullable() })),
+});
 
 /** Band for yes/no questions: confident above `yes`, below `no`, otherwise undecided. */
 export const noulBand =
@@ -85,8 +92,9 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
       const models: Array<string | null> = requests.map(() => null);
       const hashes = requests.map((r) => sha256(stableStringify({ task: r.task, state: r.state, question: r.question, labels: r.labels })));
       const pending = () => requests.map((_, i) => i).filter((i) => !decided[i]);
-      const settle = (i: number, label: L, confidence: number, decidedBy: DecisionTier, cached = false) => {
-        decided[i] = { label, confidence, decidedBy, cached, providerModel: models[i]!, shadow: shadows[i]! };
+      const unquoted = () => pending().filter((i) => !requests[i]!.quote);
+      const settle = (i: number, label: L, confidence: number, decidedBy: DecisionTier, cached = false, quote: string | null = null) => {
+        decided[i] = { label, confidence, decidedBy, cached, providerModel: models[i]!, shadow: shadows[i]!, quote };
       };
 
       // 1. Rules
@@ -96,8 +104,8 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
       });
 
       // 2. Earlier model decisions on identical input
-      const cache = await findCached(pending().map((i) => hashes[i]!));
-      for (const i of pending()) {
+      const cache = await findCached(unquoted().map((i) => hashes[i]!));
+      for (const i of unquoted()) {
         const hit = cache.get(hashes[i]!);
         const label = hit && requests[i]!.labels.find((l) => l === hit.label);
         if (hit && label) {
@@ -109,7 +117,7 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
       // 3. Decision model: acted on only in active mode and only when confident
       if (provider && mode !== "off") {
         await Promise.all(
-          pending().map(async (i) => {
+          unquoted().map(async (i) => {
             const r = requests[i]!;
             const taskMode = modeFor(r.task, mode);
             if (taskMode === "off" || !provider.available()) return;
@@ -138,7 +146,13 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
             name: "decision_batch",
             system: JUDGE_PROMPT,
             user: JSON.stringify(
-              batch.map((i) => ({ id: String(i), question: requests[i]!.question.instructions, labels: requests[i]!.labels, data: requests[i]!.state })),
+              batch.map((i) => ({
+                id: String(i),
+                question: requests[i]!.question.instructions,
+                labels: requests[i]!.labels,
+                data: requests[i]!.state,
+                ...(requests[i]!.quote && { quote: true }),
+              })),
             ),
             signal: scope.signal,
             run: scope,
@@ -146,7 +160,7 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
           for (const answer of data.answers) {
             const i = Number(answer.id);
             const label = batch.includes(i) ? requests[i]!.labels.find((l) => l.toLowerCase() === answer.label.trim().toLowerCase()) : undefined;
-            if (label) settle(i, label, clamp01(answer.confidence), "LLM");
+            if (label) settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
           }
         } catch (err) {
           if (!(err instanceof LlmError)) throw err;

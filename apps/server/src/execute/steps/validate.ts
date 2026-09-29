@@ -10,7 +10,7 @@ import type { StepFn } from "./types";
  * - incomplete: a required field is missing, or its value could not be verified
  * - valid: otherwise
  * Confidence is the weakest required field's confidence (a record is only as
- * trustworthy as its least certain essential value).
+ * trustworthy as its least certain essential value), capped by `maxConfidence`.
  */
 export const validate: StepFn<"validate"> = async (ctx, _branch, step, input) =>
   input.map((candidate) => {
@@ -25,7 +25,8 @@ export const validate: StepFn<"validate"> = async (ctx, _branch, step, input) =>
     const status = reasons.length ? "invalid" : missing.length ? "incomplete" : "valid";
     if (missing.length) reasons.push(`Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
 
-    return { ...candidate, status, rejectReasons: reasons, confidence: recordConfidence(candidate, present.map((p) => p.field!)) };
+    const confidence = Math.min(recordConfidence(candidate, present.map((p) => p.field!)), candidate.maxConfidence ?? 1);
+    return { ...candidate, status, rejectReasons: reasons, confidence };
   });
 
 type Field = Candidate["item"]["fields"][string];

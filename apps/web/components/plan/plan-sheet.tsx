@@ -3,7 +3,7 @@
 import type { DatasetContract, RunDetail, SearchLog } from "@repo/contracts";
 import { useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { PageList } from "@/components/page-list";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -58,12 +58,15 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
   const start = useRunAction(run.id, () => api.startRun(run.id));
   // Removes a searched source from the saved plan; unsaved edits stay as they are.
   const removeSource = useRunAction(run.id, (ref: string) => api.editContract(run.id, run.contract!, [ref]));
+  // Lists that filter on sensitive attributes start only once the purpose is confirmed.
+  const [purposeConfirmed, setPurposeConfirmed] = useState(false);
 
   if (!draft) return null;
   const update = (next: Partial<DatasetContract>) => onEdit({ ...draft, ...next });
   const ir = workflow.data?.ir;
   const noSources = ir !== undefined && ir.sources.length === 0;
   const found = new Set(ir?.search?.sources.map((s) => s.ref));
+  const sensitive = draft.sensitive.length > 0;
 
   return (
     <div className="space-y-group">
@@ -153,6 +156,23 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
           </Part>
         )}
 
+        {sensitive && (
+          <Part
+            title="Sensitive details"
+            hint={`This list filters on ${draft.sensitive.join(", ")}. RUVO counts that only when people say it about themselves in public, never guessing from a name, photo or looks. Rows without their own words are marked Check this.`}
+          >
+            <label className="flex items-start gap-tight text-small">
+              <input
+                type="checkbox"
+                checked={purposeConfirmed}
+                onChange={(e) => setPurposeConfirmed(e.target.checked)}
+                className="mt-0.5 size-4 accent-(--color-ink)"
+              />
+              I&apos;ll use this list only for outreach these people would reasonably expect.
+            </label>
+          </Part>
+        )}
+
         {ir && (
           <Part title="Cost and time">
             <PlanFacts run={run} ir={ir} />
@@ -189,7 +209,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
             <Button
               variant="primary"
               size="lg"
-              disabled={start.isPending || noSources || !ir}
+              disabled={start.isPending || noSources || !ir || (sensitive && !purposeConfirmed)}
               onClick={() => start.mutate(undefined, { onSuccess: () => toast("Collecting started") })}
             >
               {start.isPending ? "Starting…" : "Start collecting"}
