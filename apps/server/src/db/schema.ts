@@ -118,7 +118,8 @@ export const pages = pgTable(
     url: text("url").notNull(),
     finalUrl: text("final_url").notNull(),
     host: text("host").notNull(),
-    via: text("via").$type<"http" | "browser">().notNull(),
+    // "search": a search result's title and snippet, kept as evidence (the page itself is never fetched).
+    via: text("via").$type<"http" | "browser" | "search">().notNull(),
     status: integer("status").notNull(),
     contentType: text("content_type"),
     contentHash: text("content_hash").notNull(),

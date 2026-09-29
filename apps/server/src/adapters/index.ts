@@ -5,6 +5,7 @@ import { hnWhoIsHiring } from "./hn";
 import { htmlList } from "./htmlList";
 import { htmlRecord } from "./htmlRecord";
 import { lever } from "./lever";
+import { searchHits } from "./searchHits";
 import type { SourceAdapter } from "./types";
 import { workable } from "./workable";
 
@@ -17,6 +18,7 @@ const ADAPTERS: Partial<Record<AdapterId, SourceAdapter<unknown>>> = {
   hn_whoishiring: hnWhoIsHiring as SourceAdapter<unknown>,
   html_list: htmlList as SourceAdapter<unknown>,
   html_record: htmlRecord as SourceAdapter<unknown>,
+  search_hits: searchHits as SourceAdapter<unknown>,
 };
 
 export function getAdapter(id: AdapterId): SourceAdapter<unknown> {

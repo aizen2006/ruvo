@@ -1,6 +1,7 @@
 import type { AdapterId, DatasetContract, FoundSource, SearchLog } from "@repo/contracts";
 import { z } from "zod";
 import { registeredAdapters } from "../adapters";
+import type { SearchHit } from "../adapters/searchHits";
 import type { FetchScope } from "../fetch/fetcher";
 import type { Robots } from "../fetch/robots";
 import { canonicalUrl } from "../libs/url";
@@ -24,14 +25,6 @@ export interface WebDiscoveryOptions {
 export interface WebDiscovery {
   sources: FoundSource[];
   searches: SearchLog[];
-}
-
-/** One search result and the query that found it. Also the params shape of search_hits sources. */
-export interface SearchHit {
-  url: string;
-  title: string;
-  description: string;
-  query: string;
 }
 
 type HitKind = "list" | "record" | "profile" | "skip";

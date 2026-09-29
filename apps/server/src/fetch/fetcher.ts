@@ -247,7 +247,7 @@ function acceptsContentType(expect: FetchRequest["expect"], contentType: string 
   return type.startsWith("text/") || type.includes("json") || type.includes("xml");
 }
 
-function toResult(page: PageRow, fromCache: boolean): FetchResult {
+function toResult(page: PageRow & { via: Via }, fromCache: boolean): FetchResult {
   return {
     pageId: page.id,
     url: page.url,

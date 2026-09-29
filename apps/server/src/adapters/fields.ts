@@ -79,6 +79,15 @@ export function compactFields(fields: Record<string, FieldValue | undefined>): R
 }
 
 /**
+ * A value taken from a web-search result (its title and snippet, `text`), not from the page
+ * itself. The page is never fetched, so the evidence links to it and quotes the search result.
+ */
+export function fromSearch(value: Scalar, quote: string, text: string, source: { sourceUrl: string; pageId: string | null }): FieldValue | undefined {
+  const field = fromText(value, quote, text, source);
+  return field && { ...field, evidence: { ...field.evidence, method: "SEARCH" } };
+}
+
+/**
  * A value found in free text by a deterministic parser. `snippet` must appear in `text`;
  * its character span becomes the locator so the evidence can be re-checked later.
  */

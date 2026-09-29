@@ -6,14 +6,15 @@ import { sha256 } from "../libs/hash";
 
 export type CacheMode = Env["FETCH_CACHE_MODE"];
 export type PageRow = typeof pages.$inferSelect;
-export type Via = PageRow["via"];
+/** How a page was fetched. Search-result snippets are stored too (via "search"), but never served as fetches. */
+export type Via = Exclude<PageRow["via"], "search">;
 
 /**
  * The `pages` table doubles as the fetch cache and the evidence snapshot store.
  * `ttl` reuses fresh pages; `prefer_cache` / `cache_only` reuse any stored copy, which
  * makes re-runs reproducible and enables a fully offline demo.
  */
-export async function findCachedPage(url: string, via: Via, mode: CacheMode, ttlMs: number): Promise<PageRow | null> {
+export async function findCachedPage<V extends Via>(url: string, via: V, mode: CacheMode, ttlMs: number): Promise<(PageRow & { via: V }) | null> {
   if (mode === "off") return null;
   const fresh = mode === "ttl" ? gt(pages.fetchedAt, new Date(Date.now() - ttlMs)) : undefined;
   const [page] = await db
@@ -22,17 +23,17 @@ export async function findCachedPage(url: string, via: Via, mode: CacheMode, ttl
     .where(and(eq(pages.url, url), eq(pages.via, via), fresh))
     .orderBy(desc(pages.fetchedAt))
     .limit(1);
-  return page ?? null;
+  return (page as (PageRow & { via: V }) | undefined) ?? null;
 }
 
-export async function savePage(input: {
+export async function savePage<V extends PageRow["via"]>(input: {
   url: string;
   finalUrl: string;
-  via: Via;
+  via: V;
   status: number;
   contentType: string | null;
   body: string;
-}): Promise<PageRow> {
+}): Promise<PageRow & { via: V }> {
   const body = withoutNul(input.body);
   const row = { ...input, body, host: new URL(input.finalUrl).host, contentHash: sha256(body), bytes: Buffer.byteLength(body) };
   // Only the generated columns come back: the body can be megabytes.
