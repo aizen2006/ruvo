@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import helmet from "helmet";
 import { datasetsRouter } from "./api/datasets.routes";
+import { optionsRouter } from "./api/options.routes";
 import { recipesRouter } from "./api/recipes.routes";
 import { runsRouter } from "./api/runs.routes";
 import { careersSite } from "./fixtures/careersSite";
@@ -21,6 +22,7 @@ export function createApp() {
   app.get("/health", (_req, res) => {
     res.status(200).json({ status: "ok" });
   });
+  app.use("/api/options", optionsRouter);
   app.use("/api/runs", runsRouter);
   app.use("/api/datasets", datasetsRouter);
   app.use("/api/recipes", recipesRouter);
