@@ -3,14 +3,11 @@
 import type { DatasetContract } from "@repo/contracts";
 import { useParams } from "next/navigation";
 import { useState } from "react";
-import { DatasetView } from "@/components/dataset/dataset-view";
 import { BehindTheScenes } from "@/components/details/behind-the-scenes";
 import { PlanSheet } from "@/components/plan/plan-sheet";
 import { CollectingView } from "@/components/progress/collecting-view";
+import { ResultView } from "@/components/result/result-view";
 import { DatasetHeader } from "@/components/run/dataset-header";
-import { LatestEvent } from "@/components/run/event-feed";
-import { RunHeader } from "@/components/run/run-header";
-import { StageTimeline } from "@/components/run/stage-timeline";
 import { PageNotice } from "@/components/ui/notice";
 import { Skeleton } from "@/components/ui/skeleton";
 import { phaseOf } from "@/lib/plain";
@@ -51,13 +48,7 @@ function RunWorkspace({ id }: { id: string }) {
       ) : phase === "preparing" || phase === "collecting" ? (
         <CollectingView run={run} events={events} />
       ) : (
-        <div className="space-y-6">
-          <RunHeader run={run} />
-          <StageTimeline run={run} />
-          <LatestEvent events={events} active={phase !== "list"} />
-          {run.status === "failed" && run.error && <p className="text-sm text-danger">This run failed: {run.error}</p>}
-          {run.contract && <DatasetView run={run} />}
-        </div>
+        <ResultView run={run} />
       )}
 
       {showDetails && <BehindTheScenes run={run} events={events} edited={edited} onEdit={setEdited} />}

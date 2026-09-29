@@ -22,13 +22,3 @@ export function EventFeed({ events }: { events: RunEvent[] }) {
   );
 }
 
-/** The most recent event, shown under the timeline while a run is in progress. */
-export function LatestEvent({ events, active }: { events: RunEvent[]; active: boolean }) {
-  const last = events.at(-1);
-  if (!last || !active) return null;
-  return (
-    <p className={clsx("text-sm", LEVEL[last.level])} aria-live="polite">
-      {last.message}
-    </p>
-  );
-}
