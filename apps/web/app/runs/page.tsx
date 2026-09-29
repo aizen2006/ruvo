@@ -1,10 +1,6 @@
-import { RunHistory } from "@/components/run-history";
+import { redirect } from "next/navigation";
 
-export default function HistoryPage() {
-  return (
-    <div className="space-y-4">
-      <h1 className="font-serif text-3xl tracking-tight">Run history</h1>
-      <RunHistory />
-    </div>
-  );
+/** The run history moved to "Your datasets". */
+export default function RunsPage() {
+  redirect("/datasets");
 }

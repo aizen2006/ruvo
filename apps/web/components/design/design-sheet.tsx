@@ -49,13 +49,13 @@ const SPACE: Array<[name: string, px: number]> = [
   ["tight", 8],
   ["item", 16],
   ["group", 24],
-  ["block", 32],
+  ["stack", 32],
   ["section", 48],
 ];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-group border-t border-hairline pt-block">
+    <section className="space-y-group border-t border-hairline pt-stack">
       <h2 className="text-heading font-semibold">{title}</h2>
       {children}
     </section>

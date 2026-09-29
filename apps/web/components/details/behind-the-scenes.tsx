@@ -27,7 +27,7 @@ export function BehindTheScenes({
 }) {
   const [tab, setTab] = useState("workflow");
   return (
-    <section aria-labelledby="behind" className="space-y-item border-t border-hairline pt-block">
+    <section aria-labelledby="behind" className="space-y-item border-t border-hairline pt-stack">
       <div className="space-y-1">
         <h2 id="behind" className="text-heading font-semibold">
           Behind the scenes

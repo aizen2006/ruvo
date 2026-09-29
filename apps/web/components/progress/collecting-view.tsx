@@ -22,7 +22,7 @@ export function CollectingView({ run, events }: { run: RunDetail; events: RunEve
   const { rawRecords, pagesVisited } = run.metrics;
 
   return (
-    <div className="space-y-block">
+    <div className="space-y-stack">
       <section className="space-y-group rounded-panel border border-hairline bg-sheet p-group">
         <ProgressTrack status={run.status} stage={run.stage} />
 

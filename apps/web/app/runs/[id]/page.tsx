@@ -37,7 +37,7 @@ function RunWorkspace({ id }: { id: string }) {
   const phase = phaseOf(run.status);
 
   return (
-    <div className="space-y-block">
+    <div className="space-y-stack">
       <DatasetHeader run={run} showDetails={showDetails} onShowDetails={setShowDetails} />
       {error && <p className="text-small text-amber">Lost contact with RUVO ({error.message}). Showing the last known state.</p>}
 
@@ -62,7 +62,7 @@ function LoadingPage() {
       <Skeleton className="h-4 w-28" />
       <Skeleton className="h-9 w-2/3" />
       <Skeleton className="h-5 w-1/2" />
-      <Skeleton className="mt-block h-64 w-full rounded-panel" />
+      <Skeleton className="mt-stack h-64 w-full rounded-panel" />
     </div>
   );
 }

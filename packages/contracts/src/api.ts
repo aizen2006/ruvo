@@ -21,6 +21,8 @@ export type CreateRunResponse = z.infer<typeof CreateRunResponse>;
 export const RunSummary = z.object({
   id: z.string(),
   prompt: z.string(),
+  /** The dataset's name from its latest contract; null until the request is understood. */
+  title: z.string().nullable(),
   status: RunStatus,
   stage: Stage,
   metrics: RunMetrics,

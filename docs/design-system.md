@@ -61,7 +61,7 @@ Contrast: `ink` and `graphite` pass WCAG AA on both `canvas` and `sheet`. `penci
 
 ## Space, radius, elevation, motion
 
-- **Rhythm** on a 4px grid: `tight` 8, `item` 16, `group` 24, `block` 32, `section` 48
+- **Rhythm** on a 4px grid: `tight` 8, `item` 16, `group` 24, `stack` 32, `section` 48
   (`gap-item`, `space-y-group`, `py-section`, …).
 - **Width**: 720px for asking and checking the plan, 1200px for results.
 - **Radius** follows hierarchy: `rounded-control` 8 (buttons, inputs), `rounded-panel` 14

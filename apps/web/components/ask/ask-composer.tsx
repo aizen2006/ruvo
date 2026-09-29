@@ -67,7 +67,7 @@ export function AskComposer() {
           e.preventDefault();
           submit();
         }}
-        className="space-y-block"
+        className="space-y-stack"
       >
         <label htmlFor="prompt" className="block text-title font-semibold sm:text-display">
           What do you want a list of?

@@ -24,7 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 ruvo
               </Link>
               <div className="ml-auto flex items-center gap-item text-small">
-                <Link href="/runs" className="text-graphite hover:text-ink">
+                <Link href="/datasets" className="text-graphite hover:text-ink">
                   Your datasets
                 </Link>
                 <Link href="/" className="rounded-control border border-hairline-strong bg-sheet px-3 py-1.5 font-medium hover:border-ink">
@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </div>
             </nav>
           </header>
-          <main className="mx-auto max-w-[1200px] px-4 py-block sm:px-6 sm:py-section">{children}</main>
+          <main className="mx-auto max-w-[1200px] px-4 py-stack sm:px-6 sm:py-section">{children}</main>
         </Providers>
       </body>
     </html>

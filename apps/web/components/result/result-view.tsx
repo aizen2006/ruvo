@@ -28,7 +28,7 @@ export function ResultView({ run }: { run: RunDetail }) {
   ].filter(Boolean);
 
   return (
-    <div className="space-y-block">
+    <div className="space-y-stack">
       {run.status !== "completed" && (
         <div role="status" className={run.status === "failed" ? "rounded-panel bg-brick-wash px-group py-item" : "rounded-panel bg-ink/6 px-group py-item"}>
           <p className={run.status === "failed" ? "font-medium text-brick" : "font-medium"}>

@@ -74,9 +74,9 @@
   --text-micro: 0.75rem;
   --text-micro--line-height: 1rem;
 
-  /* Rhythm on a 4px grid: space between sections, blocks, groups, items, and tight pairs. */
+  /* Rhythm on a 4px grid: sections, stacked parts, groups, items, tight pairs. Avoid names Tailwind already uses as values (block, inline, …). */
   --spacing-section: 3rem;
-  --spacing-block: 2rem;
+  --spacing-stack: 2rem;
   --spacing-group: 1.5rem;
   --spacing-item: 1rem;
   --spacing-tight: 0.5rem;

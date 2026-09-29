@@ -234,7 +234,7 @@ export function DataTable({ run }: { run: RunDetail }) {
         </ul>
 
         {data && data.items.length === 0 && (
-          <div className="space-y-item px-group py-block text-center text-small text-graphite">
+          <div className="space-y-item px-group py-stack text-center text-small text-graphite">
             {run.status === "running" ? (
               <p>No rows yet. They appear as each source finishes.</p>
             ) : kept === 0 ? (

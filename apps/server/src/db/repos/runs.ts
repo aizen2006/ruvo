@@ -30,6 +30,8 @@ const summaryColumns = {
   mode: runs.mode,
   modelPlanner: runs.modelPlanner,
   modelWorker: runs.modelWorker,
+  // The latest contract names the dataset ("Backend and AI Engineering Roles"); null until compiled.
+  title: sql<string | null>`(select ${datasetContracts.contract}->>'title' from ${datasetContracts} where ${datasetContracts.requestId} = ${runs.requestId} order by ${datasetContracts.version} desc limit 1)`,
   // llm_calls is the one record of spend: compile and plan calls are in it too, not only the run's.
   costUsd: sql<number>`coalesce((select sum(${llmCalls.costUsd}) from ${llmCalls} where ${llmCalls.runId} = ${runs.id}), 0)`.mapWith(Number),
   workflowId: runs.workflowId,
@@ -48,6 +50,7 @@ function toSummary(row: SummaryRow): RunSummary {
   return {
     id: row.id,
     prompt: row.prompt,
+    title: row.title,
     status: row.status,
     stage: row.stage,
     metrics: row.metrics,
