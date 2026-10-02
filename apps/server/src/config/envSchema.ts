@@ -35,6 +35,10 @@ const EnvSchema = z.object({
   WORKER_INLINE: flag,
   FETCH_CACHE_MODE: z.enum(["off", "ttl", "prefer_cache", "cache_only"]).default("ttl"),
   USER_AGENT: z.string().default("RUVO/0.1 (+https://github.com/aizen2006/ruvo)"),
+  /** RUVO's Scrapling fetch service (infra/scrapling), which `bun run dev` starts with your local Scrapling. */
+  SCRAPLING_URL: z.string().url().default("http://127.0.0.1:8001"),
+  /** The Python that has Scrapling installed; unset means `python` on Windows and `python3` elsewhere. */
+  SCRAPLING_PYTHON: unsetIfBlank,
 
   /** Firecrawl (optional): web search for finding sources. Without a key, RUVO plans only known and linked sources. */
   FIRECRAWL_API_KEY: unsetIfBlank,
