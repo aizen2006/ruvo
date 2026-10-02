@@ -8,17 +8,17 @@ unless noted.
 
 1. **The LLM proposes; deterministic code compiles and executes.** Models write small, typed drafts: a contract, a plan, a recipe. Code checks, clamps and expands those drafts, then runs them. A model's output never runs unchecked.
 2. **Every value carries evidence**: method, source URL, stored page, snippet, locator, a verified flag and a confidence score. A value the LLM extracted is kept only if its quoted text is found on the page.
-3. **Every AI step has a fallback**: the template planner, a rules-only decider, parsers for Hacker News posts, and local selector repair before LLM rediscovery.
-4. **Everything nondeterministic is cached.** That covers pages (per URL and transport), LLM calls (per input hash) and decisions (per task and state hash). Re-runs are therefore reproducible, a crashed run can resume by replaying from the caches, and demos can run offline.
+3. **Every AI step has a fallback**: the template planner, a rules-only decider, parsers for Hacker News posts, and local selector repair and Scrapling relocation before LLM rediscovery.
+4. **Everything nondeterministic is cached.** That covers pages (per URL and transport), web searches (per query), LLM calls (per input hash) and decisions (per task and state hash). Re-runs are therefore reproducible, a crashed run can resume by replaying from the caches, and demos can run offline.
 5. **Postgres is the only source of truth, including the job queue.** The decision provider is an accelerator: when it fails, RUVO skips it.
-6. **Fetching uses the cheapest method that works, and stays within limits.** Scrapling fetches pages with its full toolbox (Chrome impersonation, a browser, and a stealth browser that solves Cloudflare checks), moving to a stronger method only when a cheaper one fails. RUVO still follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is; `Crawl-delay` is honoured up to 10 s), applies per-host rate limits and circuit breakers, stops a source on HTTP 451, caps response size, and never logs in. A SOCKS guard checks every connection Scrapling makes, browsers included, so no request reaches a private network. Receipts record how each page was fetched.
+6. **Fetching uses the cheapest method that works, and stays within limits.** Scrapling fetches pages with its full toolbox (Chrome impersonation, a browser, and a stealth browser that solves Cloudflare checks), moving to a stronger method only when a cheaper one fails; with a key, Firecrawl reads what Scrapling could not. RUVO still follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is; `Crawl-delay` is honoured up to 10 s), applies per-host rate limits and circuit breakers, stops a source on HTTP 451, caps response size, and never logs in. A SOCKS guard checks every connection Scrapling makes, browsers included, so no request reaches a private network. Receipts record how each page was fetched.
 
 ## From request to dataset
 
 ```
-prompt ─ compile (gpt-6-sol) ─▶ DatasetContract ─ user edits while reviewing ─▶ contract vN
+prompt ─ compile (planner model) ─▶ DatasetContract ─ user edits while reviewing ─▶ contract vN
        ─ discover sources (registry, ATS auto-detect, Hacker News, linked pages, web search) ─▶ candidates
-       ─ plan (workflow memory, else gpt-6-sol, else template) ─▶ PlanDraft ─ IR compiler ─▶ WorkflowIR vN
+       ─ plan (workflow memory, else planner model, else template) ─▶ PlanDraft ─ IR compiler ─▶ WorkflowIR vN
        ─ start ─▶ worker claims the run ─▶ one branch per source (3 at a time):
             collect → [triage → extract_text] → prefilter → [enrich] → match → validate → store
             (triage and extract_text only for free-text sources, enrich only for columns the source lacks)
@@ -57,9 +57,11 @@ Edits made during review go through the same normalization. They produce a new c
 2. For job requests only, registry companies: the ones named in the request (suffixes such as "Inc" are ignored); otherwise, unless the user linked pages, those whose tags match.
 3. For job requests that ask for startups or broad coverage, the Hacker News "Who is hiring?" thread.
 
-4. With a Firecrawl key, web search (`plan/webDiscovery.ts`): always for non-job requests, and for job requests with fewer than 3 known boards and no linked page. The contract's `searchQueries` run through a cached, budgeted search runner (`search/`). Hits are classified from URL, title and snippet (one batched worker-LLM call for unclear ones) into list pages (`html_list`), single-record pages (`html_record`) and profiles on sites that forbid crawlers (`search_hits`, grouped per site). Pages robots.txt forbids are dropped.
+4. Web search (`plan/webDiscovery.ts`), when SearXNG or Firecrawl is set up: always for non-job requests, and for job requests with fewer than 3 known boards and no linked page. The contract's `searchQueries` run through a cached, budgeted search runner (`search/`). Hits are classified from URL, title and snippet (one batched worker-LLM call for unclear ones) into list pages (`html_list`), single-record pages (`html_record`) and profiles on sites that forbid crawlers (`search_hits`, grouped per site). Pages robots.txt forbids are dropped.
 
 If nothing is found, the run stops for review and says what was searched.
+
+**Web search** (`search/cache.ts`, `search/searxng.ts`, `search/firecrawl.ts`): each query goes to SearXNG first. It is the metasearch engine docker compose runs on this machine (`SEARXNG_URL`, settings in `infra/searxng/settings.yml`), asked for JSON, and it costs nothing. Firecrawl, with a key, is asked only when SearXNG fails or finds nothing; an empty answer because SearXNG's engines refused (a CAPTCHA, too many requests) counts as a failure. A live search takes one unit from the run's `searches` budget, whichever provider answers. Results are cached in `search_calls` by query and limit, so a re-run replays the same hits whichever provider gave them; the cache follows `FETCH_CACHE_MODE`. Each row records the provider and its cost (Firecrawl's credits times `FIRECRAWL_USD_PER_CREDIT`). When every provider fails, the search reports the first one's error.
 
 **Auto-detection:** a named company missing from the registry is looked up by probing slug variants on Greenhouse, Ashby, Lever and Workable. A board with postings is added to the registry.
 
@@ -79,7 +81,7 @@ The planner writes a **PlanDraft**: which candidates to include, why, how many i
 
 **Planner order:**
 1. Workflow memory is checked first (`memory/workflowMemory.ts`). A stored plan is reused when the trigram similarity (pg_trgm) of the two contract summaries is at least 0.7, at least 80% of its sources are still candidates, and the run it came from produced at least 20 valid records.
-2. Otherwise `gpt-6-sol` writes the draft.
+2. Otherwise the planner model writes the draft.
 3. If that fails, the template plan is used.
 
 **The IR compiler never trusts the draft:**
@@ -100,20 +102,23 @@ Every change the compiler makes is recorded in `provenance.warnings`.
 - `browser`: a Chromium render that waits for the network to go idle. Images, fonts and media are blocked; stylesheets load.
 - `stealth`: Scrapling's stealth browser, which solves Cloudflare checks. At most two browser or stealth fetches run at once.
 
-Page fetches go through the service. The job-board and Hacker News JSON APIs (`fetcher.json()`) and the dev demo site keep RUVO's in-process HTTP path. If the service is unreachable, the fetch fails as `service_down`; that is not retried and never counts against a site's circuit breaker.
+`POST /relocate` serves self-repair, not fetching: given the page a recipe last read, the changed page, and the recipe's item selector and fields, Scrapling's adaptive parser finds where that item and each field are on the changed page and returns their CSS paths (see Self-repair).
+
+Page fetches go through the service. The job-board and Hacker News JSON APIs (`fetcher.json()`) and the dev demo site keep RUVO's in-process HTTP path. If the service is unreachable, the fetch fails as `service_down`; that is not retried and never counts against a site's circuit breaker. A blank `SCRAPLING_URL` turns the service off: pages are then fetched in-process over plain HTTP only, and the ladder below never moves to the browser, the stealth browser or Firecrawl.
 
 **The egress guard** (`fetch/egressGuard.ts`): Scrapling's only way out is a SOCKS5 proxy run by RUVO. The guard resolves each target, checks the addresses with the same rule as `assertPublicUrl` (`fetch/ssrf.ts`), and connects only to the addresses it checked, so a DNS rebind has nothing to change. Browsers use it too, so every request a page makes is checked. In development `bun run dev` starts the guard on 127.0.0.1:1080 and the service behind it (`scripts/fetch-service.ts`).
 
 **The ladder:**
 - `http` mode: the `http` engine only.
 - `browser` mode: the `browser` engine.
-- `auto` mode: `http` first. The page goes to the browser if it has under 500 characters of text, or shows single-page-app markers with under 2,000 (`sufficiency.ts`).
+- `auto` mode: a stored copy from an earlier escalation (stealth, then browser, then Firecrawl) first, then `http`. The page goes to the browser if it has under 500 characters of text, or shows single-page-app markers with under 2,000 (`sufficiency.ts`).
 - In any mode, a bot challenge (status 403, 429 or 503 with `cf-mitigated: challenge` or a Cloudflare challenge marker in the body) goes to the `stealth` engine once.
-- HTTP 451, and any status of 400 or more left after the ladder, stop the source. A browser or stealth result with such a status, or a stealth page still showing a challenge, is an error and is never saved.
+- Last, with a Firecrawl key, Firecrawl's scrape reads a page (never a JSON API) that Scrapling could not: when the service is down, or when the stealth browser still met a bot check, a 403 or a 429. It never reads past an HTTP 451. A Firecrawl read passes the same checks and counts as a browser page in the budget; its credits are recorded in `search_calls` (keyed by the page's URL), so the run's cost and the daily budget include them. If Firecrawl fails too, the fetch fails with Scrapling's error.
+- HTTP 451, and any status of 400 or more left after the ladder, stop the source. A browser, stealth or Firecrawl result with such a status, or a stealth or Firecrawl page still showing a challenge, is an error and is never saved.
 
 **robots.txt behind a bot check:** when robots.txt itself answers with a challenge, it is read through the stealth browser, so the challenge is never mistaken for a 4xx that allows everything.
 
-**Receipts:** each page records how it was fetched in `pages.via` (`http`, `browser`, `stealth` or `search`), and each value's evidence carries it as `fetchedVia`. The receipt shows it in words, for example "Opened in a stealth browser, past a bot check".
+**Receipts:** each page records how it was fetched in `pages.via` (`http`, `browser`, `stealth`, `firecrawl` or `search`), and each value's evidence carries it as `fetchedVia`. The receipt shows it in words, for example "Opened in a stealth browser, past a bot check" or "Read through Firecrawl".
 
 ### Pages and recipes (`page/`, `recipes/`)
 
@@ -179,10 +184,13 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 1. **Classify** (`classify.ts`): `SELECTOR_MISS` or `PARTIAL_FILL`. If the page came back with almost no text, it is `EMPTY_RENDER` instead.
 2. **Choose an action** (`policy.ts`, the `REPAIR_ACTION` task):
    - Clear cases are settled by rules: blocked → stop; empty over HTTP → switch to the browser; a transient error → retry.
-   - Selector problems go to the decider, which weighs a cheap local fix against rediscovery.
-3. **Repair**:
-   - **Local fix** (`relax.ts`): turn generated class names into prefix matches, try the page's repeated groups as the item selector, and fall back to generic places for the title (headings) and url (links). It is accepted only if it passes the recipe's acceptance checks.
+   - Selector problems go to the decider, which weighs a cheap fix (`CHANGE_SELECTOR`) against rediscovery (`ESCALATE`).
+3. **Repair**, cheapest first. `CHANGE_SELECTOR` tries the local fix, then Scrapling relocation, then LLM rediscovery. `ESCALATE` skips the local fix but still tries relocation before the LLM, except for an `EMPTY_RENDER`, where there is nothing on the page to search.
+   - **Local fix** (`relax.ts`): turn generated class names into prefix matches, try the page's repeated groups as the item selector, and fall back to generic places for the title (headings) and url (links).
+   - **Scrapling relocation** (`relocate.ts`): the fetch service's `POST /relocate` gets the last page the recipe read and the changed page. The last page read is the newest stored copy of the URL that records cite as `DOM` evidence and that the recipe still reads (cited pages are never pruned). Scrapling's adaptive parser finds the recipe's item and each field on the changed page, and RUVO writes selectors for them the way discovery does. No AI is used. It is skipped without the fetch service or such a page: a recipe that never worked, such as a simulated drift, has none.
    - **LLM rediscovery**: the LLM is given the failure report and the previous recipe.
+
+   Every fix is accepted only if it passes the recipe's acceptance checks. A fix made without the LLM is saved with origin `local_repair`, and the run's activity says which way it was found.
 4. **Record**: the fix is saved as recipe v+1, with the broken version as its parent. The run then saves workflow v+1 (`plannedBy: "repair"`) listing what changed, and later re-runs start from it.
 
 **Demo triggers:**
@@ -193,11 +201,25 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 
 **Modes** (`runs/modes.ts`): a run is Quick, Balanced or Thorough. The mode picks the planner and worker models (unless the user chose them) and sets the budgets. The environment's `MAX_*` values are ceilings no mode exceeds. The models are stored on the run; `scopeLlm` (`llm/client.ts`) gives compile, plan and every in-run call the run's models, and tags each call with the run id.
 
-**Budgets:** each run has page, browser-page and LLM-call budgets. Steps ask the budget before spending, and when it refuses, they degrade instead of failing the run. The first refusal of each budget is announced in Activity.
+**Budgets:** each run has page, browser-page, LLM-call and web-search budgets. Steps ask the budget before spending, and when it refuses, they degrade instead of failing the run. The first refusal of each budget is announced in Activity.
 
 **Time limit:** the run's time limit (from its mode) stops slow work such as collection and enrichment. Records that were already gathered still go through match, validate and store.
 
-**Cost:** `llm_calls` is the one record of spend. A run's `costUsd` is the sum of its calls, understanding and planning included. `estimateRunCost` (`packages/contracts/src/options.ts`) is shared by the server and the dashboard. It turns a mode's models and AI-call budget into a typical figure and an upper figure, using token averages measured from real runs.
+**Cost:** `llm_calls` and `search_calls` are the record of spend. A run's `costUsd` is the sum of its AI calls (understanding and planning included) and its Firecrawl searches and page reads. `DAILY_BUDGET_USD` adds up the same rows over the last 24 hours. `estimateRunCost` (`packages/contracts/src/options.ts`) is shared by the server and the dashboard. It turns a mode's models and AI-call budget into a typical figure and an upper figure, using token averages measured from real runs.
+
+### The AI account (`llm/client.ts`, `llm/models.ts`)
+
+`AI_ACCOUNT` says how RUVO reaches OpenAI's models. `openaiFor` builds the one OpenAI SDK client that every call and the doctor use:
+
+- **`api_key`** (the default): OpenAI's API with `OPENAI_API_KEY`. Calls are priced from the list prices in `llm/models.ts`.
+- **`chatgpt`**: the user's ChatGPT plan, through the openai-oauth sign-in server at `OPENAI_OAUTH_URL` (default `http://127.0.0.1:10531/v1`). The server holds the ChatGPT session, so RUVO sends it no key. openai-oauth is unofficial: it reuses the Codex CLI's sign-in.
+
+Each account has its own default models (`ACCOUNT_MODELS` in `config/envSchema.ts`): `gpt-6-sol` and `gpt-6-luna` with an API key; `gpt-5.6-terra` and `gpt-6-luna` on a ChatGPT plan, which doesn't offer `gpt-6-sol`. `MODEL_PLANNER` and `MODEL_WORKER` override them. On a ChatGPT plan:
+
+- `GET /api/options` lists the plan's own models with no prices, and the dashboard shows "Included in your ChatGPT plan" instead of dollar estimates.
+- Every call costs $0, and `DAILY_BUDGET_USD` is ignored.
+- A usage-limit or rate-limit reply counts as a spent AI budget (`chatgptFailure`): the run's remaining AI calls are used up, so later steps carry on without AI and Activity says so. During understanding, which has no run budget to spend, it fails the run.
+- An unreachable sign-in server fails the call with a message that says how to start it.
 
 ## Data model (`db/schema.ts`)
 
@@ -208,14 +230,14 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 | `workflows` | IR versions with parent and reused-from links and the PlanDraft |
 | `runs` | Status, stage, mode and models, attempt, heartbeat, metrics, quality report, diff, error |
 | `run_events` | The run's activity feed, numbered per run |
-| `pages` | Fetched pages: the fetch cache and the evidence snapshots |
+| `pages` | Fetched pages and how each was fetched (`via`): the fetch cache and the evidence snapshots |
 | `records` | One row per item, with status, scores, signals, dedupe keys |
 | `evidence` | One row per field value, with method, locator, snippet, confidence |
 | `recipes` | Versioned page recipes with parent, origin and usage stats |
 | `registry_companies` | Curated and auto-detected job boards |
 | `decisions` | Every judgement, with the tier that made it (also the decision cache) |
 | `llm_calls` | Every LLM call with tokens and cost (also the LLM cache) |
-| `search_calls` | Every web search with its results and cost (also the search cache) |
+| `search_calls` | Every web search (SearXNG or Firecrawl) and Firecrawl page read, with its provider, results and cost (also the search cache) |
 | `workflow_memory` | Plans from good runs, with the contract summary they are matched on |
 
 Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan next to a canonical summary of its contract, and pg_trgm's `similarity()` finds the closest one, so no embedding model or vector database is needed.
@@ -224,7 +246,7 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 
 | Route | Purpose |
 |---|---|
-| `GET /api/options` | Modes with their budgets, and the models on offer with prices |
+| `GET /api/options` | Modes with their budgets, the AI account, and the models on offer with prices |
 | `POST /api/runs` | Create a run from a prompt (`mode`, optional `models`, `autoStart`, `Idempotency-Key`) |
 | `GET /api/runs`, `GET /api/runs/:id` | History and run detail |
 | `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet) |

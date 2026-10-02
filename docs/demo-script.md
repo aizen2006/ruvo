@@ -115,7 +115,11 @@ For a real redesign, switch the site's markup (same URL, new HTML), then press *
 curl -X POST localhost:3000/fixtures/careers/version -H 'content-type: application/json' -d '{"version":2}'
 ```
 
-This time the local fix fails the acceptance checks, because the location moved. RUVO asks the LLM to rediscover the recipe and sends the failure report with the request. The result is saved as *Rediscovered by AI*.
+This time the local fix fails the acceptance checks, because the location moved. With the fetch service running, Scrapling re-finds the recipe's items and fields on the new page, starting from the last page the recipe read (the one `seed:demo` left behind), so no LLM is needed:
+
+- `recipe … re-found its fields with Scrapling from the last page it read, no LLM needed`
+
+The recipe history labels the new version *Repaired locally, no AI*. Without the fetch service, RUVO asks the LLM to rediscover the recipe instead and sends the failure report with the request. That result is saved as *Rediscovered by AI*.
 
 ## 9. Plan reuse (30 s)
 
@@ -139,4 +143,5 @@ Close by recapping the path: a plain request, then a plan you can check, then a 
 | The live run is slow | Switch to the golden-run tab from `seed:demo`. |
 | Jev errors or is slow | `DECIDER_PROVIDER=off`; Decisions then shows rules and the LLM judge only. |
 | No network | `FETCH_CACHE_MODE=cache_only`, `LLM_CACHE_MODE=cache_only` (after seeding). |
+| On a ChatGPT plan, Activity says the AI call budget was used up early | The plan's usage limit was reached. The run carries on without AI; wait for the limit to reset, or switch to an API key. |
 | The Northwind recipe is in an odd state after rehearsals | Run `bun run seed:demo` again. It resets the site to version 1 and re-runs the Northwind request, which repairs a stale recipe as a side effect. |

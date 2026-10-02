@@ -189,7 +189,11 @@ The default screens use this vocabulary (`packages/contracts/src/plain.ts`, re-e
 | fetched via `browser` | Opened in a browser |
 | fetched via `stealth` | Opened in a stealth browser, past a bot check |
 | fetched via `search` | From search results |
-| budgets, LLM calls | "up to N pages", dollars |
+| fetched via `firecrawl` | Read through Firecrawl |
+| status line: a page moves to the browser | Opening a page in a browser, because it needs one |
+| status line: a page moves to the stealth browser | Opening a page in the stealth browser to get past a bot check |
+| status line: a page moves to Firecrawl | Reading a page through Firecrawl, because Scrapling couldn't |
+| budgets, LLM calls | "up to N pages", dollars (on a ChatGPT plan: Included in your ChatGPT plan) |
 | planner / worker model | the model that **understands your request** / **reads the pages** |
 | workflow, recipes, decisions, events | behind **Show details** |
 

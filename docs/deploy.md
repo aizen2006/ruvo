@@ -1,13 +1,16 @@
 # Deploying RUVO
 
 `docker-compose.prod.yml` runs the whole stack on one machine with Docker: Postgres, a one-shot
-migration, the API (port 3000), the run worker, the dashboard (port 3001), and two containers
-for fetching:
+migration, the API (port 3000), the run worker, the dashboard (port 3001), two containers for
+fetching, and one for web search:
 
 - **`scrapling`**, the fetch service, built from `infra/scrapling/Dockerfile`. The worker sends it
   every page fetch.
 - **`egress`**, the guard (`bun src/fetch/egressGuard.ts`), a SOCKS proxy that refuses any
   connection to a private address and connects only to the address it checked.
+- **`searxng`**, the web search that finds sources. It publishes no port; the worker reaches it
+  at `http://searxng:8080`. `SEARXNG_SECRET` in `.env` is optional: without it, SearXNG gets a
+  new random secret at each start, and nothing it keeps needs the same one.
 
 The fetch service sits on an internal network with the guard, so the guard is its only way out.
 
@@ -24,6 +27,16 @@ succeeds. Any other server setting from `apps/server/.env.example` can go in the
 **`NEXT_PUBLIC_API_URL`** is the API's address as the browser reaches it (for example
 `https://api.example.com`). It is baked into the dashboard when the image builds, so after
 changing it rebuild with `up -d --build`.
+
+**The AI account** here is an OpenAI API key. `AI_ACCOUNT=chatgpt` is for a machine where the
+ChatGPT sign-in server (`bunx openai-oauth --detach`) runs next to RUVO: it listens on
+127.0.0.1, which the containers can't reach. Use it with `bun run dev` on your own computer.
+
+**A host without Scrapling.** This compose file always runs the fetch service. If you run the
+server some other way, on a host where Scrapling can't run, set `SCRAPLING_URL` blank. Pages
+are then read with plain requests only, with no browser or stealth browser, and Firecrawl doesn't
+step in either. A site with a bot check stops its source, and self-repair skips the Scrapling
+step.
 
 ## Updating
 
@@ -54,7 +67,7 @@ with HTTPS and authentication (or a VPN), and don't publish Postgres.
 
 ## Operations
 
-- **Logs:** `docker compose -f docker-compose.prod.yml logs -f api worker scrapling egress`
+- **Logs:** `docker compose -f docker-compose.prod.yml logs -f api worker scrapling egress searxng`
 - **Health:** `GET /health` on the API returns 200 while it can reach the database.
 - **Backups:** `docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U ruvo ruvo > ruvo.sql`.
   Postgres holds everything, remembered plans included.
