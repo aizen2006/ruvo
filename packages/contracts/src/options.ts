@@ -16,6 +16,21 @@ export type ModelChoice = z.infer<typeof ModelChoice>;
 export const AiAccount = z.enum(["api_key", "chatgpt"]);
 export type AiAccount = z.infer<typeof AiAccount>;
 
+/** GET /api/chatgpt (not served in production): the ChatGPT sign-in on the API's machine, for Settings. It never carries a token. */
+export const ChatgptSignIn = z.object({
+  account: AiAccount,
+  /** A sign-in is saved on this machine (openai-oauth's auth.json). */
+  signedIn: z.boolean(),
+  /** The email the saved sign-in names. */
+  email: z.string().optional(),
+  /** The sign-in server answers at OPENAI_OAUTH_URL with the plan's `models`. */
+  serverRunning: z.boolean(),
+  models: z.array(z.string()),
+  /** Set while a sign-in started from the dashboard is in progress: OpenAI's login page for it. */
+  loginUrl: z.string().optional(),
+});
+export type ChatgptSignIn = z.infer<typeof ChatgptSignIn>;
+
 export const ModeBudgets = z.object({
   maxPages: z.number(),
   maxBrowserPages: z.number(),

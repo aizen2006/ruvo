@@ -41,6 +41,8 @@ const EnvSchema = z.object({
   OPENAI_API_KEY: unsetIfBlank,
   /** The sign-in server `bunx openai-oauth --detach` starts; used only with AI_ACCOUNT=chatgpt. */
   OPENAI_OAUTH_URL: z.string().url().default("http://127.0.0.1:10531/v1"),
+  /** The folder openai-oauth saves the ChatGPT sign-in in (auth.json), as for the Codex CLI; unset means ~/.codex. */
+  CODEX_HOME: unsetIfBlank,
   /** Unset: the AI account's default (ACCOUNT_MODELS). */
   MODEL_PLANNER: unsetIfBlank,
   MODEL_WORKER: unsetIfBlank,

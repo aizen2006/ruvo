@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import { chatgptRouter } from "./api/chatgpt.routes";
 import { datasetsRouter } from "./api/datasets.routes";
 import { optionsRouter } from "./api/options.routes";
 import { recipesRouter } from "./api/recipes.routes";
@@ -32,6 +33,8 @@ export function createApp() {
   app.use("/api/recipes", recipesRouter);
   // Fictional demo site for self-repair demos; not served in production.
   if (process.env.NODE_ENV !== "production") app.use("/fixtures", careersSite);
+  // Signing in with ChatGPT from the dashboard starts programs on this machine; not served in production either.
+  if (process.env.NODE_ENV !== "production") app.use("/api/chatgpt", chatgptRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
