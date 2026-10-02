@@ -70,15 +70,14 @@ You need **Bun 1.4.2+**, **Node 24+**, **Docker** (it runs Postgres and SearXNG)
 Scrapling**, and either an **OpenAI API key** or a **ChatGPT plan**. A TypeSafe key for Jev is
 optional; without one, rules and the LLM judge make the calls.
 
-Install Scrapling with its extras, then its browsers:
+Install Scrapling with its extras, then the browsers it drives:
 
 ```bash
-pip install "scrapling[all]"
-scrapling install
-python -c "import importlib.metadata as m; print(m.metadata('scrapling').get_all('Provides-Extra'))"
+pip install "scrapling[all]"   # Scrapling, its fetchers, and the small web server RUVO's fetch service uses
+scrapling install              # Scrapling's Chromium and stealth browser
 ```
 
-The last line checks that the extras exist; its list should include `fetchers`. Then:
+RUVO runs Scrapling on your machine, not in Docker. Then:
 
 ```bash
 git clone https://github.com/aizen2006/ruvo && cd ruvo
@@ -144,7 +143,7 @@ All settings live in `apps/server/.env`. The template lists every variable with 
 | `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna`; with `chatgpt`, `gpt-5.6-terra`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
 | `SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG runs somewhere else. Blank turns it off; web search then needs a Firecrawl key. |
 | `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want a backup for when SearXNG fails or finds nothing, and a last way to read pages Scrapling can't. Its credits count in each run's cost. `MAX_SEARCHES` caps the searches per run. |
-| `SCRAPLING_URL` | `http://127.0.0.1:8001` | Port 8001 is taken, or the fetch service runs elsewhere. `bun run dev` starts the service on this URL's port. |
+| `SCRAPLING_URL` | `http://127.0.0.1:8001` | Port 8001 is taken, or the fetch service runs elsewhere. `bun run dev` starts the service on this URL's port. Blank turns Scrapling off: pages are read with plain requests only (no browser, no stealth), for a server without Python. |
 | `SCRAPLING_PYTHON` | `python` on Windows, `python3` elsewhere | The Python that has Scrapling installed is another one, such as a virtualenv's. |
 | `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
 
@@ -172,7 +171,7 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 | `bun run doctor` | Checks Postgres, both models through your AI account (the API key, or the ChatGPT sign-in server), the decision provider, Scrapling and the fetch service, and a JSON search on SearXNG. The fetch service or SearXNG, when off or not running yet, is a "skip", not a failure |
 | `bun run dev` | API, worker, fetch service and dashboard, with reload |
 | `bun run check-types` | TypeScript across every package |
-| `cd apps/server && bun test` | 400+ tests against a throwaway `ruvo_test` database (Postgres must be up). Run it from `apps/server` so `.env.test` applies. |
+| `cd apps/server && bun test` | About 520 tests against a throwaway `ruvo_test` database (Postgres must be up; nothing else). Run it from `apps/server` so `.env.test` applies. |
 | `bun run --filter server eval` | Golden prompts with checks on each compiled contract; run it after changing a prompt |
 | `bun run --filter server e2e` | The example request end to end against the running stack, then a re-run |
 | `bun run --filter server seed:demo` | Warms the caches with the demo requests and resets the demo site |
