@@ -144,6 +144,7 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 | `bun run --filter server seed:demo` | Warms the caches with the demo requests and resets the demo site |
 | `bun run --filter server calibrate` | Re-derives Jev's confidence bands from a finished run (writes `src/decide/calibration.json`) |
 | `bun run --filter server probe:registry` | Re-verifies the curated job boards (rewrites `src/plan/data/companies.json`) |
+| `bun run --filter server prune` | Frees space: deletes stored pages older than 30 days (`--days N`) that no record cites, and duplicate LLM outputs |
 
 ## How it's built
 

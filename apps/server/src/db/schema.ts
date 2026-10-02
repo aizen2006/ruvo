@@ -169,7 +169,7 @@ export const evidence = pgTable(
     confidence: real("confidence").notNull(),
     capturedAt: timestamp("captured_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [index("evidence_record_idx").on(t.recordId)],
+  (t) => [index("evidence_record_idx").on(t.recordId), index("evidence_page_idx").on(t.pageId)],
 );
 
 export const recipes = pgTable(

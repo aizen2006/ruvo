@@ -88,7 +88,8 @@ export function createLlmClient(opts: {
         if (hit) {
           const parsed = req.schema.safeParse(hit.output);
           if (parsed.success) {
-            await log({ output: hit.output, cached: true });
+            // The output stays on the row that answered first; a hit only records that it was reused.
+            await log({ cached: true });
             return { data: parsed.data, cached: true, model, usage: { tokensIn: 0, tokensOut: 0, costUsd: 0 } };
           }
         }

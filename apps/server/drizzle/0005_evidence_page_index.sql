@@ -1,0 +1,1 @@
+CREATE INDEX "evidence_page_idx" ON "evidence" USING btree ("page_id");
