@@ -6,20 +6,22 @@ const flag = z
   .transform((v) => v === "true");
 
 /** Treats empty strings as "not set" so blank lines copied from .env.example don't fail validation. */
-const optionalSecret = z
+const unsetIfBlank = z
   .string()
   .optional()
   .transform((v) => (v ? v : undefined));
 
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
+  /** Interface the API listens on; unset means this machine only, or every interface in production (a container). */
+  HOST: unsetIfBlank,
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.string().default("info"),
 
   DATABASE_URL: z.string().url(),
   QDRANT_URL: z.string().url().default("http://localhost:6333"),
 
-  OPENAI_API_KEY: optionalSecret,
+  OPENAI_API_KEY: unsetIfBlank,
   MODEL_PLANNER: z.string().default("gpt-6-sol"),
   MODEL_WORKER: z.string().default("gpt-6-luna"),
   EMBED_MODEL: z.string().default("text-embedding-3-small"),
@@ -28,7 +30,7 @@ const EnvSchema = z.object({
   DECIDER_PROVIDER: z.enum(["jev", "laya", "off"]).default("jev"),
   DECIDER_BASE_URL: z.string().url().default("https://api.typesafe.ai"),
   DECIDER_MODEL: z.string().default("jev-1.13.0"),
-  TYPESAFE_API_KEY: optionalSecret,
+  TYPESAFE_API_KEY: unsetIfBlank,
   /** off: never ask the decision model; shadow: ask and log, but don't act; active: act on confident answers. */
   DECIDER_MODE: z.enum(["off", "shadow", "active"]).default("active"),
 
@@ -37,7 +39,7 @@ const EnvSchema = z.object({
   USER_AGENT: z.string().default("RUVO/0.1 (+https://github.com/aizen2006/ruvo)"),
 
   /** Firecrawl (optional): web search for finding sources. Without a key, RUVO plans only known and linked sources. */
-  FIRECRAWL_API_KEY: optionalSecret,
+  FIRECRAWL_API_KEY: unsetIfBlank,
   FIRECRAWL_BASE_URL: z.string().url().default("https://api.firecrawl.dev"),
   /** USD per Firecrawl credit, for cost estimates (Hobby: ~$16/5k credits). */
   FIRECRAWL_USD_PER_CREDIT: z.coerce.number().nonnegative().default(0.0032),

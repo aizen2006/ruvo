@@ -11,8 +11,10 @@ import { startWorker } from "./runs/worker";
 
 await bootstrap();
 
-const server = createApp().listen(env.PORT, () => {
-  logger.info("API server started", { port: env.PORT, environment: env.NODE_ENV });
+// Inside a container (production) the port mapping decides who can reach the API.
+const host = env.HOST ?? (env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
+const server = createApp().listen(env.PORT, host, () => {
+  logger.info("API server started", { host, port: env.PORT, environment: env.NODE_ENV });
 });
 
 // Single-process mode: run the worker loop alongside the API (see WORKER_INLINE).
