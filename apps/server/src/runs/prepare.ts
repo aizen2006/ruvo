@@ -25,7 +25,7 @@ const THIN_JOB_SOURCES = 3;
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
  * Ends in review (awaiting_approval) unless the run was created with autoStart.
- * With `web` (Firecrawl configured), sources are also found by searching the web.
+ * With `web` (SearXNG, Firecrawl or both configured), sources are also found by searching the web.
  */
 export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmClient; memory?: WorkflowMemory; web?: WebSearch | null }): RunPreparer => async (run, signal) => {
   const bus = createEventBus(run.id, { startSeq: await nextEventSeq(run.id) });
@@ -132,7 +132,7 @@ async function prepareMore(
   run: ClaimedRun,
   { llm, web, bus, stage, signal }: { llm: LlmClient; web: WebSearch | null; bus: EventBus; stage: StageFn; signal: AbortSignal },
 ) {
-  if (!web) throw new Error("Finding more needs web search, which is not set up (FIRECRAWL_API_KEY)");
+  if (!web) throw new Error("Finding more needs web search, which is not set up (SEARXNG_URL or FIRECRAWL_API_KEY)");
   const current = await getRunWorkflow(run.id);
   const { contract, ir } = current;
 

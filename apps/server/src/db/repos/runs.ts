@@ -32,7 +32,7 @@ const summaryColumns = {
   modelWorker: runs.modelWorker,
   // The latest contract names the dataset ("Backend and AI Engineering Roles"); null until compiled.
   title: sql<string | null>`(select ${datasetContracts.contract}->>'title' from ${datasetContracts} where ${datasetContracts.requestId} = ${runs.requestId} order by ${datasetContracts.version} desc limit 1)`,
-  // Total spend for the run: AI calls plus Firecrawl searches, both attributed by run_id.
+  // Total spend for the run: AI calls plus Firecrawl searches and page reads, all attributed by run_id.
   costUsd: sql<number>`
     coalesce((select sum(${llmCalls.costUsd}) from ${llmCalls} where ${llmCalls.runId} = ${runs.id}), 0)
     + coalesce((select sum(${searchCalls.costUsd}) from ${searchCalls} where ${searchCalls.runId} = ${runs.id}), 0)`.mapWith(Number),

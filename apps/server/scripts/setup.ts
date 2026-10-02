@@ -1,7 +1,7 @@
 /**
  * Local setup, safe to re-run: `bun run setup` from the repo root.
  * Creates the env files from their templates, checks that Python can run the Scrapling fetch service,
- * starts Postgres, applies migrations, then checks every dependency (`bun run doctor`).
+ * starts Postgres and SearXNG, applies migrations, then checks every dependency (`bun run doctor`).
  */
 import { $ } from "bun";
 import { existsSync } from "node:fs";
@@ -12,7 +12,7 @@ const root = join(import.meta.dir, "..", "..", "..");
 const server = join(root, "apps", "server");
 
 const envFiles = [
-  { template: join(server, ".env.example"), target: join(server, ".env"), note: "set OPENAI_API_KEY in it" },
+  { template: join(server, ".env.example"), target: join(server, ".env"), note: "set OPENAI_API_KEY in it, or AI_ACCOUNT=chatgpt to sign in with ChatGPT instead (see the README)" },
   { template: join(root, "apps", "web", ".env.example"), target: join(root, "apps", "web", ".env.local"), note: "" },
 ];
 for (const { template, target, note } of envFiles) {
@@ -29,7 +29,7 @@ if (scrapling.exitCode !== 0) {
   console.log(`\nThe fetch service needs Scrapling in ${python}: pip install "scrapling[all]", then scrapling install`);
 }
 
-console.log("\nStarting Postgres...");
+console.log("\nStarting Postgres and SearXNG...");
 await $`docker compose up -d --wait`.cwd(root);
 console.log("\nApplying migrations...");
 await $`bun run db:migrate`.cwd(server);

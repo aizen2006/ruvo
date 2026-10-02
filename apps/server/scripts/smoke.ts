@@ -1,6 +1,8 @@
 /**
- * Verifies every external dependency RUVO needs: `bun run smoke`.
- * Checks that need a missing API key, or the fetch service while it isn't running, are reported as "skip", not failures.
+ * Verifies every external dependency RUVO needs: `bun run smoke` (`bun run doctor` from the repo root).
+ * Postgres; both models through the AI account (OpenAI's API, or the ChatGPT sign-in server); the decision
+ * provider; Scrapling and the fetch service; SearXNG. Checks that need a missing API key, a service turned off
+ * with a blank URL, or the fetch service or SearXNG while it isn't running, are reported as "skip", not failures.
  */
 import { $, SQL } from "bun";
 import { zodTextFormat } from "openai/helpers/zod";

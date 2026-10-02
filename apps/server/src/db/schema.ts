@@ -120,6 +120,7 @@ export const pages = pgTable(
     finalUrl: text("final_url").notNull(),
     host: text("host").notNull(),
     // "stealth": opened in Scrapling's stealth browser, past a bot check.
+    // "firecrawl": read through Firecrawl's scrape, because Scrapling could not read it.
     // "search": a search result's title and snippet, kept as evidence (the page itself is never fetched).
     via: text("via").$type<PageVia>().notNull(),
     status: integer("status").notNull(),
@@ -254,7 +255,10 @@ export const llmCalls = pgTable(
   (t) => [index("llm_calls_hash_idx").on(t.inputHash), index("llm_calls_run_idx").on(t.runId)],
 );
 
-/** Firecrawl search results: a cache (so re-runs are free and reproducible) and the record of spend. */
+/**
+ * Web searches (SearXNG, or Firecrawl as the backup) and Firecrawl page reads, with the provider that answered:
+ * a cache of search results (so re-runs are free and reproducible) and the record of Firecrawl spend.
+ */
 export const searchCalls = pgTable(
   "search_calls",
   {
