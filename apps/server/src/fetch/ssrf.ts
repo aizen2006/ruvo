@@ -1,3 +1,4 @@
+import type { LookupAddress } from "node:dns";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { FetchError } from "./errors";
@@ -17,25 +18,35 @@ export async function assertPublicUrl(rawUrl: string): Promise<URL> {
   if (url.protocol !== "http:" && url.protocol !== "https:") {
     throw new FetchError("ssrf_blocked", `Unsupported scheme ${url.protocol}`, { url: rawUrl });
   }
-
-  const host = url.hostname.replace(/^\[|\]$/g, "");
-  const addresses = isIP(host) ? [host] : (await lookup(host, { all: true }).catch(() => [])).map((a) => a.address);
-  if (addresses.length === 0) {
-    throw new FetchError("network", `Could not resolve ${host}`, { url: rawUrl });
-  }
-  const internal = addresses.find(isInternalAddress);
-  if (internal) {
-    throw new FetchError("ssrf_blocked", `${host} resolves to internal address ${internal}`, { url: rawUrl });
-  }
+  await publicAddresses(url.hostname, rawUrl);
   return url;
+}
+
+/**
+ * The addresses a host (a name or an IP literal) resolves to, all checked: throws "network" when it
+ * does not resolve and "ssrf_blocked" when any address is internal. A connection made only to these
+ * addresses (the egress guard's) leaves DNS rebinding no second lookup to change.
+ */
+export async function publicAddresses(hostname: string, url = hostname): Promise<LookupAddress[]> {
+  const host = hostname.replace(/^\[|\]$/g, "");
+  const family = isIP(host);
+  const addresses = family ? [{ address: host, family }] : await lookup(host, { all: true }).catch(() => []);
+  if (addresses.length === 0) {
+    throw new FetchError("network", `Could not resolve ${host}`, { url });
+  }
+  const internal = addresses.find((a) => isInternalAddress(a.address));
+  if (internal) {
+    throw new FetchError("ssrf_blocked", `${host} resolves to internal address ${internal.address}`, { url });
+  }
+  return addresses;
 }
 
 /** True when the host (a name or an IP literal) resolves to an internal address, or cannot be resolved. */
 export async function resolvesInternally(hostname: string): Promise<boolean> {
-  const host = hostname.replace(/^\[|\]$/g, "");
-  if (isIP(host)) return isInternalAddress(host);
-  const addresses = (await lookup(host, { all: true }).catch(() => [])).map((a) => a.address);
-  return addresses.length === 0 || addresses.some(isInternalAddress);
+  return publicAddresses(hostname).then(
+    () => false,
+    () => true,
+  );
 }
 
 export function isInternalAddress(address: string): boolean {
@@ -52,8 +63,12 @@ export function isInternalAddress(address: string): boolean {
   if (h[0] === 0x64 && h[1] === 0xff9b && zeros(2, 6)) return v4(h[6]!, h[7]!); // NAT64 64:ff9b::/96
   if (h[0] === 0x2002) return v4(h[1]!, h[2]!); // 6to4 2002::/16
   return (
+    (zeros(0, 4) && h[4] === 0xffff && h[5] === 0) || // IPv4-translated ::ffff:0:0:0/96
+    (h[0] === 0x64 && h[1] === 0xff9b && h[2] === 1) || // local-use NAT64 64:ff9b:1::/48
+    (h[0] === 0x2001 && h[1] === 0) || // Teredo 2001::/32
     (h[0]! & 0xfe00) === 0xfc00 || // unique local fc00::/7
     (h[0]! & 0xffc0) === 0xfe80 || // link-local fe80::/10
+    (h[0]! & 0xffc0) === 0xfec0 || // site-local fec0::/10 (deprecated)
     h[0]! >= 0xff00 // multicast
   );
 }
@@ -76,7 +91,7 @@ function ipv6Hextets(address: string): number[] | null {
 }
 
 function isInternalV4(address: string): boolean {
-  const [a = 0, b = 0] = address.split(".").map(Number);
+  const [a = 0, b = 0, c = 0] = address.split(".").map(Number);
   return (
     a === 0 || // "this" network
     a === 10 ||
@@ -84,7 +99,9 @@ function isInternalV4(address: string): boolean {
     (a === 100 && b >= 64 && b <= 127) || // carrier-grade NAT
     (a === 169 && b === 254) || // link-local, incl. cloud metadata 169.254.169.254
     (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 0 && c === 0) || // IETF protocol assignments 192.0.0.0/24
     (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) || // benchmarking 198.18.0.0/15
     a >= 224 // multicast and reserved
   );
 }
