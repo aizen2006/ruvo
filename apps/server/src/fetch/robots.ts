@@ -2,7 +2,7 @@ import robotsParser from "robots-parser";
 import { readCapped } from "./readCapped";
 import { STEALTH_TIMEOUT_MS, type ScraplingClient } from "./scrapling";
 import { resolvesInternally } from "./ssrf";
-import { isBotChallenge } from "./sufficiency";
+import { hasChallengeMarkers, isBotChallenge } from "./sufficiency";
 
 type RobotsRules = { isAllowed(url: string): boolean; crawlDelayMs: number };
 
@@ -91,5 +91,7 @@ async function readPastBotCheck(scrapling: ScraplingClient, url: string) {
     { url, engine: "stealth", timeoutMs: STEALTH_TIMEOUT_MS, maxBytes: MAX_ROBOTS_BYTES },
     AbortSignal.timeout(STEALTH_TIMEOUT_MS),
   );
+  // Still behind the bot check, the rules were never seen: unreachable, not a 4xx or a rule-less page that allows everything.
+  if (page.status >= 400 || hasChallengeMarkers(page.body)) throw new Error(`${url} still shows a bot check (HTTP ${page.status})`);
   return { status: page.status, text: page.body };
 }

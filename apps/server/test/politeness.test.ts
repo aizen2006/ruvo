@@ -109,13 +109,13 @@ describe("robots.txt (RFC 9309)", () => {
     const server = Bun.serve({ port: 0, fetch: () => new Response("Just a moment...", { status: 403, headers: { "cf-mitigated": "challenge" } }) });
     const base = `http://127.0.0.1:${server.port}`;
     afterAll(() => server.stop());
-    /** A fake Scrapling service that answers the stealth engine with `read`. */
-    const stealthReading = (read: () => Promise<string>) => {
+    /** A fake Scrapling service that answers the stealth engine with `read`, in a reply of `status`. */
+    const stealthReading = (read: () => Promise<string>, status = 200) => {
       const asked: string[] = [];
       const scrapling: ScraplingClient = {
         async fetch({ url, engine }) {
           asked.push(`${engine} ${url}`);
-          return { status: 200, url, headers: {}, body: await read() };
+          return { status, url, headers: {}, body: await read() };
         },
         async relocate() {
           throw new Error("unexpected relocate");
@@ -136,6 +136,14 @@ describe("robots.txt (RFC 9309)", () => {
         throw new FetchError("network", "timed out", { url: base });
       });
       expect((await robots.check(`${base}/public`)).allowed).toBe(false);
+    });
+
+    test("disallows everything when the stealth read still shows the bot check", async () => {
+      // Neither a 403 nor a challenge page with no rules in it may pass for a robots.txt that allows everything.
+      const refused = stealthReading(async () => "Forbidden", 403);
+      const challenged = stealthReading(async () => "<html><title>Just a moment...</title></html>");
+      expect((await refused.robots.check(`${base}/public`)).allowed).toBe(false);
+      expect((await challenged.robots.check(`${base}/public`)).allowed).toBe(false);
     });
   });
 });
