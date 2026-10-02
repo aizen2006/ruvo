@@ -38,6 +38,8 @@ SKIPPED_RESOURCES = {"image", "font", "media"}
 WEBRTC_FLAGS = ["--webrtc-ip-handling-policy=disable_non_proxied_udp", "--force-webrtc-ip-handling-policy"]
 # curl error 97 with SOCKS reply 2: the guard refused the connection by rule.
 GUARD_REFUSED = re.compile(r"SOCKS5 connection to \S+\. \(2\)")
+# A browser's navigation error for any SOCKS reply but success: the guard refused the address, or could not reach it.
+SOCKS_FAILED = "net::ERR_SOCKS_CONNECTION_FAILED"
 # Similarity (%) a relocated field must reach. Scrapling's default, 40, misses the demo careers redesign, which moves
 # the location into a list item scoring 33.8; the closest element to a field that is gone there scores 27.5.
 FIELD_SCORE = 30
@@ -93,10 +95,13 @@ async def fetch_page(url: str, engine: str, timeout_ms: int, accept: str | None)
         )
 
 
-def failure_kind(e: Exception) -> str:
+def failure(e: Exception) -> tuple[str, str]:
+    """A failed fetch as RUVO's client reads it: its kind and message."""
     if getattr(e, "code", None) == 97 and GUARD_REFUSED.search(str(e)):
-        return "blocked"
-    return "timeout" if "Timeout" in type(e).__name__ else "network"
+        return "blocked", str(e)
+    if SOCKS_FAILED in str(e):
+        return "blocked", "the connection was refused by RUVO's private-network guard, or the host could not be reached"
+    return ("timeout" if "Timeout" in type(e).__name__ else "network"), str(e)
 
 
 async def client_disconnected(request: Request) -> None:
@@ -130,7 +135,8 @@ async def fetch(request: Request) -> Response:
     try:
         page = fetching.result()
     except Exception as e:
-        return JSONResponse({"error": failure_kind(e), "message": str(e)}, 502)
+        kind, message = failure(e)
+        return JSONResponse({"error": kind, "message": message}, 502)
     if len(page.body) > max_bytes:
         return JSONResponse({"error": "too_large", "message": f"body is {len(page.body)} bytes, over {max_bytes}"}, 502)
     return JSONResponse({
