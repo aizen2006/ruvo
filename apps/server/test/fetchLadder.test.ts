@@ -29,6 +29,9 @@ function fakeScrapling(replies: Partial<Record<ScraplingEngine, Reply>>) {
       if (reply instanceof FetchError) throw reply;
       return { url, ...reply };
     },
+    async relocate() {
+      throw new Error("unexpected relocate");
+    },
   };
   return { client, calls };
 }

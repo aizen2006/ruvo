@@ -3,12 +3,12 @@
  * starts spaced at least `delayMs` apart (the robots.txt crawl-delay, or a small floor).
  */
 export function createHostLimiter(opts: { maxConcurrent: number; minDelayMs: number }) {
-  type HostState = { active: number; nextStartAt: number; waiters: Array<() => void> };
+  type HostState = { active: number; lastStart: Promise<number>; waiters: Array<() => void> };
   const hosts = new Map<string, HostState>();
 
   const stateFor = (host: string) => {
     let state = hosts.get(host);
-    if (!state) hosts.set(host, (state = { active: 0, nextStartAt: 0, waiters: [] }));
+    if (!state) hosts.set(host, (state = { active: 0, lastStart: Promise.resolve(-Infinity), waiters: [] }));
     return state;
   };
 
@@ -18,14 +18,18 @@ export function createHostLimiter(opts: { maxConcurrent: number; minDelayMs: num
       await new Promise<void>((resolve) => state.waiters.push(resolve));
     }
     state.active++;
-    // Reserve the next start slot before sleeping so concurrent callers queue behind it.
-    const startAt = Math.max(Date.now(), state.nextStartAt);
-    state.nextStartAt = startAt + Math.max(delayMs, opts.minDelayMs);
-    const wait = startAt - Date.now();
-    if (wait <= 0) return;
+    // Starts form a chain: each waits for the previous request's actual start plus the delay, so a
+    // start that ran late (a busy event loop) still leaves the full gap before the next one.
+    const previous = state.lastStart;
+    let started!: (at: number) => void;
+    state.lastStart = new Promise((resolve) => (started = resolve));
+    const previousAt = await previous;
     try {
-      await sleep(wait, signal);
+      const wait = previousAt + Math.max(delayMs, opts.minDelayMs) - Date.now();
+      if (wait > 0) await sleep(wait, signal);
+      started(Date.now());
     } catch (err) {
+      started(previousAt); // the next caller keeps its distance from the last real start
       release(host);
       throw err;
     }

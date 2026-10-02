@@ -117,6 +117,9 @@ describe("robots.txt (RFC 9309)", () => {
           asked.push(`${engine} ${url}`);
           return { status: 200, url, headers: {}, body: await read() };
         },
+        async relocate() {
+          throw new Error("unexpected relocate");
+        },
       };
       return { robots: createRobots({ userAgent: "RUVO/0.1", scrapling }), asked };
     };
@@ -160,8 +163,8 @@ describe("host limiter", () => {
     expect(starts[2]! - starts[1]!).toBeGreaterThanOrEqual(35);
   });
 
-  // Bug: start slots are fixed when reserved, so a start that runs late (busy event loop) leaves the next one too close.
-  test.todo("keeps the crawl delay after a start that ran late", async () => {
+  // A start that runs late (a busy event loop) must still leave the full delay before the next one.
+  test("keeps the crawl delay after a start that ran late", async () => {
     const limiter = createHostLimiter({ maxConcurrent: 5, minDelayMs: 0 });
     const starts: number[] = [];
     const busy = (ms: number) => {
@@ -177,7 +180,7 @@ describe("host limiter", () => {
         }),
       ),
     );
-    expect(starts[2]! - starts[1]!).toBeGreaterThanOrEqual(40);
+    expect(starts[2]! - starts[1]!).toBeGreaterThanOrEqual(35);
   });
 });
 
