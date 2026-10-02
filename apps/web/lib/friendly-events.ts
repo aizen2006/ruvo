@@ -6,6 +6,12 @@ import type { RunEvent, Stage } from "@repo/contracts";
  * "Show details".
  */
 
+/** A page that needed more than a plain request, by how it was finally read (the event's data.via). */
+const ESCALATED: Record<string, string> = {
+  stealth: "Opening a page in the stealth browser to get past a bot check",
+  firecrawl: "Reading a page through Firecrawl, because Scrapling couldn't",
+};
+
 const STAGE_LINE: Partial<Record<Stage, string>> = {
   collecting: "Reading pages",
   extracting: "Filling in missing details",
@@ -24,10 +30,7 @@ const LINE: Record<string, (e: RunEvent) => string | null> = {
   // "Anthropic: 23 postings found" is already plain.
   "source.collected": (e) => e.message,
   "source.failed": () => "One source couldn't be read; the others carry on",
-  "fetch.escalated": (e) =>
-    (e.data as { via?: string } | null)?.via === "stealth"
-      ? "Opening a page in the stealth browser to get past a bot check"
-      : "Opening a page in a browser, because it needs one",
+  "fetch.escalated": (e) => ESCALATED[(e.data as { via?: string } | null)?.via ?? ""] ?? "Opening a page in a browser, because it needs one",
   "recipe.discovered": () => "Learned how to read a new page",
   "recipe.replayed": () => "Reading a page the same way as last time",
   "recipe.failed": () => "A website looks different from last time",

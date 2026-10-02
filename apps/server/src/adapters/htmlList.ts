@@ -28,6 +28,12 @@ type HtmlListParams = z.infer<typeof HtmlListParams>;
 
 /** Fields a list page can show; long text and generated fields are read elsewhere. */
 const LIST_FIELDS = new Set(["company", "title", "location", "remote", "salary", "url", "department", "employment_type", "posted_at", "custom"]);
+/** How an escalated list page was finally read, for the activity log. */
+const ESCALATED_BY: Partial<Record<FetchResult["via"], string>> = {
+  browser: " over HTTP, rendered in the browser",
+  stealth: ", opened in the stealth browser",
+  firecrawl: ", read through Firecrawl",
+};
 
 /**
  * Any public list page (a careers board, or a URL the user pasted). The page is fetched in
@@ -48,7 +54,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
       run.emit({
         stage: "collecting",
         type: "fetch.escalated",
-        message: `${new URL(url).host}: ${page.escalation.reason}${page.via === "stealth" ? ", opened in the stealth browser" : " over HTTP, rendered in the browser"}`,
+        message: `${new URL(url).host}: ${page.escalation.reason}${ESCALATED_BY[page.via] ?? ""}`,
         data: { ...page.escalation, via: page.via },
       });
     }
