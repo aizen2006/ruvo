@@ -59,21 +59,35 @@ async def skip_heavy_resources(page) -> None:
     await page.route("**/*", handle)
 
 
-async def fetch_page(url: str, engine: str, timeout_ms: int, accept: str | None):
-    """One fetch with a fresh client or browser, so no cookies or storage carry over between pages."""
+class TooLarge(Exception):
+    """A body over the fetch's maxBytes."""
+
+
+async def fetch_page(url: str, engine: str, timeout_ms: int, max_bytes: int, accept: str | None):
+    """One fetch with a fresh client or browser, so no cookies or storage carry over between pages: the page and its body."""
     if engine == "http":
-        return await AsyncFetcher.get(
+        body = bytearray()
+
+        def receive(chunk: bytes) -> int:
+            body.extend(chunk)
+            if len(body) > max_bytes:
+                raise TooLarge(f"body is over {max_bytes} bytes")  # curl stops the download here
+            return len(chunk)
+
+        page = await AsyncFetcher.get(
             url,
             proxy=HTTP_PROXY,
             follow_redirects=True,  # never "safe": behind a proxy curl rejects every redirect
             max_redirects=5,
             retries=1,
             timeout=timeout_ms / 1000,
+            content_callback=receive,  # the body comes here as it arrives, not whole into the page
             **({"headers": {"Accept": accept}} if accept else {}),
         )
+        return page, bytes(body)
     async with browser_slots:
         if engine == "browser":
-            return await DynamicFetcher.async_fetch(
+            page = await DynamicFetcher.async_fetch(
                 url,
                 proxy=BROWSER_PROXY,
                 network_idle=True,
@@ -83,20 +97,26 @@ async def fetch_page(url: str, engine: str, timeout_ms: int, accept: str | None)
                 additional_args={"service_workers": "block"},
                 page_setup=skip_heavy_resources,
             )
-        return await StealthyFetcher.async_fetch(
-            url,
-            proxy=BROWSER_PROXY,
-            solve_cloudflare=True,
-            block_webrtc=True,
-            retries=1,
-            timeout=max(timeout_ms, 60000),
-            additional_args={"service_workers": "block", "ignore_https_errors": False},
-            page_setup=skip_heavy_resources,
-        )
+        else:
+            page = await StealthyFetcher.async_fetch(
+                url,
+                proxy=BROWSER_PROXY,
+                solve_cloudflare=True,
+                block_webrtc=True,
+                retries=1,
+                timeout=max(timeout_ms, 60000),
+                additional_args={"service_workers": "block", "ignore_https_errors": False},
+                page_setup=skip_heavy_resources,
+            )
+    if len(page.body) > max_bytes:  # a rendered page arrives whole, so it is measured after
+        raise TooLarge(f"body is {len(page.body)} bytes, over {max_bytes}")
+    return page, page.body
 
 
 def failure(e: Exception) -> tuple[str, str]:
     """A failed fetch as RUVO's client reads it: its kind and message."""
+    if isinstance(e, TooLarge):
+        return "too_large", str(e)
     if getattr(e, "code", None) == 97 and GUARD_REFUSED.search(str(e)):
         return "blocked", str(e)
     if SOCKS_FAILED in str(e):
@@ -124,7 +144,7 @@ async def fetch(request: Request) -> Response:
         return JSONResponse({"error": "bad_request", "message": message}, 400)
 
     # Race the fetch against the client hanging up, and cancel the fetch if nobody is waiting for it.
-    fetching = asyncio.ensure_future(fetch_page(url, engine, timeout_ms, accept))
+    fetching = asyncio.ensure_future(fetch_page(url, engine, timeout_ms, max_bytes, accept))
     hangup = asyncio.ensure_future(client_disconnected(request))
     await asyncio.wait({fetching, hangup}, return_when=asyncio.FIRST_COMPLETED)
     hangup.cancel()
@@ -133,17 +153,15 @@ async def fetch(request: Request) -> Response:
         return Response(status_code=499)
 
     try:
-        page = fetching.result()
+        page, body = fetching.result()
     except Exception as e:
         kind, message = failure(e)
         return JSONResponse({"error": kind, "message": message}, 502)
-    if len(page.body) > max_bytes:
-        return JSONResponse({"error": "too_large", "message": f"body is {len(page.body)} bytes, over {max_bytes}"}, 502)
     return JSONResponse({
         "status": page.status,
         "url": page.url,
         "headers": {name.lower(): value for name, value in page.headers.items()},
-        "body": base64.b64encode(page.body).decode(),
+        "body": base64.b64encode(body).decode(),
     })
 
 
