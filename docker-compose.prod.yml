@@ -14,6 +14,7 @@ x-server: &server
   environment:
     DATABASE_URL: postgres://ruvo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/ruvo
     SCRAPLING_URL: http://scrapling:8001
+    SEARXNG_URL: http://searxng:8080
   init: true
 
 services:
@@ -87,6 +88,22 @@ services:
     command: ["bun", "src/fetch/egressGuard.ts"]
     restart: unless-stopped
     networks: [default, scrape]
+
+  # Web search for finding sources; no published port, the worker reaches it as http://searxng:8080.
+  searxng:
+    image: searxng/searxng:2026.10.2-19ffbcd30
+    restart: unless-stopped
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-}
+    # Without SEARXNG_SECRET, a random secret for each start: nothing this instance keeps needs the same one.
+    entrypoint: ["/bin/sh", "-c", "export SEARXNG_SECRET=\"$${SEARXNG_SECRET:-$$(head -c 32 /dev/urandom | base64)}\" && exec /usr/local/searxng/entrypoint.sh"]
+    volumes:
+      - ./infra/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   web:
     image: ruvo-web:latest

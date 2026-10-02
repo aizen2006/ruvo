@@ -1,5 +1,5 @@
 # Local infrastructure for RUVO.
-#   docker compose up -d                  -> postgres
+#   docker compose up -d                  -> postgres and searxng
 #   docker compose --profile laya up -d   -> also the optional self-hosted Laya decider
 services:
   postgres:
@@ -14,6 +14,24 @@ services:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ruvo -d ruvo"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Web search for finding sources (SEARXNG_URL): http://127.0.0.1:8888/search?q=...&format=json
+  searxng:
+    image: searxng/searxng:2026.10.2-19ffbcd30
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8888:8080"
+    environment:
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-}
+    # Without SEARXNG_SECRET, a random secret for each start: nothing this instance keeps needs the same one.
+    entrypoint: ["/bin/sh", "-c", "export SEARXNG_SECRET=\"$${SEARXNG_SECRET:-$$(head -c 32 /dev/urandom | base64)}\" && exec /usr/local/searxng/entrypoint.sh"]
+    volumes:
+      - ./infra/searxng/settings.yml:/etc/searxng/settings.yml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
       interval: 5s
       timeout: 3s
       retries: 10

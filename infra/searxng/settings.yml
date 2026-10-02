@@ -1,0 +1,17 @@
+# RUVO's SearXNG: SearXNG's own defaults, plus the few changes RUVO needs.
+# The secret key comes from SEARXNG_SECRET (see docker-compose.yml), never from this file.
+use_default_settings: true
+
+search:
+  # RUVO reads results as JSON; html keeps the search page usable in a browser.
+  formats:
+    - html
+    - json
+
+server:
+  # Only RUVO on this machine searches through it, so there are no bots to limit.
+  limiter: false
+
+outgoing:
+  # RUVO makes a few searches per run and can wait for a slow engine (the 3 s default suits people typing).
+  request_timeout: 6.0
