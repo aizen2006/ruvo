@@ -98,7 +98,8 @@ async function findCached(inputHash: string): Promise<{ hits: SearchResultItem[]
     .where(and(eq(searchCalls.inputHash, inputHash), isNull(searchCalls.error)))
     .orderBy(desc(searchCalls.createdAt))
     .limit(1);
-  return row?.hits ? { hits: row.hits as SearchResultItem[], provider: row.provider } : null;
+  // An empty answer is never replayed (its backup may have failed): the next search asks again.
+  return row?.hits?.length ? { hits: row.hits as SearchResultItem[], provider: row.provider } : null;
 }
 
 function log(row: {

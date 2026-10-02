@@ -201,4 +201,14 @@ describe("search runner", () => {
     expect(s.budget.left("searches")).toBe(5);
     expect((await logged()).at(-1)).toEqual({ provider: "firecrawl", credits: 0, costUsd: 0, cached: true, error: null, hits: 2, runId: replayRun });
   });
+
+  test("an empty answer is not replayed: the next search asks again", async () => {
+    // SearXNG found nothing and the Firecrawl backup failed.
+    await runner({ searxng: provider([]), firecrawl: provider(new Error("Firecrawl responded 429")) }).run("q", { limit: 10, runId, scope: scope() });
+
+    const searxng = provider([]);
+    const firecrawl = provider(hits("firecrawl"), 2);
+    expect(await runner({ searxng, firecrawl }).run("q", { limit: 10, runId, scope: scope() })).toEqual({ hits: hits("firecrawl"), cached: false, costUsd: 0.004 });
+    expect([searxng.calls, firecrawl.calls]).toEqual([1, 1]);
+  });
 });
