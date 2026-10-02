@@ -49,7 +49,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
         stage: "collecting",
         type: "fetch.escalated",
         message: `${new URL(url).host}: ${page.escalation.reason}${page.via === "stealth" ? ", opened in the stealth browser" : " over HTTP, rendered in the browser"}`,
-        data: page.escalation,
+        data: { ...page.escalation, via: page.via },
       });
     }
 
