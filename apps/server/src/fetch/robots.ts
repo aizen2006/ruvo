@@ -100,7 +100,9 @@ async function readPastBotCheck(scrapling: ScraplingClient, url: string) {
     { url, engine: "stealth", timeoutMs: STEALTH_TIMEOUT_MS, maxBytes: MAX_ROBOTS_BYTES },
     AbortSignal.timeout(STEALTH_TIMEOUT_MS),
   );
-  // Still behind the bot check, the rules were never seen: unreachable, not a 4xx or a rule-less page that allows everything.
-  if (page.status >= 400 || hasChallengeMarkers(page.body)) throw new Error(`${url} still shows a bot check (HTTP ${page.status})`);
+  // Still behind the bot check, the rules were never seen: unreachable, not a 4xx or a rule-less page that allows
+  // everything. Past the check, a plain 404 or 410 means the site has no robots.txt, which allows everything.
+  const refused = page.status >= 400 && page.status !== 404 && page.status !== 410;
+  if (refused || hasChallengeMarkers(page.body)) throw new Error(`${url} still shows a bot check (HTTP ${page.status})`);
   return { status: page.status, text: page.body };
 }
