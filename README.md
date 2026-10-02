@@ -91,10 +91,6 @@ Open **http://localhost:3001/new**:
 The contract, workflow, recipes, decisions and full activity log are all still there, behind
 **Show details**.
 
-![The ask screen: one question, three modes with their cost and time](docs/images/ask.png)
-
-![A finished list with a row's receipt open](docs/images/receipt.png)
-
 To rehearse a full demo, including a live self-repair on a bundled fake careers site, follow
 [docs/demo-script.md](docs/demo-script.md).
 
@@ -141,7 +137,7 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 |---|---|
 | `bun run dev` | API, worker and dashboard, with reload |
 | `bun run check-types` | TypeScript across every package |
-| `cd apps/server && bun test` | 330+ tests against a throwaway `ruvo_test` database (Postgres must be up). Run it from `apps/server` so `.env.test` applies. |
+| `cd apps/server && bun test` | 400+ tests against a throwaway `ruvo_test` database (Postgres must be up). Run it from `apps/server` so `.env.test` applies. |
 | `bun run --filter server eval` | Golden prompts with checks on each compiled contract; run it after changing a prompt |
 | `bun run --filter server e2e` | The example request end to end against the running stack, then a re-run |
 | `bun run --filter server seed:demo` | Warms the caches with the demo requests and resets the demo site |

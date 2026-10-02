@@ -20,21 +20,22 @@ prompt ─ compile (gpt-6-sol) ─▶ DatasetContract ─ user edits while revie
        ─ discover sources (registry, ATS auto-detect, Hacker News, linked pages, web search) ─▶ candidates
        ─ plan (workflow memory, else gpt-6-sol, else template) ─▶ PlanDraft ─ IR compiler ─▶ WorkflowIR vN
        ─ start ─▶ worker claims the run ─▶ one branch per source (3 at a time):
-            collect → prefilter → triage | extract_text → enrich → match → validate → store
+            collect → [triage → extract_text] → prefilter → [enrich] → match → validate → store
+            (triage and extract_text only for free-text sources, enrich only for columns the source lacks)
        ─ dedupe across sources ─▶ quality report, run diff, recipe repairs, memory ─▶ dataset
 ```
 
 ### Run lifecycle (`db/queue.ts`, `runs/worker.ts`)
 
 ```
-queued → compiling → planning → awaiting_approval ─start─▶ queued_run → running → completed | failed | cancelled
-                    (or straight to queued_run when the run was created with autoStart and has sources)
+queued → compiling → awaiting_approval ─start─▶ queued_run → running → completed | failed | cancelled
+                     (or straight to queued_run when the run was created with autoStart and has sources)
 ```
 
 - **API process** (`index.ts`): it only reads and writes rows.
 - **Worker process** (`worker.ts`): it claims runs with `FOR UPDATE SKIP LOCKED`. It sends a heartbeat every few seconds and checks for cancellation on each one.
 - **Stale runs**: a run whose heartbeat stops is requeued, up to 2 attempts. A requeued run replays from the caches, and records are written with upserts keyed on `(run_id, item_key)`, so replaying never duplicates them.
-- **Preparation** (`runs/prepare.ts`): compile, discover, plan, save.
+- **Preparation** (`runs/prepare.ts`): compile, discover, plan, save. The status stays `compiling` throughout; the separate `stage` column shows understanding, planning and discovering.
 - **Execution** (`runs/pipeline.ts` → `execute/executor.ts`): execute the workflow, then record repairs and remember the plan.
 
 ### Contract (`compile/`)
@@ -77,7 +78,7 @@ If nothing is found, the run stops for review and says what was searched.
 The planner writes a **PlanDraft**: which candidates to include, why, how many items to keep from each, and an LLM budget.
 
 **Planner order:**
-1. Workflow memory is checked first (`memory/workflowMemory.ts`). A stored plan is reused when similarity is at least 0.9 and at least 80% of its sources are still candidates.
+1. Workflow memory is checked first (`memory/workflowMemory.ts`). A stored plan is reused when similarity is at least 0.9, at least 80% of its sources are still candidates, and the run it came from produced at least 20 valid records.
 2. Otherwise `gpt-6-sol` writes the draft.
 3. If that fails, the template plan is used.
 
@@ -131,6 +132,7 @@ The LLM rung must return a verbatim quote. `verifyQuote` checks that it is on th
 | Derived | 0.85 |
 | Regex | 0.80 |
 | Quote-verified LLM | 0.75 |
+| Search-result snippet | 0.70 |
 
 A record's confidence is that of its least certain required value.
 
@@ -200,6 +202,7 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 | `registry_companies` | Curated and auto-detected job boards |
 | `decisions` | Every judgement, with the tier that made it (also the decision cache) |
 | `llm_calls` | Every LLM call with tokens and cost (also the LLM cache) |
+| `search_calls` | Every web search with its results and cost (also the search cache) |
 
 Qdrant holds one collection, `workflow_memory`. Each point is an embedding of a contract summary, with the plan stored as payload.
 
@@ -210,7 +213,7 @@ Qdrant holds one collection, `workflow_memory`. Each point is an embedding of a 
 | `GET /api/options` | Modes with their budgets, and the models on offer with prices |
 | `POST /api/runs` | Create a run from a prompt (`mode`, optional `models`, `autoStart`, `Idempotency-Key`) |
 | `GET /api/runs`, `GET /api/runs/:id` | History and run detail |
-| `POST /api/runs/:id/start`, `/cancel`, `/rerun` | Run actions |
+| `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet) |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
 | `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows |
 | `GET /api/datasets/:runId/export?format=csv\|json\|xlsx&scope=valid\|all` | Export |
