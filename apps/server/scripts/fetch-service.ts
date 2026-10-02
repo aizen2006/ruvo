@@ -28,9 +28,12 @@ if (installed.exitCode !== 0) {
 const guard = { host: "127.0.0.1", port: 1080 };
 await once(startEgressGuard(guard), "listening");
 
+// The service gets only what Python and its browsers need (Playwright keeps them under LOCALAPPDATA on Windows):
+// none of RUVO's secrets, and no setting such as NO_PROXY that would send its connections around the guard.
+const INHERITED = ["PATH", "SYSTEMROOT", "TEMP", "TMP", "HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA"];
 const service = Bun.spawn([python, join(import.meta.dir, "..", "..", "..", "infra", "scrapling", "server.py")], {
   env: {
-    ...process.env,
+    ...Object.fromEntries(INHERITED.map((name) => [name, process.env[name]])),
     EGRESS_PROXY: `socks5://${guard.host}:${guard.port}`,
     SCRAPLING_HOST: "127.0.0.1",
     SCRAPLING_PORT: serviceUrl.port || "80", // an empty port means the scheme's default

@@ -27,6 +27,10 @@ GUARD = EGRESS_PROXY.split("://", 1)[-1]
 # socks5h makes curl leave name resolution to the guard; browsers reject socks5h but send names over socks5 anyway.
 HTTP_PROXY = f"socks5h://{GUARD}"
 BROWSER_PROXY = f"socks5://{GUARD}"
+# Settings that send connections around the guard, read from this process's environment: libcurl skips the proxy for
+# hosts in no_proxy, and Playwright's drivers stop proxying the browsers' loopback requests.
+for name in ("NO_PROXY", "no_proxy", "PLAYWRIGHT_DISABLE_FORCED_CHROMIUM_PROXIED_LOOPBACK"):
+    os.environ.pop(name, None)
 
 ENGINES = ("http", "browser", "stealth")
 SKIPPED_RESOURCES = {"image", "font", "media"}
