@@ -4,7 +4,7 @@
 # Its own project name keeps it apart from the dev docker-compose.yml.
 name: ruvo-prod
 
-# API, worker and migrations share one image and one configuration.
+# API, worker, migrations and the egress guard share one image and one configuration.
 x-server: &server
   image: ruvo-server:latest
   build:
@@ -13,6 +13,7 @@ x-server: &server
   env_file: .env
   environment:
     DATABASE_URL: postgres://ruvo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/ruvo
+    SCRAPLING_URL: http://scrapling:8001
   init: true
 
 services:
@@ -61,13 +62,31 @@ services:
     <<: *server
     command: ["bun", "src/worker.ts"]
     restart: unless-stopped
+    networks: [default, scrape]
     depends_on:
       migrate:
         condition: service_completed_successfully
-    # Chromium needs more shared memory than Docker's 64 MB default.
-    shm_size: 1gb
     # Lets an in-flight run be released back to the queue before the container is killed.
     stop_grace_period: 30s
+
+  # The fetch service. Its only network is internal, so the egress guard is its only way out.
+  scrapling:
+    image: ruvo-scrapling:latest
+    build: ./infra/scrapling
+    restart: unless-stopped
+    init: true
+    environment:
+      EGRESS_PROXY: socks5://egress:1080
+    networks: [scrape]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # The egress guard: every connection the fetch service makes goes through this SOCKS proxy, which refuses private addresses.
+  egress:
+    <<: *server
+    command: ["bun", "src/fetch/egressGuard.ts"]
+    restart: unless-stopped
+    networks: [default, scrape]
 
   web:
     image: ruvo-web:latest
@@ -81,6 +100,10 @@ services:
     init: true
     ports:
       - "3001:3001"
+
+networks:
+  scrape:
+    internal: true
 
 volumes:
   postgres-data:
