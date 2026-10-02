@@ -7,7 +7,7 @@ import { badRequest } from "../libs/errors";
 import { isChatModel } from "../llm/models";
 import { modelsForMode } from "../runs/modes";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
-import { createRun, getQualityReport, getRunDetail, getRunDiff, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
+import { assertUnderDailyBudget, createRun, getQualityReport, getRunDetail, getRunDiff, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
 import { getRunWorkflow } from "../db/repos/workflows";
 import { editRunContract } from "../runs/editContract";
 import { fieldNamesOf, parseId } from "./params";
@@ -31,6 +31,7 @@ runsRouter.post("/", async (req, res) => {
   if (unknown.length) throw badRequest(`Unknown model: ${unknown.join(", ")}`);
 
   const models = modelsForMode(mode, chosen, env);
+  await assertUnderDailyBudget(env.DAILY_BUDGET_USD);
   const run = await createRun({ prompt, autoStart, mode, models, idempotencyKey });
   res.status(201).json(run);
 });
@@ -45,6 +46,7 @@ runsRouter.get("/:id", async (req, res) => {
 });
 
 runsRouter.post("/:id/start", async (req, res) => {
+  await assertUnderDailyBudget(env.DAILY_BUDGET_USD);
   res.json({ status: await startRun(runId(req.params.id)) });
 });
 
@@ -79,10 +81,12 @@ runsRouter.patch("/:id/contract", async (req, res) => {
 });
 
 runsRouter.post("/:id/rerun", async (req, res) => {
+  await assertUnderDailyBudget(env.DAILY_BUDGET_USD);
   res.status(201).json(await rerunRun(runId(req.params.id)));
 });
 
 runsRouter.post("/:id/more", async (req, res) => {
+  await assertUnderDailyBudget(env.DAILY_BUDGET_USD);
   res.status(201).json(await rerunRun(runId(req.params.id), { more: true }));
 });
 

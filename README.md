@@ -111,6 +111,7 @@ All settings live in `apps/server/.env`. The template lists every variable with 
 | `FETCH_CACHE_MODE` | `ttl` | You want repeatable demos (`prefer_cache`) or no network at all (`cache_only`). |
 | `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. Use `cache_only` for offline replays. |
 | `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 300, 20, 150, 8 min | These are ceilings. No mode goes above them, so lower them to cap what anyone can spend. |
+| `DAILY_BUDGET_USD` | unset | You want a hard daily cap. New runs are refused once the last 24 hours of AI and search spend reach it. |
 | `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
 | `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want RUVO to find sources by searching the web. Without a key it uses only known job boards and pages you link. |
 | `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |

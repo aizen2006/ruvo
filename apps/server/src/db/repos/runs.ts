@@ -11,7 +11,7 @@ import {
 } from "@repo/contracts";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { env } from "../../config/env";
-import { conflict, notFound } from "../../libs/errors";
+import { conflict, HttpError, notFound } from "../../libs/errors";
 import { runModels } from "../../runs/modes";
 import { db } from "../client";
 import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls, workflows } from "../schema";
@@ -124,6 +124,26 @@ function insertRun(input: NewRun) {
       .returning({ runId: runs.id, status: runs.status });
     return run!;
   });
+}
+
+/** Dollars spent on AI calls and web searches in the last 24 hours, across all runs. */
+export async function spentInLastDay(): Promise<number> {
+  const [row] = await db.execute<{ usd: number }>(sql`
+    select coalesce((select sum(${llmCalls.costUsd}) from ${llmCalls} where ${llmCalls.createdAt} > now() - interval '24 hours'), 0)
+         + coalesce((select sum(${searchCalls.costUsd}) from ${searchCalls} where ${searchCalls.createdAt} > now() - interval '24 hours'), 0) as usd`);
+  return Number(row?.usd ?? 0);
+}
+
+/** Refuses work that would spend more once the last 24 hours reach `limitUsd` (DAILY_BUDGET_USD); no limit when unset. */
+export async function assertUnderDailyBudget(limitUsd: number | undefined) {
+  if (limitUsd === undefined) return;
+  const spent = await spentInLastDay();
+  if (spent >= limitUsd) {
+    throw new HttpError(
+      429,
+      `The daily spending limit is reached: $${spent.toFixed(2)} spent on AI and web search in the last 24 hours (limit $${limitUsd.toFixed(2)}). New runs can start once older spending drops out of that window.`,
+    );
+  }
 }
 
 export async function listRuns(limit = 50): Promise<RunSummary[]> {

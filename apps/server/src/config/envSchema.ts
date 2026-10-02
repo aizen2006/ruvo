@@ -50,6 +50,8 @@ const EnvSchema = z.object({
   MAX_BROWSER_PAGES: z.coerce.number().int().nonnegative().default(20),
   MAX_LLM_CALLS: z.coerce.number().int().nonnegative().default(150),
   MAX_RUN_MS: z.coerce.number().int().positive().default(480_000),
+  /** Optional: no new runs once the last 24 hours of AI and search spend reach this many dollars. */
+  DAILY_BUDGET_USD: z.coerce.number().positive().optional(),
 });
 
 export type Env = z.infer<typeof EnvSchema>;
