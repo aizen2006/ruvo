@@ -22,7 +22,12 @@ export interface Discovery {
   unmatchedCompanies: string[];
 }
 
-const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+/** A company name or board slug as lowercase letters and digits, so "Scale AI" matches scaleai. */
+export const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Whether the contract leaves this company out, by its name or its board's slug. */
+export const isExcluded = (contract: DatasetContract, company: { name: string; slug: string }) =>
+  contract.sourceHints.excludeCompanies.some((x) => normalize(x) === normalize(company.name) || normalize(x) === normalize(company.slug));
 
 /**
  * Chooses candidate sources for a contract: pages the user linked come first, then registry
@@ -33,8 +38,7 @@ const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 export function discoverSources(contract: DatasetContract, registry: RegistryCompany[]): Discovery {
   const available = new Set(registeredAdapters().map((a) => a.id));
   const hints = contract.sourceHints;
-  const excluded = new Set(hints.excludeCompanies.map(normalize));
-  const companies = registry.filter((c) => !excluded.has(normalize(c.name)) && !excluded.has(normalize(c.slug)));
+  const companies = registry.filter((c) => !isExcluded(contract, c));
 
   const named = hints.companies.map((name) => ({
     name,

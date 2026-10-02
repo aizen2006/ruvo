@@ -54,15 +54,20 @@ const LIST_TITLE = /\b(top|best)\s+\d+\b|\b\d+\s+(best|top|great|leading|popular
 const LIST_PATH = /\/(directory|lists?|rankings?|top-\d+|best-[\w-]+|category|categories)(\/|$)/i;
 const NOT_A_PAGE = /\.(pdf|docx?|xlsx?|pptx?|zip|csv|jpe?g|png|mp[34])$/i;
 
-/**
- * Finds sources by searching the web with the contract's queries: pages listing many records
- * (html_list), pages about one record (html_record), and public profiles on sites that forbid
- * reading them (search_hits: the search results themselves are the source). Hits are sorted by
- * cheap URL and title signals first; only the uncertain ones go to one batched LLM call.
- * Pages robots.txt forbids are dropped, so nothing is planned that the fetcher would refuse.
- */
+/** Finds sources by searching the web with the contract's queries (see sourcesFromHits). */
 export async function discoverFromSearch(contract: DatasetContract, web: WebSearch, llm: LlmClient, opts: WebDiscoveryOptions): Promise<WebDiscovery> {
   const { hits, searches } = await runSearches(searchQueriesFor(contract), web.searcher, opts);
+  return { sources: await sourcesFromHits(contract, hits, web, llm, opts), searches };
+}
+
+/**
+ * The sources among search hits: pages listing many records (html_list), pages about one record
+ * (html_record), and public profiles on sites that forbid reading them (search_hits: the search
+ * results themselves are the source). Hits are sorted by cheap URL and title signals first; only
+ * the uncertain ones go to one batched LLM call. Pages robots.txt forbids are dropped, so nothing
+ * is planned that the fetcher would refuse.
+ */
+export async function sourcesFromHits(contract: DatasetContract, hits: SearchHit[], web: WebSearch, llm: LlmClient, opts: WebDiscoveryOptions): Promise<FoundSource[]> {
   const kinds = await classify(contract, hits, llm, opts.scope.signal);
   const available = opts.available ?? new Set(registeredAdapters().map((a) => a.id));
 
@@ -90,7 +95,7 @@ export async function discoverFromSearch(contract: DatasetContract, web: WebSear
     }
   }
   if (available.has("search_hits")) sources.push(...profileSources(hits.filter((_, i) => kinds[i] === "profile")));
-  return { sources, searches };
+  return sources;
 }
 
 /** The contract's queries; a request without any searches for its own description. */
@@ -147,7 +152,7 @@ export function addFoundSources(earlier: FoundSource[], found: FoundSource[]): F
 }
 
 /** Runs each query in turn and merges the hits by canonical URL, keeping the first query that found each. */
-async function runSearches(queries: string[], searcher: SearchRunner, opts: WebDiscoveryOptions) {
+export async function runSearches(queries: string[], searcher: SearchRunner, opts: WebDiscoveryOptions) {
   const searches: SearchLog[] = [];
   const hits = new Map<string, SearchHit>();
   for (const query of queries) {

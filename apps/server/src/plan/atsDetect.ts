@@ -3,6 +3,7 @@ import { ATS_LIST } from "../adapters/ats";
 import { db } from "../db/client";
 import { registryCompanies } from "../db/schema";
 import { probeBoard, type ProbeHit } from "./atsProbe";
+import type { RegistryCompany } from "./registry";
 import { slugVariants } from "./slugs";
 
 export { nameSlugs, slugVariants } from "./slugs";
@@ -13,7 +14,7 @@ export { nameSlugs, slugVariants } from "./slugs";
  * (origin auto_detected, no tags), so discovery can use them and later runs skip the probe.
  */
 
-type Probe = typeof probeBoard;
+export type Probe = typeof probeBoard;
 
 /** The first board with postings among all slug variants and ATSs, probed in parallel per variant. */
 export async function detectBoard(name: string, opts: { userAgent: string; probe?: Probe }): Promise<ProbeHit | null> {
@@ -35,26 +36,31 @@ export async function autoDetectCompanies(names: string[], opts: { userAgent: st
       if (hit) found.push({ name, hit });
     }),
   );
+  await recordBoards(found);
+  return { found, missing: names.filter((n) => !found.some((f) => f.name === n)) };
+}
+
+/** Adds verified boards to the registry (origin auto_detected, no tags) and returns their rows. */
+export async function recordBoards(found: Array<{ name: string; hit: ProbeHit }>): Promise<RegistryCompany[]> {
   // Two names can lead to one board ("Acme", "Acme Inc"); one upsert may not touch a row twice.
   const boards = [...new Map(found.map((f) => [`${f.hit.ats}:${f.hit.slug}`, f])).values()];
-  if (boards.length) {
-    await db
-      .insert(registryCompanies)
-      .values(
-        boards.map(({ name, hit }) => ({
-          name,
-          ats: hit.ats,
-          slug: hit.slug,
-          tags: [],
-          origin: "auto_detected" as const,
-          jobCount: hit.jobCount,
-          verifiedAt: new Date(),
-        })),
-      )
-      .onConflictDoUpdate({
-        target: [registryCompanies.ats, registryCompanies.slug],
-        set: { jobCount: sql`excluded.job_count`, verifiedAt: sql`excluded.verified_at` },
-      });
-  }
-  return { found, missing: names.filter((n) => !found.some((f) => f.name === n)) };
+  if (boards.length === 0) return [];
+  return db
+    .insert(registryCompanies)
+    .values(
+      boards.map(({ name, hit }) => ({
+        name,
+        ats: hit.ats,
+        slug: hit.slug,
+        tags: [],
+        origin: "auto_detected" as const,
+        jobCount: hit.jobCount,
+        verifiedAt: new Date(),
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [registryCompanies.ats, registryCompanies.slug],
+      set: { jobCount: sql`excluded.job_count`, verifiedAt: sql`excluded.verified_at` },
+    })
+    .returning();
 }
