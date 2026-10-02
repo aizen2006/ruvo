@@ -3,11 +3,12 @@ import { db } from "../db/client";
 import { searchCalls } from "../db/schema";
 import { sha256, stableStringify } from "../libs/hash";
 import type { FetchScope } from "../fetch/fetcher";
-import type { FirecrawlClient, SearchResultItem } from "./firecrawl";
+import type { SearchResultItem } from "./firecrawl";
 
 /**
- * Runs a web search through a provider, caching results in `search_calls` so re-runs are free and
- * reproducible (mirroring the LLM cache). Also records what each live search cost.
+ * Runs a web search through SearXNG, then Firecrawl when SearXNG fails or finds nothing, caching
+ * results in `search_calls` so re-runs are free and reproducible (mirroring the LLM cache). Also
+ * records which provider answered and what each live search cost.
  */
 
 export interface CachedSearch {
@@ -21,25 +22,38 @@ export interface SearchRunner {
   run(query: string, opts: { limit: number; runId: string; scope: FetchScope }): Promise<CachedSearch | null>;
 }
 
+/** A web search provider: results in Firecrawl's shape, and the credits they cost. */
+export interface SearchProvider {
+  search(query: string, opts: { limit: number; signal: AbortSignal }): Promise<{ web: SearchResultItem[]; creditsUsed: number }>;
+}
+
 export interface SearchRunnerDeps {
-  firecrawl: FirecrawlClient;
+  /** Asked first: free, on this machine. */
+  searxng?: SearchProvider;
+  /** The backup when SearXNG fails or finds nothing; it costs credits. */
+  firecrawl?: SearchProvider;
   usdPerCredit: number;
   /** off replays cache only; on caches live calls; cache_only never calls out. Follows FETCH_CACHE_MODE. */
   cacheMode: "off" | "ttl" | "prefer_cache" | "cache_only";
 }
 
 export function createSearchRunner(deps: SearchRunnerDeps): SearchRunner {
-  const { firecrawl, usdPerCredit, cacheMode } = deps;
+  const { usdPerCredit, cacheMode } = deps;
+  const providers = (["searxng", "firecrawl"] as const).flatMap((name) => {
+    const provider = deps[name];
+    return provider ? [{ name, provider }] : [];
+  });
 
   return {
     async run(query, { limit, runId, scope }) {
-      const inputHash = sha256(stableStringify({ provider: "firecrawl", query, limit }));
+      // Keyed by the search alone: a re-run replays the same results, whichever provider gave them.
+      const inputHash = sha256(stableStringify({ query, limit }));
 
       if (cacheMode !== "off") {
         const hit = await findCached(inputHash);
         if (hit) {
-          await log({ runId, query, inputHash, hits: hit, cached: true });
-          return { hits: hit, cached: true, costUsd: 0 };
+          await log({ runId, provider: hit.provider, query, inputHash, hits: hit.hits, cached: true });
+          return { hits: hit.hits, cached: true, costUsd: 0 };
         }
         if (cacheMode === "cache_only") return null;
       }
@@ -47,31 +61,41 @@ export function createSearchRunner(deps: SearchRunnerDeps): SearchRunner {
       // A live search spends from the run's budget; degrade quietly when it's used up.
       if (!scope.budget.take("searches")) return null;
 
-      try {
-        const res = await firecrawl.search(query, { limit, signal: scope.signal });
-        const costUsd = res.creditsUsed * usdPerCredit;
-        await log({ runId, query, inputHash, hits: res.web, credits: res.creditsUsed, costUsd });
-        return { hits: res.web, cached: false, costUsd };
-      } catch (err) {
-        await log({ runId, query, inputHash, error: err instanceof Error ? err.message : String(err) }).catch(() => {});
-        throw err;
+      let costUsd = 0;
+      const errors: unknown[] = [];
+      for (const { name, provider } of providers) {
+        try {
+          const res = await provider.search(query, { limit, signal: scope.signal });
+          const cost = res.creditsUsed * usdPerCredit;
+          costUsd += cost;
+          await log({ runId, provider: name, query, inputHash, hits: res.web, credits: res.creditsUsed, costUsd: cost });
+          if (res.web.length) return { hits: res.web, cached: false, costUsd };
+        } catch (err) {
+          if (scope.signal.aborted) throw err;
+          await log({ runId, provider: name, query, inputHash, error: err instanceof Error ? err.message : String(err) }).catch(() => {});
+          errors.push(err);
+        }
       }
+      // Every provider failed: report the first one's error, the one to fix first.
+      if (errors.length === providers.length) throw errors[0];
+      return { hits: [], cached: false, costUsd };
     },
   };
 }
 
-async function findCached(inputHash: string): Promise<SearchResultItem[] | null> {
+async function findCached(inputHash: string): Promise<{ hits: SearchResultItem[]; provider: string } | null> {
   const [row] = await db
-    .select({ hits: searchCalls.hits })
+    .select({ hits: searchCalls.hits, provider: searchCalls.provider })
     .from(searchCalls)
     .where(and(eq(searchCalls.inputHash, inputHash), isNull(searchCalls.error)))
     .orderBy(desc(searchCalls.createdAt))
     .limit(1);
-  return (row?.hits as SearchResultItem[] | undefined) ?? null;
+  return row?.hits ? { hits: row.hits as SearchResultItem[], provider: row.provider } : null;
 }
 
 function log(row: {
   runId: string;
+  provider: string;
   query: string;
   inputHash: string;
   hits?: SearchResultItem[];
@@ -82,7 +106,7 @@ function log(row: {
 }) {
   return db.insert(searchCalls).values({
     runId: row.runId,
-    provider: "firecrawl",
+    provider: row.provider,
     query: row.query,
     inputHash: row.inputHash,
     hits: row.hits?.map((h) => ({ url: h.url, title: h.title, description: h.description, position: h.position })) ?? null,

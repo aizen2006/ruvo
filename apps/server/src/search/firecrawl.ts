@@ -76,7 +76,6 @@ export interface ScrapeOptions {
 }
 
 export interface FirecrawlClient {
-  readonly enabled: true;
   search(query: string, opts?: { limit?: number; sources?: Array<"web" | "news" | "images">; country?: string; tbs?: string; location?: string; scrape?: ScrapeOptions; signal?: AbortSignal }): Promise<SearchResponse>;
   scrape(url: string, opts?: ScrapeOptions & { signal?: AbortSignal }): Promise<ScrapeResult>;
 }
@@ -118,8 +117,6 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
   }
 
   return {
-    enabled: true,
-
     async search(query, o = {}) {
       const body = {
         query,
@@ -148,7 +145,3 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
     },
   };
 }
-
-/** Placeholder used when no API key is configured, so callers can check `enabled` before use. */
-export const firecrawlDisabled = { enabled: false as const };
-export type MaybeFirecrawl = FirecrawlClient | typeof firecrawlDisabled;

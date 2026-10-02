@@ -8,7 +8,8 @@ import { createLlmClient } from "../llm/client";
 import { logger } from "../libs/logger";
 import type { WebSearch } from "../plan/webDiscovery";
 import { createSearchRunner } from "../search/cache";
-import { createFirecrawl, firecrawlDisabled, type MaybeFirecrawl } from "../search/firecrawl";
+import { createFirecrawl } from "../search/firecrawl";
+import { createSearxng } from "../search/searxng";
 import { createWorkflowMemory } from "../memory/workflowMemory";
 
 /**
@@ -20,6 +21,10 @@ import { createWorkflowMemory } from "../memory/workflowMemory";
 const trustedOrigins = env.NODE_ENV === "production" ? [] : [`http://localhost:${env.PORT}`];
 /** RUVO's Scrapling fetch service: plain requests, the browser and the stealth browser. Off when SCRAPLING_URL is blank. */
 const scrapling = env.SCRAPLING_URL ? createScraplingClient(env.SCRAPLING_URL) : undefined;
+/** SearXNG, the free local web search; off when SEARXNG_URL is blank. */
+const searxng = env.SEARXNG_URL ? createSearxng(env.SEARXNG_URL) : undefined;
+/** Firecrawl (with a key): the backup web search. */
+const firecrawl = env.FIRECRAWL_API_KEY ? createFirecrawl({ apiKey: env.FIRECRAWL_API_KEY, baseUrl: env.FIRECRAWL_BASE_URL }) : undefined;
 /** Shared with web discovery, so it never plans a page the fetcher would refuse. */
 export const robots = createRobots({ userAgent: env.USER_AGENT, scrapling });
 export const fetcher = createFetcher({
@@ -31,15 +36,11 @@ export const fetcher = createFetcher({
 });
 export const llm = createLlmClient({ env });
 
-/** Firecrawl for web search; disabled without a key. */
-export const firecrawl: MaybeFirecrawl = env.FIRECRAWL_API_KEY
-  ? createFirecrawl({ apiKey: env.FIRECRAWL_API_KEY, baseUrl: env.FIRECRAWL_BASE_URL })
-  : firecrawlDisabled;
-
-/** Web search for finding sources; null without Firecrawl, so RUVO plans only known and linked sources. */
-export const webSearch: WebSearch | null = firecrawl.enabled
-  ? { searcher: createSearchRunner({ firecrawl, usdPerCredit: env.FIRECRAWL_USD_PER_CREDIT, cacheMode: env.FETCH_CACHE_MODE }), robots }
-  : null;
+/** Web search for finding sources (SearXNG, then Firecrawl); null with neither, so RUVO plans only known and linked sources. */
+export const webSearch: WebSearch | null =
+  searxng || firecrawl
+    ? { searcher: createSearchRunner({ searxng, firecrawl, usdPerCredit: env.FIRECRAWL_USD_PER_CREDIT, cacheMode: env.FETCH_CACHE_MODE }), robots }
+    : null;
 
 /** Jev (hosted) or Laya (self-hosted) behind one client; null when the decision layer is off. */
 const provider =
