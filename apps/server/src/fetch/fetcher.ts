@@ -131,7 +131,8 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     const service = serviceFor(req);
     if ((via === "browser" || via === "stealth") && !service) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
     if (via === "firecrawl" && !opts.firecrawl) throw new FetchError("unsupported_content", "Firecrawl is not configured", { url: req.url });
-    const cached = req.fresh ? null : await fromCache(scope, req.url, via);
+    // A plain or rendered read also takes a stored copy from past a bot check, rather than meet the check again.
+    const cached = req.fresh ? null : ((await fromCache(scope, req.url, via)) ?? (via === "http" || via === "browser" ? await fromCache(scope, req.url, "stealth") : null));
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, via === "http" ? ["pages"] : ["pages", "browserPages"]);
     const transport = () => (via === "firecrawl" ? firecrawlGet(scope, req) : service ? scraplingGet(service, scope, req, via) : httpGet(scope, req));

@@ -134,6 +134,18 @@ describe("fetch ladder", () => {
     expect(calls).toEqual([]);
   });
 
+  test("http and browser modes reuse a stored stealth copy instead of meeting the bot check again", async () => {
+    await savePage({ url: JOBS_URL, finalUrl: JOBS_URL, via: "stealth", status: 200, contentType: "text/html", body: fullPage });
+    const botCheck = html(403, challenge, { "cf-mitigated": "challenge" });
+    const { client, calls } = fakeScrapling({ http: botCheck, browser: botCheck });
+    const s = scope();
+    const fetcher = fetcherWith(client);
+    expect(await fetcher.fetch(s, req("http"))).toMatchObject({ via: "stealth", fromCache: true });
+    expect(await fetcher.fetch(s, req("browser"))).toMatchObject({ via: "stealth", fromCache: true });
+    expect(calls).toEqual([]);
+    expect([s.budget.left("pages"), s.budget.left("browserPages")]).toEqual([20, 5]);
+  });
+
   test("a fetch service that is down does not count against the site", async () => {
     const breaker = createCircuitBreaker({ threshold: 1, cooldownMs: 60_000 });
     const { client, calls } = fakeScrapling({ http: new FetchError("service_down", "down", { url: JOBS_URL }) });
