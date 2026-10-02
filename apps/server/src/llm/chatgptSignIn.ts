@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { env } from "../config/env";
 import { conflict, HttpError } from "../libs/errors";
 import { logger } from "../libs/logger";
+import { isChatModel } from "./models";
 
 /**
  * Signing in with ChatGPT from the dashboard. RUVO runs the openai-oauth CLI as README's terminal
@@ -33,7 +34,8 @@ const lastLine = (text: string) => text.trim().split("\n").at(-1)!.trim();
 /** The account, the saved sign-in, the sign-in server and any login in progress. */
 export async function signInStatus(): Promise<ChatgptSignIn> {
   const [saved, models] = await Promise.all([readSignIn(), listModels()]);
-  return { account: env.AI_ACCOUNT, ...saved, serverRunning: models !== null, models: models ?? [], loginUrl: login?.current };
+  // Only the models RUVO offers: the server also lists ones a plan can't use (gpt-5.5) or that don't write text.
+  return { account: env.AI_ACCOUNT, ...saved, serverRunning: models !== null, models: (models ?? []).filter(isChatModel), loginUrl: login?.current };
 }
 
 /** Starts `openai-oauth login`, at most one at a time, and resolves with OpenAI's login page for it. */
