@@ -114,7 +114,7 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
           title="Where it will look"
           hint={
             draft.entity === "job_posting"
-              ? "Job boards RUVO knows for this request, plus any website you add."
+              ? "Job boards RUVO knows, more boards and job pages it found by searching the web, and any website you add."
               : "RUVO searches the web for pages that list these records, and reads any website you add. It learns each page once, so later runs are cheaper."
           }
         >

@@ -24,6 +24,9 @@ const LINE: Record<string, (e: RunEvent) => string | null> = {
   "compile.started": () => "Reading your request",
   "discovery.started": () => "Looking for places to find these",
   "discovery.detected": (e) => e.message,
+  "discovery.search_started": () => "Searching the web",
+  // "Search round 1: 12 more companies on Greenhouse, Ashby and Lever, plus 3 more sources" is plain already.
+  "discovery.search_round": (e) => e.message,
   "plan.reused": () => "Reusing the plan from a similar list you made before",
   "plan.completed": () => "Plan ready",
   "stage.started": (e) => STAGE_LINE[e.stage] ?? null,
