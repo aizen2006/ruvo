@@ -12,7 +12,8 @@ import {
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { env } from "../../config/env";
 import { conflict, HttpError, notFound } from "../../libs/errors";
-import { runModels } from "../../runs/modes";
+import { isChatModel } from "../../llm/models";
+import { modelsForMode, runModels } from "../../runs/modes";
 import { db } from "../client";
 import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls, workflows } from "../schema";
 
@@ -256,6 +257,9 @@ export async function rerunRun(runId: string, { more = false } = {}) {
   if (!isTerminal(source.status)) throw conflict(`Run is still ${source.status}`);
   if (!source.workflowId) throw conflict("Run has no workflow to re-run");
 
+  // A stored model the AI account doesn't offer (AI_ACCOUNT changed since) gives way to the mode's current default.
+  const defaults = modelsForMode(source.mode, undefined, env);
+  const offered = (model: string | null, fallback: string) => (model && !isChatModel(model) ? fallback : model);
   const [run] = await db
     .insert(runs)
     .values({
@@ -266,8 +270,8 @@ export async function rerunRun(runId: string, { more = false } = {}) {
       autoStart: true,
       // Same mode and models, so the re-run is comparable with the original.
       mode: source.mode,
-      modelPlanner: source.modelPlanner,
-      modelWorker: source.modelWorker,
+      modelPlanner: offered(source.modelPlanner, defaults.planner),
+      modelWorker: offered(source.modelWorker, defaults.worker),
       metrics: emptyMetrics(),
     })
     .returning({ runId: runs.id, status: runs.status });

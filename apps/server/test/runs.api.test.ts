@@ -1,11 +1,15 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import type { DatasetContract, PlanDraft } from "@repo/contracts";
+import { env } from "../src/config/env";
+import { loadEnv } from "../src/config/envSchema";
+import { attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { syncCuratedRegistry } from "../src/plan/registry";
+import { buildTemplateIr } from "../src/plan/templates";
 import { createPreparer } from "../src/runs/prepare";
 import { startWorker, type RunExecutor } from "../src/runs/worker";
-import { insertRun, resetDb, waitFor } from "./helpers/db";
+import { getRun, insertRun, resetDb, waitFor } from "./helpers/db";
 import { fakeResponses } from "./helpers/fakeLlm";
 import { startTestServer } from "./helpers/http";
 
@@ -163,5 +167,24 @@ describe("run lifecycle", () => {
     const [a, b] = await Promise.all([body.runId, rerun.body.runId].map((id) => api.get(`/api/runs/${id}`)));
     expect(b!.body.workflowId).toBe(a!.body.workflowId);
     await worker.stop();
+  });
+
+  test("a re-run trades a stored model the AI account doesn't offer for the mode's default", async () => {
+    const run = await insertRun({ status: "completed", mode: "thorough", modelPlanner: "gpt-6-sol", modelWorker: "gpt-6-luna" });
+    const budgets = { maxPages: 1, maxBrowserPages: 0, maxLlmCalls: 0, maxDurationMs: 1000, maxRecords: 1 };
+    const contract = await saveContract({ requestId: run.requestId, contract: DEMO_CONTRACT, editedBy: "template" });
+    await attachWorkflow(run.id, (await saveWorkflow({ contractId: contract.id, ir: buildTemplateIr(DEMO_CONTRACT, [], { budgets, maxItemsPerSource: 1 }) })).id);
+
+    const original = { ...env };
+    try {
+      // Now on a ChatGPT plan, which offers gpt-6-luna but not gpt-6-sol.
+      Object.assign(env, loadEnv({ ...process.env, AI_ACCOUNT: "chatgpt", MODEL_PLANNER: "", MODEL_WORKER: "" }));
+      for (const action of ["rerun", "more"]) {
+        const { body } = await api.post(`/api/runs/${run.id}/${action}`);
+        expect(await getRun(body.runId)).toMatchObject({ mode: "thorough", modelPlanner: "gpt-5.6-terra", modelWorker: "gpt-6-luna" });
+      }
+    } finally {
+      Object.assign(env, original);
+    }
   });
 });
