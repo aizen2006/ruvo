@@ -1,22 +1,25 @@
 "use client";
 
-import { estimateRunCost, type ModelChoice, type ModeOption, type ModelOption, type RunMode } from "@repo/contracts";
+import { estimateRunCost, type AiAccount, type ModelChoice, type ModeOption, type ModelOption, type RunMode } from "@repo/contracts";
 import { RadioGroup, RadioTile } from "@/components/ui/radio-group";
 import { minutesPhrase, usd } from "@/lib/plain";
 
 /**
- * How thorough the search is, as three tiles with what each costs and how long it may take.
+ * How thorough the search is, as three tiles with what each costs and how long it may take
+ * (on a ChatGPT plan nothing is billed, so only the time).
  * `models` overrides the modes' own models when the person chose them under Advanced.
  */
 export function ModePicker({
   modes,
   catalog,
+  account,
   value,
   models,
   onChange,
 }: {
   modes: ModeOption[];
   catalog: ModelOption[];
+  account: AiAccount;
   value: RunMode;
   models: Partial<ModelChoice>;
   onChange: (mode: RunMode) => void;
@@ -33,7 +36,7 @@ export function ModePicker({
               <span className="font-mono text-small font-semibold">{mode.label}</span>
               <span className="text-small text-graphite group-data-[state=checked]:text-ink">{mode.blurb}</span>
               <span className="mt-auto flex flex-wrap gap-x-item pt-tight font-mono text-micro tabular">
-                <span className="font-medium">about {usd(estimate.typicalUsd)}</span>
+                {account !== "chatgpt" && <span className="font-medium">about {usd(estimate.typicalUsd)}</span>}
                 <span className="text-graphite group-data-[state=checked]:text-ink">{minutesPhrase(mode.budgets.maxDurationMs)}</span>
               </span>
             </RadioTile>

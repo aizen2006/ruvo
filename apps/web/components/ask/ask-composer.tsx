@@ -71,6 +71,7 @@ export function AskComposer() {
 
   const selected = options.data?.modes.find((m) => m.id === mode);
   const estimate = selected && options.data ? estimateRunCost({ ...selected.models, ...models }, selected.budgets.maxLlmCalls, options.data.models) : null;
+  const cost = options.data?.account === "chatgpt" ? "Included in your ChatGPT plan" : estimate && costRange(estimate.typicalUsd, estimate.highUsd);
 
   return (
     // Wide screens: step out of the page's reading column onto the full frame, left aligned, leaving the right side to the field.
@@ -122,8 +123,8 @@ export function AskComposer() {
           </div>
         ) : options.data ? (
           <div className="space-y-tight">
-            <ModePicker modes={options.data.modes} catalog={options.data.models} value={mode} models={models} onChange={setMode} />
-            {selected && <ModelPicker catalog={options.data.models} defaults={selected.models} value={models} onChange={setModels} />}
+            <ModePicker modes={options.data.modes} catalog={options.data.models} account={options.data.account} value={mode} models={models} onChange={setMode} />
+            {selected && <ModelPicker catalog={options.data.models} account={options.data.account} defaults={selected.models} value={models} onChange={setModels} />}
           </div>
         ) : (
           <p className="text-small text-graphite">Cost estimates aren&apos;t available right now. RUVO will use the balanced setting.</p>
@@ -136,7 +137,7 @@ export function AskComposer() {
             Start without checking the plan
           </label>
           <div className="flex flex-col gap-tight sm:ml-auto sm:flex-row sm:items-center sm:gap-item">
-            {estimate && <span className="font-mono text-micro text-graphite tabular">{costRange(estimate.typicalUsd, estimate.highUsd)}</span>}
+            {cost && <span className="font-mono text-micro text-graphite tabular">{cost}</span>}
             <Button type="submit" variant="primary" size="lg" className="w-full sm:w-auto" disabled={tooShort || tooLong || create.isPending}>
               {create.isPending ? "Starting…" : "Make my list"}
             </Button>

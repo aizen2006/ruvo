@@ -1,6 +1,6 @@
 "use client";
 
-import type { ModelChoice, ModelOption } from "@repo/contracts";
+import type { AiAccount, ModelChoice, ModelOption } from "@repo/contracts";
 import { ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,7 +10,7 @@ const MODE_DEFAULT = "mode-default";
 
 const JOBS: Array<{ role: keyof ModelChoice; label: string; hint: string }> = [
   { role: "planner", label: "Understands your request", hint: "Turns your words into a plan. Runs twice per list." },
-  { role: "worker", label: "Reads the pages", hint: "Fills gaps and judges unclear rows. Most of the cost." },
+  { role: "worker", label: "Reads the pages", hint: "Fills gaps and judges unclear rows. Makes most of the AI calls." },
 ];
 
 const price = (m: ModelOption) => `$${m.inputPerMillion} in, $${m.outputPerMillion} out per million tokens`;
@@ -18,11 +18,14 @@ const price = (m: ModelOption) => `$${m.inputPerMillion} in, $${m.outputPerMilli
 /** Advanced: pick the model for each job. Closed by default; the modes already choose well. */
 export function ModelPicker({
   catalog,
+  account,
   defaults,
   value,
   onChange,
 }: {
+  /** The models the AI account can use; a ChatGPT plan's have no price. */
   catalog: ModelOption[];
+  account: AiAccount;
   /** The selected mode's own models. */
   defaults: ModelChoice;
   value: Partial<ModelChoice>;
@@ -54,7 +57,7 @@ export function ModelPicker({
                     {nameOf(defaults[role])} (default)
                   </SelectItem>
                   {catalog.map((m) => (
-                    <SelectItem key={m.id} value={m.id} hint={`${m.blurb}. ${price(m)}`}>
+                    <SelectItem key={m.id} value={m.id} hint={account === "chatgpt" ? m.blurb : `${m.blurb}. ${price(m)}`}>
                       {m.label}
                     </SelectItem>
                   ))}
