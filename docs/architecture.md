@@ -43,7 +43,7 @@ queued → compiling → awaiting_approval ─start─▶ queued_run → running
 1. `requirementCompiler.ts` asks the planner model for a contract. The contract lists fields, criteria, assumptions, dedupe keys and source hints.
 2. `normalize.ts` then repairs it deterministically:
    - field names become unique snake_case
-   - criteria must point at real fields
+   - criteria must point at real fields; an exact-match criterion on a catalog field the model left out (say, `remote`) adds that field as optional
    - job contracts always include company, title and url
    - linked URLs are normalized
    - "good companies" becomes a visible assumption

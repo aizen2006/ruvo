@@ -1,4 +1,5 @@
-import type { Criterion, DatasetContract, FieldSpec } from "@repo/contracts";
+import { CatalogKey, type Criterion, type DatasetContract, type FieldSpec } from "@repo/contracts";
+import { JOB_FIELD_GUIDE } from "./catalog";
 
 /**
  * Deterministic clean-up of a compiled contract, so later stages can rely on its shape
@@ -95,6 +96,15 @@ function normalizeFields(input: DatasetContract, warnings: string[]): FieldSpec[
       if (!fields.some((f) => f.catalogKey === required.catalogKey)) {
         fields.push(required);
         warnings.push(`Added missing "${required.name}" field`);
+      }
+    }
+    // An `equals` criterion on a catalog field the model didn't list (e.g. "preferably remote" with no
+    // remote column) would be dropped as unusable; add the field as optional so the preference survives.
+    for (const criterion of input.criteria.filter((c) => c.kind === "equals")) {
+      for (const key of criterion.fields.map((f) => CatalogKey.safeParse(f).data)) {
+        if (!key || key === "custom" || fields.some((f) => f.name === key || f.catalogKey === key)) continue;
+        fields.push({ name: key, catalogKey: key, type: "string", required: false, description: JOB_FIELD_GUIDE[key] });
+        warnings.push(`Added optional "${key}" field for criterion "${criterion.label}"`);
       }
     }
   }

@@ -36,7 +36,7 @@ describe("normalizeContract", () => {
           { id: "co", label: "Company", kind: "keyword_none", fields: ["company"], values: ["Acme"], strength: "hard", weight: 1 },
           { id: "bad", label: "Bad regex", kind: "regex", fields: ["title"], values: ["(unclosed"], strength: "hard", weight: 1 },
           { id: "empty", label: "Empty", kind: "keyword_any", fields: ["title"], values: [], strength: "soft", weight: 1 },
-          { id: "arr", label: "Remote", kind: "equals", fields: ["remote"], values: ["remote"], strength: "soft", weight: 5 },
+          { id: "arr", label: "Remote", kind: "equals", fields: ["work_mode"], values: ["remote"], strength: "soft", weight: 5 },
         ],
       },
       "backend jobs",
@@ -47,6 +47,14 @@ describe("normalizeContract", () => {
     ]);
     expect(contract.criteria[0]!.weight).toBe(1);
     expect(warnings.filter((w) => w.startsWith("Dropped"))).toHaveLength(3);
+  });
+
+  test("adds an optional catalog field that an equals criterion checks, instead of dropping the criterion", () => {
+    const remote = { id: "remote", label: "Remote preferred", kind: "equals" as const, fields: ["remote"], values: ["remote"], strength: "soft" as const, weight: 0.9 };
+    const { contract, warnings } = normalizeContract({ ...base, criteria: [remote] }, "backend jobs, preferably remote");
+    expect(contract.fields.find((f) => f.name === "remote")).toMatchObject({ catalogKey: "remote", type: "string", required: false });
+    expect(contract.criteria.map((c) => [c.id, c.fields])).toEqual([["remote", ["remote"]]]);
+    expect(warnings).toContain('Added optional "remote" field for criterion "Remote preferred"');
   });
 
   test('injects the "good companies" interpretation when the model left it out', () => {
