@@ -21,7 +21,8 @@ import type {
 
 /** Typed client for the RUVO API (apps/server). */
 
-export const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+// Without the trim, a configured trailing slash turns every request into "//api/...", which matches no route.
+export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
 export class ApiError extends Error {
   constructor(
