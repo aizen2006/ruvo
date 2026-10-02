@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { signInStatus, startLogin, startSignInServer } from "../llm/chatgptSignIn";
+import { signInStatus, signOut, startLogin, startSignInServer } from "../llm/chatgptSignIn";
 
 /**
  * Signing in with ChatGPT from the dashboard's Settings. The POST routes start programs on this
@@ -20,5 +20,11 @@ chatgptRouter.post("/sign-in", async (_req, res) => {
 /** Starts the sign-in server, for a machine that is already signed in. */
 chatgptRouter.post("/start", async (_req, res) => {
   await startSignInServer();
+  res.json(await signInStatus());
+});
+
+/** Signs this machine out: the sign-in server stops and the saved sign-in is deleted. */
+chatgptRouter.post("/sign-out", async (_req, res) => {
+  await signOut();
   res.json(await signInStatus());
 });

@@ -90,7 +90,8 @@ bun run dev          # API :3000, worker, fetch service and its guard, dashboard
 
 **To use your ChatGPT plan instead of an API key**, sign in once, then keep the sign-in server
 running in the background. The easy way is **Sign in with ChatGPT** on the dashboard's
-**Settings** page, which opens OpenAI's login page and then starts the sign-in server; or from a
+**Settings** page, which opens OpenAI's login page and then starts the sign-in server (**Sign out**
+there stops the server and deletes the saved sign-in, which the Codex CLI shares); or from a
 terminal:
 
 ```bash

@@ -97,6 +97,7 @@ export const api = {
   /** Starts a sign-in; the answer's `loginUrl` is OpenAI's login page for it. */
   signInWithChatgpt: () => request<ChatgptSignIn>("/api/chatgpt/sign-in", { method: "POST" }),
   startChatgptServer: () => request<ChatgptSignIn>("/api/chatgpt/start", { method: "POST" }),
+  signOutOfChatgpt: () => request<ChatgptSignIn>("/api/chatgpt/sign-out", { method: "POST" }),
   listRuns: (limit: number) => request<RunSummary[]>(`/api/runs?limit=${limit}`),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),
   startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),

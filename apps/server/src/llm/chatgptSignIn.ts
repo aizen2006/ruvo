@@ -1,4 +1,5 @@
 import type { ChatgptSignIn } from "@repo/contracts";
+import { rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { env } from "../config/env";
@@ -49,6 +50,17 @@ export async function startSignInServer(): Promise<void> {
   // On OPENAI_OAUTH_URL's port, so RUVO reaches the server it starts.
   const cli = bunx([CLI, "--detach", "--port", new URL(env.OPENAI_OAUTH_URL).port || "80"]);
   if ((await cli.exited) !== 0) throw new HttpError(502, `The sign-in server didn't start: ${lastLine(await new Response(cli.stderr).text())}`);
+}
+
+/**
+ * Signs this machine out of ChatGPT: stops the sign-in server, then deletes the saved sign-in.
+ * The Codex CLI keeps its sign-in in the same file, so it is signed out too.
+ */
+export async function signOut(): Promise<void> {
+  if (login) throw conflict("A ChatGPT sign-in is in progress; finish it before signing out.");
+  // Stopped first, so the server can't write a refreshed sign-in back after the delete.
+  await bunx([CLI, "stop"]).exited;
+  await rm(authFile(), { force: true });
 }
 
 function runLogin() {

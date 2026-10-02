@@ -13,7 +13,8 @@ export function AiAccountSection() {
   const chatgpt = useChatgptSignIn();
   const signIn = useChatgptAction(api.signInWithChatgpt);
   const start = useChatgptAction(api.startChatgptServer);
-  const error = signIn.error ?? start.error;
+  const signOut = useChatgptAction(api.signOutOfChatgpt);
+  const error = signIn.error ?? start.error ?? signOut.error;
 
   return (
     <section aria-labelledby="ai-account" className="max-w-[640px] space-y-item">
@@ -66,13 +67,26 @@ export function AiAccountSection() {
                 {chatgpt.data.email ? `Signed in as ${chatgpt.data.email}` : "Signed in with ChatGPT"}
                 {!chatgpt.data.serverRunning && ", but the sign-in server isn't running."}
               </p>
-              {chatgpt.data.serverRunning ? (
+              {chatgpt.data.serverRunning && (
                 <p className="font-mono text-micro text-graphite">Models on your plan: {chatgpt.data.models.join(", ")}</p>
-              ) : (
-                <Button variant="primary" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => toast("Started") })}>
-                  {start.isPending ? "Starting…" : "Start the sign-in server"}
-                </Button>
               )}
+              <div className="flex flex-wrap gap-item">
+                {!chatgpt.data.serverRunning && (
+                  <Button variant="primary" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => toast("Started") })}>
+                    {start.isPending ? "Starting…" : "Start the sign-in server"}
+                  </Button>
+                )}
+                <Button
+                  variant="danger"
+                  disabled={signOut.isPending}
+                  onClick={() =>
+                    window.confirm("Sign out of ChatGPT on this computer? The Codex CLI shares this sign-in, so it is signed out too.") &&
+                    signOut.mutate(undefined, { onSuccess: () => toast("Signed out") })
+                  }
+                >
+                  {signOut.isPending ? "Signing out…" : "Sign out"}
+                </Button>
+              </div>
             </>
           )}
         </div>
