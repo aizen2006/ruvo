@@ -65,7 +65,7 @@ Jev is optional; without one, rules and the LLM judge make the calls.
 ```bash
 git clone https://github.com/aizen2006/ruvo && cd ruvo
 bun install
-docker compose up -d --wait                         # Postgres 17 and Qdrant
+docker compose up -d --wait                         # Postgres 17
 
 cp apps/server/.env.example apps/server/.env        # set OPENAI_API_KEY (and TYPESAFE_API_KEY)
 cp apps/web/.env.example apps/web/.env.local
@@ -164,8 +164,8 @@ A few rules shaped the code:
   a recipe. Deterministic code checks each draft and runs it. If a draft fails, the fallback is
   a template, not another prompt.
 - **Postgres is the only source of truth.** It holds the queue, the page cache, the LLM cache,
-  the decision cache and the evidence. Qdrant and Jev only speed things up; when they fail,
-  RUVO skips them.
+  the decision cache, the evidence and the remembered plans. Jev only speeds things up; when it
+  fails, RUVO skips it.
 - **Everything nondeterministic is cached.** That makes re-runs reproducible, lets a crashed run
   resume by replaying, and lets a demo run fully offline.
 - **Budgets degrade a run instead of failing it.** When the AI budget runs out, remaining steps

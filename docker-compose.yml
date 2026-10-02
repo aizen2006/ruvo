@@ -1,5 +1,5 @@
 # Local infrastructure for RUVO.
-#   docker compose up -d                  -> postgres + qdrant
+#   docker compose up -d                  -> postgres
 #   docker compose --profile laya up -d   -> also the optional self-hosted Laya decider
 services:
   postgres:
@@ -18,13 +18,6 @@ services:
       timeout: 3s
       retries: 10
 
-  qdrant:
-    image: qdrant/qdrant:latest
-    ports:
-      - "127.0.0.1:6333:6333"
-    volumes:
-      - qdrant-data:/qdrant/storage
-
   # Fallback decision provider; the MVP uses the hosted Jev API instead.
   laya:
     profiles: ["laya"]
@@ -37,5 +30,4 @@ services:
 
 volumes:
   postgres-data:
-  qdrant-data:
   laya-models:

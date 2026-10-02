@@ -94,7 +94,7 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
       data: { candidates: discovery.candidates.map((c) => c.ref), unmatchedCompanies: discovery.unmatchedCompanies },
     });
 
-    const remembered = (await memory?.recall(contract, signal)) ?? null;
+    const remembered = (await memory?.recall(contract)) ?? null;
     const { ir, draft, reused } = await planForContract(llm, contract, discovery.candidates, caps, signal, remembered);
     if (search) ir.search = { queries: search.searches, sources: search.sources };
     const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft, reusedFromWorkflowId: reused?.workflowId ?? null });

@@ -270,3 +270,14 @@ export const searchCalls = pgTable(
   },
   (t) => [index("search_calls_hash_idx").on(t.inputHash), index("search_calls_run_idx").on(t.runId)],
 );
+
+/** Plans that produced good datasets, found again by how similar a new contract's summary is (pg_trgm). */
+export const workflowMemory = pgTable("workflow_memory", {
+  workflowId: uuid("workflow_id").primaryKey(),
+  runId: uuid("run_id").notNull(),
+  /** contractSummary(): what the contract asks for, in a canonical form. */
+  summary: text("summary").notNull(),
+  validRecords: integer("valid_records").notNull(),
+  planDraft: jsonb("plan_draft").$type<PlanDraft>().notNull(),
+  rememberedAt: timestamp("remembered_at", { withTimezone: true }).notNull().defaultNow(),
+});

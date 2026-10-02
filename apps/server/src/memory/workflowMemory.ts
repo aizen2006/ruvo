@@ -1,7 +1,8 @@
 import type { DatasetContract, PlanDraft } from "@repo/contracts";
+import { desc, gte, sql } from "drizzle-orm";
+import { db } from "../db/client";
+import { workflowMemory } from "../db/schema";
 import type { Logger } from "../libs/logger";
-import type { Embed } from "./embeddings";
-import type { VectorStore } from "./qdrant";
 
 /**
  * Workflow memory: plans that produced good datasets, indexed by what they were asked for.
@@ -9,24 +10,14 @@ import type { VectorStore } from "./qdrant";
  * roles at AI companies") reuses the stored plan instead of calling the planner.
  */
 
-export const MEMORY_COLLECTION = "workflow_memory";
 /**
- * Minimum cosine similarity between contract summaries for a plan to be reused. Summaries share
- * their structure, so unrelated requests still score about 0.8 (measured: a paraphrase 0.98,
- * "frontend jobs in London" vs "remote AI backend jobs" 0.80).
+ * Minimum trigram similarity (pg_trgm) between contract summaries for a plan to be reused.
+ * Measured on 27 real requests: a paraphrase scored 0.75, an edited contract for the same prompt
+ * 0.73, and related but different requests (another company, other roles) at most 0.64.
  */
-export const REUSE_MIN_SCORE = 0.9;
+export const REUSE_MIN_SCORE = 0.7;
 /** A plan is only remembered (and reused) if its run produced at least this many valid records. */
 export const REUSE_MIN_VALID = 20;
-
-export interface MemoryPayload {
-  workflowId: string;
-  runId: string;
-  validRecords: number;
-  planDraft: PlanDraft;
-  summary: string;
-  rememberedAt: string;
-}
 
 export interface Recalled {
   workflowId: string;
@@ -37,7 +28,7 @@ export interface Recalled {
 
 export interface WorkflowMemory {
   /** The best stored plan for a contract, or null. Never throws. */
-  recall(contract: DatasetContract, signal?: AbortSignal): Promise<Recalled | null>;
+  recall(contract: DatasetContract): Promise<Recalled | null>;
   /** Stores a plan after a good run. Never throws. */
   remember(input: { workflowId: string; runId: string; contract: DatasetContract; draft: PlanDraft; validRecords: number }): Promise<boolean>;
 }
@@ -59,16 +50,18 @@ export function contractSummary(c: DatasetContract): string {
   ].join("\n");
 }
 
-export function createWorkflowMemory(deps: { embed: Embed; store: VectorStore; log: Logger; collection?: string }): WorkflowMemory {
-  const collection = deps.collection ?? MEMORY_COLLECTION;
-
+export function createWorkflowMemory(deps: { log: Logger }): WorkflowMemory {
   return {
-    async recall(contract, signal) {
+    async recall(contract) {
       try {
-        const vector = await deps.embed(contractSummary(contract), signal);
-        const [best] = await deps.store.search<MemoryPayload>(collection, vector, 1);
-        if (!best || best.score < REUSE_MIN_SCORE || best.payload.validRecords < REUSE_MIN_VALID) return null;
-        return { workflowId: best.payload.workflowId, runId: best.payload.runId, score: best.score, draft: best.payload.planDraft };
+        const score = sql<number>`similarity(${workflowMemory.summary}, ${contractSummary(contract)})`.mapWith(Number);
+        const [best] = await db
+          .select({ workflowId: workflowMemory.workflowId, runId: workflowMemory.runId, draft: workflowMemory.planDraft, score })
+          .from(workflowMemory)
+          .where(gte(workflowMemory.validRecords, REUSE_MIN_VALID))
+          .orderBy(desc(score))
+          .limit(1);
+        return best && best.score >= REUSE_MIN_SCORE ? best : null;
       } catch (err) {
         deps.log.debug("Workflow memory lookup skipped", { error: (err as Error).message });
         return null;
@@ -78,12 +71,8 @@ export function createWorkflowMemory(deps: { embed: Embed; store: VectorStore; l
     async remember({ workflowId, runId, contract, draft, validRecords }) {
       if (validRecords < REUSE_MIN_VALID) return false;
       try {
-        const summary = contractSummary(contract);
-        const vector = await deps.embed(summary);
-        await deps.store.ensureCollection(collection, vector.length);
-        await deps.store.upsert<MemoryPayload>(collection, [
-          { id: workflowId, vector, payload: { workflowId, runId, validRecords, planDraft: draft, summary, rememberedAt: new Date().toISOString() } },
-        ]);
+        const row = { runId, summary: contractSummary(contract), validRecords, planDraft: draft, rememberedAt: new Date() };
+        await db.insert(workflowMemory).values({ workflowId, ...row }).onConflictDoUpdate({ target: workflowMemory.workflowId, set: row });
         return true;
       } catch (err) {
         deps.log.debug("Workflow memory upsert skipped", { error: (err as Error).message });

@@ -7,7 +7,7 @@ import { requests, runs } from "../../src/db/schema";
 export async function resetDb() {
   await db.execute(sql`
     truncate table evidence, records, run_events, runs, workflows, dataset_contracts, requests,
-      pages, recipes, registry_companies, decisions, llm_calls, search_calls restart identity cascade`);
+      pages, recipes, registry_companies, decisions, llm_calls, search_calls, workflow_memory restart identity cascade`);
 }
 
 /** Inserts a request plus a run in the given status and returns the run row. */

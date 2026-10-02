@@ -9,8 +9,6 @@ import { logger } from "../libs/logger";
 import type { WebSearch } from "../plan/webDiscovery";
 import { createSearchRunner } from "../search/cache";
 import { createFirecrawl, firecrawlDisabled, type MaybeFirecrawl } from "../search/firecrawl";
-import { createEmbedder } from "../memory/embeddings";
-import { createQdrant } from "../memory/qdrant";
 import { createWorkflowMemory } from "../memory/workflowMemory";
 
 /**
@@ -49,9 +47,5 @@ const provider =
     : createSystemOneClient({ baseUrl: env.DECIDER_BASE_URL, model: env.DECIDER_MODEL, apiKey: env.TYPESAFE_API_KEY });
 export const decider = createDecider({ provider, mode: env.DECIDER_MODE });
 
-/** Plans that worked, in Qdrant, so paraphrased requests can reuse them. */
-export const memory = createWorkflowMemory({
-  embed: createEmbedder(env),
-  store: createQdrant({ url: env.QDRANT_URL }),
-  log: logger.child({ component: "memory" }),
-});
+/** Plans that worked, kept in Postgres, so paraphrased requests can reuse them. */
+export const memory = createWorkflowMemory({ log: logger.child({ component: "memory" }) });

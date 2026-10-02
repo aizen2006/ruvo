@@ -43,6 +43,13 @@
       "when": 1790952904460,
       "tag": "0005_evidence_page_index",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790953714569,
+      "tag": "0006_workflow_memory_in_postgres",
+      "breakpoints": true
     }
   ]
 }

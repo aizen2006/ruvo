@@ -38,24 +38,8 @@ const checks: Check[] = [
       return pass(String(row.v).split(",")[0] ?? "connected");
     },
   },
-  {
-    name: "qdrant",
-    run: async () => {
-      const res = await fetch(`${env.QDRANT_URL}/healthz`);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      return pass(await res.text());
-    },
-  },
   { name: `openai ${env.MODEL_PLANNER}`, run: () => openaiParse(env.MODEL_PLANNER) },
   { name: `openai ${env.MODEL_WORKER}`, run: () => openaiParse(env.MODEL_WORKER) },
-  {
-    name: `openai ${env.EMBED_MODEL}`,
-    run: async () => {
-      if (!openai) return skip("OPENAI_API_KEY not set");
-      const res = await openai.embeddings.create({ model: env.EMBED_MODEL, input: "backend engineer" });
-      return pass(`${res.data[0]?.embedding.length} dims`);
-    },
-  },
   {
     name: `decider ${env.DECIDER_PROVIDER}`,
     run: async () => {

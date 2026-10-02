@@ -5,7 +5,6 @@ const PRICES: Record<string, { input: number; output: number }> = {
   "gpt-6-astra": { input: 10, output: 50 },
   "gpt-6-sol": { input: 2, output: 10 },
   "gpt-6-luna": { input: 0.1, output: 0.5 },
-  "text-embedding-3-small": { input: 0.02, output: 0 },
 };
 
 /** Cost of one call; unknown models are priced at zero rather than guessed. */

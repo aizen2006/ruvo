@@ -6,7 +6,7 @@ overview and quick start; [docs/architecture.md](../../docs/architecture.md) exp
 ## Setup
 
 ```bash
-docker compose up -d --wait       # from the repo root: postgres + qdrant
+docker compose up -d --wait       # from the repo root: postgres
 cp .env.example .env              # then set OPENAI_API_KEY (TYPESAFE_API_KEY is optional)
 bun install
 bun run db:migrate                # create or update the tables
@@ -23,7 +23,7 @@ bun run dev                       # API on :3000 plus the worker
 | `start` / `start:worker` | API / worker without watch mode |
 | `test` / `check-types` | Tests (against their own `ruvo_test` database) / TypeScript check |
 | `db:generate` / `db:migrate` | Create a migration from `src/db/schema.ts` / apply migrations |
-| `smoke` | Postgres, Qdrant, OpenAI, decision provider, Playwright |
+| `smoke` | Postgres, OpenAI, decision provider, Playwright |
 | `eval` | Golden prompts with checks on each compiled contract |
 | `e2e` | The demo request end to end against the running stack, plus a re-run |
 | `seed:demo` | Warms caches for the demo and resets the demo site (see `docs/demo-script.md`) |

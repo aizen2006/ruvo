@@ -1,7 +1,7 @@
 # Deploying RUVO
 
-`docker-compose.prod.yml` runs the whole stack on one machine with Docker: Postgres, Qdrant,
-a one-shot migration, the API (port 3000), the run worker and the dashboard (port 3001).
+`docker-compose.prod.yml` runs the whole stack on one machine with Docker: Postgres, a one-shot
+migration, the API (port 3000), the run worker and the dashboard (port 3001).
 
 ## Run it
 
@@ -41,12 +41,13 @@ Each worker runs its own headless Chromium, so allow roughly 1 GB of memory per 
 The API has **no authentication** and anyone who can reach it can start runs that spend your
 OpenAI (and Firecrawl) credits. The compose file publishes ports 3000 and 3001 for local or
 private-network use. Before exposing RUVO to the internet, put both behind your own reverse proxy
-with HTTPS and authentication (or a VPN), and don't publish Postgres or Qdrant.
+with HTTPS and authentication (or a VPN), and don't publish Postgres.
 
 ## Operations
 
 - **Logs:** `docker compose -f docker-compose.prod.yml logs -f api worker`
 - **Health:** `GET /health` on the API returns 200 while it can reach the database.
 - **Backups:** `docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U ruvo ruvo > ruvo.sql`.
-  Qdrant only holds reusable plans and can be rebuilt, so Postgres is the one to back up.
-- **Disk:** fetched pages are cached in Postgres, so the database grows with use.
+  Postgres holds everything, remembered plans included.
+- **Disk:** fetched pages are cached in Postgres, so the database grows with use. `bun run prune`
+  in `apps/server` deletes old pages that no record cites.

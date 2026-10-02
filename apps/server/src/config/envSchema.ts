@@ -19,12 +19,10 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.string().default("info"),
 
   DATABASE_URL: z.string().url(),
-  QDRANT_URL: z.string().url().default("http://localhost:6333"),
 
   OPENAI_API_KEY: unsetIfBlank,
   MODEL_PLANNER: z.string().default("gpt-6-sol"),
   MODEL_WORKER: z.string().default("gpt-6-luna"),
-  EMBED_MODEL: z.string().default("text-embedding-3-small"),
   LLM_CACHE_MODE: z.enum(["off", "on", "cache_only"]).default("on"),
 
   DECIDER_PROVIDER: z.enum(["jev", "laya", "off"]).default("jev"),

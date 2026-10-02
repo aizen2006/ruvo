@@ -10,7 +10,7 @@ unless noted.
 2. **Every value carries evidence**: method, source URL, stored page, snippet, locator, a verified flag and a confidence score. A value the LLM extracted is kept only if its quoted text is found on the page.
 3. **Every AI step has a fallback**: the template planner, a rules-only decider, parsers for Hacker News posts, and local selector repair before LLM rediscovery.
 4. **Everything nondeterministic is cached.** That covers pages (per URL and transport), LLM calls (per input hash) and decisions (per task and state hash). Re-runs are therefore reproducible, a crashed run can resume by replaying from the caches, and demos can run offline.
-5. **Postgres is the only source of truth, including the job queue.** Qdrant and the decision provider are accelerators: when they fail, RUVO skips them.
+5. **Postgres is the only source of truth, including the job queue.** The decision provider is an accelerator: when it fails, RUVO skips it.
 6. **Fetching is polite and safe.** RUVO sends an honest User-Agent, follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is; `Crawl-delay` is honoured up to 10 s), applies per-host rate limits and circuit breakers, blocks requests to private networks, and caps response size. It never uses stealth techniques or solves captchas.
 
 ## From request to dataset
@@ -78,7 +78,7 @@ If nothing is found, the run stops for review and says what was searched.
 The planner writes a **PlanDraft**: which candidates to include, why, how many items to keep from each, and an LLM budget.
 
 **Planner order:**
-1. Workflow memory is checked first (`memory/workflowMemory.ts`). A stored plan is reused when similarity is at least 0.9, at least 80% of its sources are still candidates, and the run it came from produced at least 20 valid records.
+1. Workflow memory is checked first (`memory/workflowMemory.ts`). A stored plan is reused when the trigram similarity (pg_trgm) of the two contract summaries is at least 0.7, at least 80% of its sources are still candidates, and the run it came from produced at least 20 valid records.
 2. Otherwise `gpt-6-sol` writes the draft.
 3. If that fails, the template plan is used.
 
@@ -203,8 +203,9 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 | `decisions` | Every judgement, with the tier that made it (also the decision cache) |
 | `llm_calls` | Every LLM call with tokens and cost (also the LLM cache) |
 | `search_calls` | Every web search with its results and cost (also the search cache) |
+| `workflow_memory` | Plans from good runs, with the contract summary they are matched on |
 
-Qdrant holds one collection, `workflow_memory`. Each point is an embedding of a contract summary, with the plan stored as payload.
+Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan next to a canonical summary of its contract, and pg_trgm's `similarity()` finds the closest one, so no embedding model or vector database is needed.
 
 ## API (`api/`)
 

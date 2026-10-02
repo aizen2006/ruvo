@@ -13,7 +13,6 @@ x-server: &server
   env_file: .env
   environment:
     DATABASE_URL: postgres://ruvo:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/ruvo
-    QDRANT_URL: http://qdrant:6333
   init: true
 
 services:
@@ -32,12 +31,6 @@ services:
       timeout: 3s
       retries: 10
 
-  qdrant:
-    image: qdrant/qdrant:v1.19.1
-    restart: unless-stopped
-    volumes:
-      - qdrant-data:/qdrant/storage
-
   # Applies pending migrations, then exits; the API and worker start only after it succeeds.
   migrate:
     <<: *server
@@ -55,8 +48,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-      qdrant:
-        condition: service_started
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "bun", "-e", "fetch('http://localhost:3000/health').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
@@ -73,8 +64,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-      qdrant:
-        condition: service_started
     # Chromium needs more shared memory than Docker's 64 MB default.
     shm_size: 1gb
     # Lets an in-flight run be released back to the queue before the container is killed.
@@ -95,4 +84,3 @@ services:
 
 volumes:
   postgres-data:
-  qdrant-data:
