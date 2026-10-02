@@ -95,7 +95,7 @@ export function recipeFromExample(html: string, pageUrl: string, fields: FieldSp
   let best: { item: Element; similar: Element[]; picks: Map<string, Match> } | null = null;
   for (const anchorMatch of anchor!.matches.slice(0, MAX_ANCHORS)) {
     const picks: Array<[string, Match]> = [[anchor!.field.name, anchorMatch]];
-    for (const other of others) picks.push([other.field.name, nearest(anchorMatch.el, other.matches)]);
+    for (const other of others) picks.push([other.field.name, nearest(anchorMatch, other.matches)]);
     const record = repeatedUnit($, commonAncestor(picks.map(([, m]) => m.el)));
     if (record && (!best || record.similar.length > best.similar.length)) best = { ...record, picks: new Map(picks) };
   }
@@ -171,9 +171,12 @@ function linkNear($: CheerioAPI, el: Element): Element | undefined {
 
 // --- Finding the record ---
 
-/** The candidate closest to `anchor`: the one sharing its deepest common ancestor. */
-function nearest(anchor: Element, candidates: Match[]): Match {
-  const closeness = (m: Match) => lineage(commonAncestor([anchor, m.el])).length;
+/**
+ * The candidate closest to `anchor`: the one sharing its deepest common ancestor. The anchor's own value comes
+ * last, as a short quote can sit inside it ("Remote" in the title "... EMEA Remote").
+ */
+function nearest(anchor: Match, candidates: Match[]): Match {
+  const closeness = (m: Match) => (m.el === anchor.el && m.attr === anchor.attr ? -1 : lineage(commonAncestor([anchor.el, m.el])).length);
   return candidates.reduce((best, m) => (closeness(m) > closeness(best) ? m : best));
 }
 
