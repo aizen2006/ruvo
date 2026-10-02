@@ -1,4 +1,5 @@
 import type { ModelOption } from "@repo/contracts";
+import { env } from "../config/env";
 
 /** USD per million tokens (OpenAI list prices, checked 2026-09-27). */
 const PRICES: Record<string, { input: number; output: number }> = {
@@ -14,14 +15,26 @@ export function costUsd(model: string, tokensIn: number, tokensOut: number): num
   return (tokensIn * price.input + tokensOut * price.output) / 1_000_000;
 }
 
-/** Chat models a user can pick for a run, cheapest first. */
-const CHAT_MODELS: Array<Pick<ModelOption, "id" | "label" | "blurb">> = [
+type ChatModel = Pick<ModelOption, "id" | "label" | "blurb">;
+
+/** Chat models an API-key account can pick for a run, cheapest first. */
+const CHAT_MODELS: ChatModel[] = [
   { id: "gpt-6-luna", label: "Luna", blurb: "Fast and cheapest; good at reading pages" },
   { id: "gpt-6-sol", label: "Sol", blurb: "Careful; good at understanding requests" },
   { id: "gpt-6-astra", label: "Astra", blurb: "Most capable and most expensive" },
 ];
 
-export const modelCatalog = (): ModelOption[] =>
-  CHAT_MODELS.map((m) => ({ ...m, inputPerMillion: PRICES[m.id]!.input, outputPerMillion: PRICES[m.id]!.output }));
+/** What a ChatGPT plan offers through the sign-in server (checked 2026-10-02; it lists gpt-5.5 but refuses it). */
+const CHATGPT_MODELS: ChatModel[] = [
+  { id: "gpt-6-luna", label: "Luna 6", blurb: "Fast; good at reading pages" },
+  { id: "gpt-5.6-luna", label: "Luna 5.6", blurb: "The earlier fast model" },
+  { id: "gpt-5.6-terra", label: "Terra 5.6", blurb: "Careful; good at understanding requests" },
+];
 
-export const isChatModel = (id: string) => CHAT_MODELS.some((m) => m.id === id);
+/** The models the configured AI account can use; on a ChatGPT plan calls are included, so they have no price. */
+export const modelCatalog = (): ModelOption[] =>
+  env.AI_ACCOUNT === "chatgpt"
+    ? CHATGPT_MODELS.map((m) => ({ ...m, inputPerMillion: 0, outputPerMillion: 0 }))
+    : CHAT_MODELS.map((m) => ({ ...m, inputPerMillion: PRICES[m.id]!.input, outputPerMillion: PRICES[m.id]!.output }));
+
+export const isChatModel = (id: string) => modelCatalog().some((m) => m.id === id);

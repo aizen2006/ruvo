@@ -60,8 +60,38 @@ export interface LlmClient {
   parse<T>(req: ParseRequest<T>): Promise<ParseResult<T>>;
 }
 
+/** How RUVO reaches OpenAI; without AI_ACCOUNT it is an API-key account. */
+type AccountEnv = Pick<Env, "OPENAI_API_KEY"> & Partial<Pick<Env, "AI_ACCOUNT" | "OPENAI_OAUTH_URL">>;
+
+/**
+ * The OpenAI SDK for the AI account: OpenAI's API with the key, or the ChatGPT sign-in server,
+ * which holds the ChatGPT session itself, so the real key is never sent there.
+ * Null when an API-key account has no key.
+ */
+export function openaiFor(env: AccountEnv, timeoutMs = 90_000): OpenAI | null {
+  const options = { maxRetries: 2, timeout: timeoutMs };
+  if (env.AI_ACCOUNT === "chatgpt") return new OpenAI({ ...options, apiKey: "unused", baseURL: env.OPENAI_OAUTH_URL });
+  return env.OPENAI_API_KEY ? new OpenAI({ ...options, apiKey: env.OPENAI_API_KEY }) : null;
+}
+
+/**
+ * What a failed call means on a ChatGPT plan: a usage or rate limit counts as a spent AI budget,
+ * and an unreachable sign-in server says how to start it. Null for any other failure.
+ */
+export function chatgptFailure(err: unknown, env: AccountEnv): LlmError | null {
+  if (env.AI_ACCOUNT !== "chatgpt") return null;
+  if (err instanceof OpenAI.RateLimitError) return new LlmError("budget_exhausted", `ChatGPT usage limit reached (${err.message})`);
+  if (err instanceof OpenAI.APIConnectionError && !(err instanceof OpenAI.APIConnectionTimeoutError)) {
+    return new LlmError(
+      "api",
+      `Can't reach the ChatGPT sign-in server at ${env.OPENAI_OAUTH_URL}. Start it with "bunx openai-oauth --detach" (and sign in once with "bunx openai-oauth login").`,
+    );
+  }
+  return null;
+}
+
 export function createLlmClient(opts: {
-  env: Pick<Env, "MODEL_PLANNER" | "MODEL_WORKER" | "LLM_CACHE_MODE" | "OPENAI_API_KEY">;
+  env: Pick<Env, "MODEL_PLANNER" | "MODEL_WORKER" | "LLM_CACHE_MODE"> & AccountEnv;
   responses?: ResponsesApi;
   timeoutMs?: number;
 }): LlmClient {
@@ -69,8 +99,9 @@ export function createLlmClient(opts: {
   let responses = opts.responses;
   const api = () => {
     if (!responses) {
-      if (!env.OPENAI_API_KEY) throw new LlmError("api", "OPENAI_API_KEY is not set");
-      responses = new OpenAI({ apiKey: env.OPENAI_API_KEY, maxRetries: 2, timeout: opts.timeoutMs ?? 90_000 }).responses;
+      const openai = openaiFor(env, opts.timeoutMs);
+      if (!openai) throw new LlmError("api", "OPENAI_API_KEY is not set");
+      responses = openai.responses;
     }
     return responses;
   };
@@ -117,7 +148,8 @@ export function createLlmClient(opts: {
         );
         const tokensIn = response.usage?.input_tokens ?? 0;
         const tokensOut = response.usage?.output_tokens ?? 0;
-        const cost = costUsd(model, tokensIn, tokensOut);
+        // A ChatGPT plan has no per-call price.
+        const cost = env.AI_ACCOUNT === "chatgpt" ? 0 : costUsd(model, tokensIn, tokensOut);
         req.run?.metrics.inc("llmCalls");
         req.run?.metrics.addCost(cost);
 
@@ -135,7 +167,9 @@ export function createLlmClient(opts: {
         if (err instanceof LlmError || req.signal?.aborted) throw err;
         const message = err instanceof Error ? err.message : String(err);
         await log({ ms: Date.now() - started, error: message }).catch(() => {});
-        throw new LlmError("api", `${req.name} call failed: ${message}`);
+        const failure = chatgptFailure(err, env);
+        if (failure?.kind === "budget_exhausted" && req.run) spendAll(req.run.budget);
+        throw failure ?? new LlmError("api", `${req.name} call failed: ${message}`);
       }
     },
   };
@@ -150,6 +184,12 @@ export function scopeLlm(llm: LlmClient, scope: { models?: Partial<Record<LlmRol
     parse: (req) =>
       llm.parse({ ...req, model: req.model ?? scope.models?.[req.role] ?? undefined, runId: req.runId ?? scope.runId }),
   };
+}
+
+/** Spends the rest of a run's AI calls; the refused take after it makes the run say it carries on without AI. */
+function spendAll(budget: Budget) {
+  budget.take("llmCalls", budget.left("llmCalls"));
+  budget.take("llmCalls");
 }
 
 async function findCached(inputHash: string) {

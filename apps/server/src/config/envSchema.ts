@@ -1,4 +1,12 @@
+import { AiAccount, type ModelChoice } from "@repo/contracts";
 import { z } from "zod";
+
+/** Each AI account's default models; MODEL_PLANNER and MODEL_WORKER override them. */
+const ACCOUNT_MODELS: Record<AiAccount, ModelChoice> = {
+  api_key: { planner: "gpt-6-sol", worker: "gpt-6-luna" },
+  // ChatGPT plans don't offer gpt-6-sol; gpt-5.6-terra passes the golden eval in its place.
+  chatgpt: { planner: "gpt-5.6-terra", worker: "gpt-6-luna" },
+};
 
 const flag = z
   .enum(["true", "false"])
@@ -28,9 +36,14 @@ const EnvSchema = z.object({
 
   DATABASE_URL: z.string().url(),
 
+  /** api_key: OpenAI's API with OPENAI_API_KEY. chatgpt: your ChatGPT plan, through the openai-oauth sign-in server. */
+  AI_ACCOUNT: AiAccount.default("api_key"),
   OPENAI_API_KEY: unsetIfBlank,
-  MODEL_PLANNER: z.string().default("gpt-6-sol"),
-  MODEL_WORKER: z.string().default("gpt-6-luna"),
+  /** The sign-in server `bunx openai-oauth --detach` starts; used only with AI_ACCOUNT=chatgpt. */
+  OPENAI_OAUTH_URL: z.string().url().default("http://127.0.0.1:10531/v1"),
+  /** Unset: the AI account's default (ACCOUNT_MODELS). */
+  MODEL_PLANNER: unsetIfBlank,
+  MODEL_WORKER: unsetIfBlank,
   LLM_CACHE_MODE: z.enum(["off", "on", "cache_only"]).default("on"),
 
   DECIDER_PROVIDER: z.enum(["jev", "laya", "off"]).default("jev"),
@@ -67,7 +80,13 @@ const EnvSchema = z.object({
   MAX_RUN_MS: z.coerce.number().int().positive().default(480_000),
   /** Optional: no new runs once the last 24 hours of AI and search spend reach this many dollars. */
   DAILY_BUDGET_USD: z.coerce.number().positive().optional(),
-});
+}).transform((e) => ({
+  ...e,
+  MODEL_PLANNER: e.MODEL_PLANNER ?? ACCOUNT_MODELS[e.AI_ACCOUNT].planner,
+  MODEL_WORKER: e.MODEL_WORKER ?? ACCOUNT_MODELS[e.AI_ACCOUNT].worker,
+  // A ChatGPT plan has no AI spend to cap, so the daily cap is off there (MAX_SEARCHES still limits search per run).
+  DAILY_BUDGET_USD: e.AI_ACCOUNT === "chatgpt" ? undefined : e.DAILY_BUDGET_USD,
+}));
 
 export type Env = z.infer<typeof EnvSchema>;
 

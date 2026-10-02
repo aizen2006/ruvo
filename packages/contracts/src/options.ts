@@ -12,6 +12,10 @@ export type RunMode = z.infer<typeof RunMode>;
 export const ModelChoice = z.object({ planner: z.string().min(1), worker: z.string().min(1) });
 export type ModelChoice = z.infer<typeof ModelChoice>;
 
+/** Whose AI RUVO uses: an OpenAI API key, billed per call, or a ChatGPT plan, where calls are included. */
+export const AiAccount = z.enum(["api_key", "chatgpt"]);
+export type AiAccount = z.infer<typeof AiAccount>;
+
 export const ModeBudgets = z.object({
   maxPages: z.number(),
   maxBrowserPages: z.number(),
@@ -43,6 +47,8 @@ export type ModeOption = z.infer<typeof ModeOption>;
 /** GET /api/options: everything the dashboard needs to offer modes, models and estimates. */
 export const RunOptions = z.object({
   defaultMode: RunMode,
+  /** On a ChatGPT plan the models have no price, so the dashboard shows no estimates. */
+  account: AiAccount,
   modes: z.array(ModeOption),
   models: z.array(ModelOption),
 });
