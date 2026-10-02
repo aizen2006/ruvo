@@ -1,11 +1,10 @@
 /**
  * Verifies every external dependency RUVO needs: `bun run smoke`.
- * Checks that need a missing API key are reported as "skip", not failures.
+ * Checks that need a missing API key, or the fetch service while it isn't running, are reported as "skip", not failures.
  */
-import { SQL } from "bun";
+import { $, SQL } from "bun";
 import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
-import { chromium } from "playwright";
 import { z } from "zod";
 import { env } from "../src/config/env";
 
@@ -16,6 +15,7 @@ const pass = (detail: string): Outcome => ({ status: "pass", detail });
 const skip = (detail: string): Outcome => ({ status: "skip", detail });
 
 const openai = env.OPENAI_API_KEY ? new OpenAI({ apiKey: env.OPENAI_API_KEY }) : null;
+const python = env.SCRAPLING_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
 
 async function openaiParse(model: string): Promise<Outcome> {
   if (!openai) return skip("OPENAI_API_KEY not set");
@@ -69,14 +69,32 @@ const checks: Check[] = [
     },
   },
   {
-    name: "playwright",
+    name: `scrapling in ${python}`,
     run: async () => {
-      const browser = await chromium.launch();
-      const page = await browser.newPage();
-      await page.setContent("<p>ruvo</p>");
-      const text = await page.innerText("p");
-      await browser.close();
-      return pass(`chromium ${browser.version()} rendered "${text}"`);
+      const res = await $`${python} -c "import scrapling, starlette, uvicorn; print(scrapling.__version__)"`.quiet().nothrow();
+      if (res.exitCode !== 0) {
+        const reason = res.stderr.toString().trim().split("\n").at(-1);
+        throw new Error(`${reason}; install Scrapling: pip install "scrapling[all]", then scrapling install`);
+      }
+      return pass(res.text().trim());
+    },
+  },
+  {
+    name: `fetch service ${new URL(env.SCRAPLING_URL).host}`,
+    run: async () => {
+      const health = await fetch(`${env.SCRAPLING_URL}/health`).catch(() => null);
+      if (!health) return skip("not running; start it with `bun run dev`");
+      if (!health.ok) throw new Error(`/health: HTTP ${health.status}`);
+      const { scrapling } = (await health.json()) as { scrapling: string };
+      // One real fetch, which goes out through the egress guard.
+      const res = await fetch(`${env.SCRAPLING_URL}/fetch`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: "https://example.com", engine: "http", timeoutMs: 20_000, maxBytes: 1_000_000 }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      const page = (await res.json()) as { status: number };
+      return pass(`scrapling ${scrapling} fetched https://example.com: HTTP ${page.status}`);
     },
   },
 ];
