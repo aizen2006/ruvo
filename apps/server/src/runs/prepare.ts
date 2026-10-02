@@ -79,8 +79,9 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
       if (found.length) discovery = discoverSources(contract, await listRegistry());
     }
 
+    // Every request searches the web when it can: linked pages and registry companies are read too.
     let search: WebDiscovery | null = null;
-    if (web && wantsSearch(contract)) {
+    if (web) {
       await stage("discovering", { type: "discovery.search_started", message: `Searching the web (up to ${caps.maxSearches} searches)` });
       const scope = { signal, budget: createBudget(caps), metrics: createMetrics() };
       search = await searchRounds(contract, { web, llm, bus, run, scope, planned: discovery.candidates });
@@ -234,15 +235,6 @@ function roundMessage(round: number, boards: FoundSource[], pages: number): stri
     pages > 0 && `${pages} more source${pages === 1 ? "" : "s"}`,
   ].filter(Boolean);
   return `Search round ${round}: ${found.join(", plus ") || "nothing new"}`;
-}
-
-/**
- * Whether to search the web: always, unless the user linked pages and wrote no queries, which
- * means "read these pages".
- */
-function wantsSearch(contract: DatasetContract): boolean {
-  const { urls, searchQueries } = contract.sourceHints;
-  return urls.length === 0 || searchQueries.length > 0;
 }
 
 function noSourcesMessage(contract: DatasetContract, search: WebDiscovery | null): string {
