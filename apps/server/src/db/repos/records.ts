@@ -1,8 +1,8 @@
-import type { Evidence, ListRecordsQuery, Page, RecordDTO } from "@repo/contracts";
+import type { Evidence, ListRecordsQuery, Page, PageVia, RecordDTO } from "@repo/contracts";
 import { and, asc, count, desc, eq, gte, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
 import { notFound } from "../../libs/errors";
 import { db } from "../client";
-import { evidence, records } from "../schema";
+import { evidence, pages, records } from "../schema";
 
 type RecordRow = typeof records.$inferSelect;
 type EvidenceRow = typeof evidence.$inferSelect;
@@ -30,7 +30,8 @@ export function toRecordDTO(r: RecordRow): RecordDTO {
   };
 }
 
-export function toEvidenceDTO(e: EvidenceRow): Evidence {
+/** `via` is how the evidence's page was fetched, when there is a page. */
+export function toEvidenceDTO(e: EvidenceRow, via?: PageVia | null): Evidence {
   return {
     field: e.field,
     value: e.value,
@@ -42,6 +43,7 @@ export function toEvidenceDTO(e: EvidenceRow): Evidence {
     verified: e.verified,
     confidence: e.confidence,
     capturedAt: e.capturedAt.toISOString(),
+    ...(via && { fetchedVia: via }),
   };
 }
 
@@ -91,8 +93,13 @@ export async function getRecordWithEvidence(runId: string, recordId: string) {
     .from(records)
     .where(and(eq(records.id, recordId), eq(records.runId, runId)));
   if (!record) throw notFound("Record");
-  const rows = await db.select().from(evidence).where(eq(evidence.recordId, recordId)).orderBy(evidence.field);
-  return { record: toRecordDTO(record), evidence: rows.map(toEvidenceDTO) };
+  const rows = await db
+    .select({ evidence, via: pages.via })
+    .from(evidence)
+    .leftJoin(pages, eq(pages.id, evidence.pageId))
+    .where(eq(evidence.recordId, recordId))
+    .orderBy(evidence.field);
+  return { record: toRecordDTO(record), evidence: rows.map((r) => toEvidenceDTO(r.evidence, r.via)) };
 }
 
 export interface ExportRow {

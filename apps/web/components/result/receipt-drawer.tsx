@@ -5,7 +5,7 @@ import { Check, ExternalLink, Minus, X } from "lucide-react";
 import { columnTitle } from "@/components/plan/column-chips";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { SOURCE_PHRASE } from "@/lib/plain";
+import { FETCH_PHRASE, SOURCE_PHRASE } from "@/lib/plain";
 import { useEvidence } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { CertaintyMark } from "./certainty-mark";
@@ -29,6 +29,8 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
       {!item.verified && <p className="text-small text-brick">The quoted text wasn&apos;t found on the page, so this value isn&apos;t trusted.</p>}
       <p className="flex flex-wrap items-center gap-x-item gap-y-1 font-mono text-micro text-graphite">
         <span>{SOURCE_PHRASE[item.method]}</span>
+        {/* Search results already say so in the source phrase. */}
+        {item.fetchedVia && item.fetchedVia !== "search" && <span>{FETCH_PHRASE[item.fetchedVia]}</span>}
         {item.method !== "DERIVED" && (
           <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-ink underline underline-offset-4 hover:decoration-2">
             Open the page <ExternalLink className="size-3" aria-hidden />

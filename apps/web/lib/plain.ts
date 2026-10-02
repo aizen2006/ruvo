@@ -5,7 +5,7 @@ import type { Certainty, RunStatus } from "@repo/contracts";
  * these terms; pipeline names (contract, workflow, recipe, method codes) stay behind "Show details".
  */
 
-export { certaintyOf, CERTAINTY_LABEL, SOURCE_PHRASE, type Certainty } from "@repo/contracts";
+export { certaintyOf, CERTAINTY_LABEL, FETCH_PHRASE, SOURCE_PHRASE, type Certainty } from "@repo/contracts";
 
 export const CERTAINTY_HINT: Record<Certainty, string> = {
   sure: "Read directly from the source's own data",

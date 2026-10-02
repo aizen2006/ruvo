@@ -5,6 +5,11 @@ export const EVIDENCE_METHODS = ["API", "JSON_LD", "EMBEDDED_JSON", "DOM", "REGE
 export const EvidenceMethod = z.enum(EVIDENCE_METHODS);
 export type EvidenceMethod = z.infer<typeof EvidenceMethod>;
 
+/** How a page was fetched; "stealth" is the stealth browser used past a bot check. */
+export const PAGE_VIAS = ["http", "browser", "stealth", "search"] as const;
+export const PageVia = z.enum(PAGE_VIAS);
+export type PageVia = z.infer<typeof PageVia>;
+
 /** Where inside the source the value was found, so evidence can be re-checked later. */
 export const Locator = z.object({
   kind: z.enum(["jsonPath", "css", "jsonLd", "regex", "textSpan", "derived"]),
@@ -19,6 +24,8 @@ export const Evidence = z.object({
   sourceUrl: z.string(),
   /** Stored page snapshot the snippet came from; null for derived values. */
   pageId: z.string().nullable(),
+  /** How that page was fetched; absent when there is no page. */
+  fetchedVia: PageVia.optional(),
   snippet: z.string(),
   locator: Locator,
   /** LLM output is only trusted when its quote is found verbatim in the page. */

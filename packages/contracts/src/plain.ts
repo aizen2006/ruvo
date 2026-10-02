@@ -1,4 +1,4 @@
-import type { EvidenceMethod } from "./record";
+import type { EvidenceMethod, PageVia } from "./record";
 
 /**
  * Plain words shared by the dashboard and exported files (docs/design.md, "Words"),
@@ -26,4 +26,12 @@ export const SOURCE_PHRASE: Record<EvidenceMethod, string> = {
   LLM: "Found by AI, quote checked",
   SEARCH: "From search results",
   DERIVED: "Worked out by RUVO",
+};
+
+/** How the page behind a value was fetched. */
+export const FETCH_PHRASE: Record<PageVia, string> = {
+  http: "Read directly",
+  browser: "Opened in a browser",
+  stealth: "Opened in a stealth browser, past a bot check",
+  search: "From search results",
 };
