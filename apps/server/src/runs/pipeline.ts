@@ -3,8 +3,9 @@ import { loadRunWorkflow, saveRepairedWorkflow } from "../db/repos/workflows";
 import { executeWorkflow } from "../execute/executor";
 import { scopeLlm } from "../llm/client";
 import { listPagesForMode, runModels } from "./modes";
+import { moreLeads } from "./moreLeads";
 import { createRunContext, type RunContext } from "./runContext";
-import { decider, fetcher, llm, memory } from "./services";
+import { decider, fetcher, llm, memory, webSearch } from "./services";
 import type { RunExecutor } from "./worker";
 
 /** Execution phase of a run: runs its compiled WorkflowIR. */
@@ -24,7 +25,8 @@ export const runPipeline: RunExecutor = async (run, signal) => {
     maxListPages: listPagesForMode(run.mode),
   });
   try {
-    await executeWorkflow(ctx);
+    // A run short of good leads searches for more sources itself, when web search is set up.
+    await executeWorkflow(ctx, webSearch ? moreLeads(webSearch, run.mode) : undefined);
     await recordRepairs(ctx);
     // A plan that produced a good dataset is remembered for similar requests.
     if (planned.planDraft) {

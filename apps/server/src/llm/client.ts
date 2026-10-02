@@ -177,12 +177,16 @@ export function createLlmClient(opts: {
 
 /**
  * A view of `llm` for one run: each role uses the run's chosen model, and every call is
- * attributed to the run for its cost. Shares the underlying client and cache.
+ * attributed to the run for its cost (with `run`, also counted against its budget).
+ * Shares the underlying client and cache.
  */
-export function scopeLlm(llm: LlmClient, scope: { models?: Partial<Record<LlmRole, string | null>>; runId?: string }): LlmClient {
+export function scopeLlm(
+  llm: LlmClient,
+  scope: { models?: Partial<Record<LlmRole, string | null>>; runId?: string; run?: ParseRequest<unknown>["run"] },
+): LlmClient {
   return {
     parse: (req) =>
-      llm.parse({ ...req, model: req.model ?? scope.models?.[req.role] ?? undefined, runId: req.runId ?? scope.runId }),
+      llm.parse({ ...req, model: req.model ?? scope.models?.[req.role] ?? undefined, runId: req.runId ?? scope.runId, run: req.run ?? scope.run }),
   };
 }
 

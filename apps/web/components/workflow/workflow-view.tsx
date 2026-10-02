@@ -25,6 +25,7 @@ const PLANNED_BY = {
   repair: "self-repair",
   user_edit: "your contract edit",
   find_more: "your Find more request",
+  more_leads: "the run's search for more leads",
 } as const;
 
 type StepResult = { count: number; ms: number };
