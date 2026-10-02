@@ -26,5 +26,7 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
-  }
+  },
+  // Local scratch scripts (gitignored) are not part of the project.
+  "exclude": ["**/*.tmp.ts"]
 }
