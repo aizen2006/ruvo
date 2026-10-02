@@ -4,7 +4,8 @@ import type { StepFn } from "./types";
 
 /**
  * Cheap keyword gate before any expensive work: keeps candidates whose fields contain
- * one of `keywordsAny` and none of `keywordsNone`, then applies the branch's item cap.
+ * one of `keywordsAny` and none of `keywordsNone` (all of them when there are no keywords),
+ * then applies the branch's item cap.
  */
 export const prefilter: StepFn<"prefilter"> = async (ctx, branch, step, input) => {
   const include = compileKeywords(step.keywordsAny);
@@ -20,11 +21,12 @@ export const prefilter: StepFn<"prefilter"> = async (ctx, branch, step, input) =
   const kept = matching.slice(0, cap);
 
   ctx.metrics.inc("rawRecords", kept.length);
+  const found = include || exclude ? `${matching.length} of ${input.length} match the role keywords` : `${input.length} collected`;
   ctx.emit({
     stage: "extracting",
     type: "source.prefiltered",
     sourceId: branch.id,
-    message: `${branch.label}: ${matching.length} of ${input.length} match the role keywords${kept.length < matching.length ? `, keeping ${kept.length}` : ""}`,
+    message: `${branch.label}: ${found}${kept.length < matching.length ? `, keeping ${kept.length}` : ""}`,
     data: { input: input.length, matching: matching.length, kept: kept.length },
   });
   return kept;

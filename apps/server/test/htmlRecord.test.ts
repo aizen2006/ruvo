@@ -109,7 +109,7 @@ describe("html_record adapter", () => {
       provenance: { plannedBy: "template", model: null, reusedFrom: null, parentVersion: null },
     });
     const steps = ir.sources[0]!.steps;
-    expect(steps.map((s) => s.kind)).toEqual(["collect", "match", "validate", "store"]);
+    expect(steps.map((s) => s.kind)).toEqual(["collect", "prefilter", "match", "validate", "store"]);
     expect(steps.find((s) => s.kind === "validate")).toMatchObject({ required: ["name", "url", "host"] });
     expect(ir.budgets.maxLlmCalls).toBeGreaterThanOrEqual(1);
   });

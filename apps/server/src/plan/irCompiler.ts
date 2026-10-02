@@ -123,16 +123,14 @@ function buildBranch(
       { id: `${id}.extract_text`, kind: "extract_text", parser: "hn_header", llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS },
     );
   }
-  // The keyword gate only makes sense when the contract has keyword criteria to apply.
-  if (include.length || exclude.length) {
-    steps.push({
-      id: `${id}.prefilter`,
-      kind: "prefilter",
-      keywordsAny: include.length ? [...include.flatMap((c) => c.values), ...plan.titleKeywords] : [],
-      keywordsNone: exclude.flatMap((c) => c.values),
-      fields: prefilterFields.length ? prefilterFields : ["title"],
-    });
-  }
+  // Always present: it applies the source's item cap, and the keyword gate when the contract has keyword criteria.
+  steps.push({
+    id: `${id}.prefilter`,
+    kind: "prefilter",
+    keywordsAny: include.length ? [...include.flatMap((c) => c.values), ...plan.titleKeywords] : [],
+    keywordsNone: exclude.flatMap((c) => c.values),
+    fields: prefilterFields.length ? prefilterFields : ["title"],
+  });
   // Fields this source doesn't provide are looked for in descriptions and posting pages.
   const provided = new Set(Object.keys(getAdapter(candidate.adapter).provides));
   const toEnrich = contract.fields.filter((f) => f.catalogKey !== "custom" && !GENERATED_FIELDS.has(f.catalogKey) && !provided.has(f.catalogKey));

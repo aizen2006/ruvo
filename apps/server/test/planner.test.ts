@@ -69,6 +69,12 @@ describe("compileIr", () => {
     expect(ir.provenance.warnings[0]).toContain('"funding" is required but no chosen source provides it');
   });
 
+  test("keeps the prefilter without keyword criteria, so the per-source cap still applies", () => {
+    const contract = { ...DEMO_CONTRACT, criteria: DEMO_CONTRACT.criteria.filter((c) => c.kind !== "keyword_any" && c.kind !== "keyword_none") };
+    const ir = compileIr(contract, draft(), candidates, { caps, provenance });
+    expect(ir.sources[0]!.steps.find((s) => s.kind === "prefilter")).toMatchObject({ keywordsAny: [], keywordsNone: [] });
+  });
+
   test("adds the planner's extra title keywords to the prefilter", () => {
     const ir = compileIr(DEMO_CONTRACT, draft({ sources: [{ ...draft().sources[0]!, titleKeywords: ["mts"] }] }), candidates, { caps, provenance });
     const prefilter = ir.sources[0]!.steps.find((s) => s.kind === "prefilter");
