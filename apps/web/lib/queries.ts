@@ -1,6 +1,6 @@
 "use client";
 
-import { isTerminal, type RunEvent, type RunStatus } from "@repo/contracts";
+import { isTerminal, type ChatgptSignIn, type RunEvent, type RunStatus } from "@repo/contracts";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api, isClientError, type RecordFilters } from "./api";
@@ -33,6 +33,18 @@ export const runKeys = {
 
 /** Modes, models and prices for a new run; they only change when the server restarts. */
 export const useRunOptions = () => useQuery({ queryKey: ["options"], queryFn: api.getOptions, staleTime: 5 * 60_000 });
+
+const chatgptKey = ["chatgpt"] as const;
+
+/** The ChatGPT sign-in on the API's machine; polled while a sign-in from Settings is in progress. */
+export const useChatgptSignIn = (enabled = true) =>
+  useQuery({ queryKey: chatgptKey, queryFn: api.getChatgpt, enabled, refetchInterval: (q) => (q.state.data?.loginUrl ? 2_000 : false) });
+
+/** Signs in or starts the sign-in server; the answer is the new sign-in state. */
+export function useChatgptAction(action: () => Promise<ChatgptSignIn>) {
+  const client = useQueryClient();
+  return useMutation({ mutationFn: action, onSuccess: (status) => client.setQueryData(chatgptKey, status) });
+}
 
 /** The newest `limit` runs; refreshed while any of them is still in progress. */
 export const useRuns = (limit: number) =>

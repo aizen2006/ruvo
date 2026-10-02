@@ -2,6 +2,7 @@
 
 import { estimateRunCost, MAX_PROMPT_LENGTH, type ModelChoice, type RunMode } from "@repo/contracts";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { DotField } from "@/components/dot-field";
@@ -11,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { api, ApiError } from "@/lib/api";
 import { costRange } from "@/lib/plain";
-import { useRunOptions } from "@/lib/queries";
+import { useChatgptSignIn, useRunOptions } from "@/lib/queries";
 import { withPages } from "@/lib/url";
 import { Examples, type Example } from "./examples";
 import { ModelPicker } from "./model-picker";
@@ -38,6 +39,7 @@ const errorText = (error: Error) =>
 export function AskComposer() {
   const router = useRouter();
   const options = useRunOptions();
+  const chatgpt = useChatgptSignIn(options.data?.account === "chatgpt");
   const [prompt, setPrompt] = useState("");
   const [heard, setHeard] = useState("");
   const [urls, setUrls] = useState<string[]>([]);
@@ -143,6 +145,15 @@ export function AskComposer() {
             </Button>
           </div>
         </div>
+        {chatgpt.data && !(chatgpt.data.signedIn && chatgpt.data.serverRunning) && (
+          <p className="text-small text-graphite">
+            {chatgpt.data.signedIn ? "The ChatGPT sign-in server isn't running: start it from" : "RUVO isn't signed in with ChatGPT yet: sign in from"}{" "}
+            <Link href="/settings" className="text-ink underline underline-offset-4">
+              Settings
+            </Link>
+            .
+          </p>
+        )}
         {(tooLong || create.error) && (
           <p role="alert" className="text-small text-brick">
             {tooLong ? `Keep the request under ${MAX_PROMPT_LENGTH} characters, including added pages.` : errorText(create.error!)}

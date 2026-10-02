@@ -1,4 +1,5 @@
 import type {
+  ChatgptSignIn,
   CreateRunRequest,
   CreateRunResponse,
   DatasetContract,
@@ -91,6 +92,11 @@ export const api = {
       headers: { "Idempotency-Key": idempotencyKey },
     }),
   getOptions: () => request<RunOptions>("/api/options"),
+  /** The ChatGPT sign-in on the API's machine; served only outside production. */
+  getChatgpt: () => request<ChatgptSignIn>("/api/chatgpt"),
+  /** Starts a sign-in; the answer's `loginUrl` is OpenAI's login page for it. */
+  signInWithChatgpt: () => request<ChatgptSignIn>("/api/chatgpt/sign-in", { method: "POST" }),
+  startChatgptServer: () => request<ChatgptSignIn>("/api/chatgpt/start", { method: "POST" }),
   listRuns: (limit: number) => request<RunSummary[]>(`/api/runs?limit=${limit}`),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),
   startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),
