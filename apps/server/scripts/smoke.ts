@@ -3,10 +3,10 @@
  * Checks that need a missing API key, or the fetch service while it isn't running, are reported as "skip", not failures.
  */
 import { $, SQL } from "bun";
-import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { env } from "../src/config/env";
+import { chatgptFailure, openaiFor } from "../src/llm/client";
 
 type Outcome = { status: "pass" | "fail" | "skip"; detail: string };
 type Check = { name: string; run: () => Promise<Outcome> };
@@ -14,7 +14,9 @@ type Check = { name: string; run: () => Promise<Outcome> };
 const pass = (detail: string): Outcome => ({ status: "pass", detail });
 const skip = (detail: string): Outcome => ({ status: "skip", detail });
 
-const openai = env.OPENAI_API_KEY ? new OpenAI({ apiKey: env.OPENAI_API_KEY }) : null;
+/** The same OpenAI access RUVO uses: the API with the key, or the ChatGPT sign-in server. */
+const openai = openaiFor(env);
+const ai = env.AI_ACCOUNT === "chatgpt" ? "chatgpt" : "openai";
 const python = env.SCRAPLING_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
 
 async function openaiParse(model: string): Promise<Outcome> {
@@ -24,6 +26,8 @@ async function openaiParse(model: string): Promise<Outcome> {
     model,
     input: [{ role: "user", content: "Which city is the capital of France? Answer via the schema." }],
     text: { format: zodTextFormat(Answer, "answer") },
+  }).catch((err: unknown) => {
+    throw chatgptFailure(err, env) ?? err;
   });
   return pass(`parsed ${JSON.stringify(res.output_parsed)}`);
 }
@@ -38,8 +42,8 @@ const checks: Check[] = [
       return pass(String(row.v).split(",")[0] ?? "connected");
     },
   },
-  { name: `openai ${env.MODEL_PLANNER}`, run: () => openaiParse(env.MODEL_PLANNER) },
-  { name: `openai ${env.MODEL_WORKER}`, run: () => openaiParse(env.MODEL_WORKER) },
+  { name: `${ai} ${env.MODEL_PLANNER}`, run: () => openaiParse(env.MODEL_PLANNER) },
+  { name: `${ai} ${env.MODEL_WORKER}`, run: () => openaiParse(env.MODEL_WORKER) },
   {
     name: `decider ${env.DECIDER_PROVIDER}`,
     run: async () => {
