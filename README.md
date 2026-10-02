@@ -65,16 +65,10 @@ Jev is optional; without one, rules and the LLM judge make the calls.
 ```bash
 git clone https://github.com/aizen2006/ruvo && cd ruvo
 bun install
-docker compose up -d --wait                         # Postgres 17
-
-cp apps/server/.env.example apps/server/.env        # set OPENAI_API_KEY (and TYPESAFE_API_KEY)
-cp apps/web/.env.example apps/web/.env.local
-
-bun run --filter server db:migrate                  # create the tables
-bun run --filter server browsers                    # Chromium for Playwright
-bun run --filter server smoke                       # optional: checks every dependency
-
-bun run dev                                         # API :3000, worker, dashboard :3001
+bun run setup        # env files, Postgres 17, tables, Chromium, then a dependency check
+                     # set OPENAI_API_KEY (and TYPESAFE_API_KEY) in apps/server/.env
+bun run doctor       # re-check every dependency after changing settings
+bun run dev          # API :3000, worker, dashboard :3001
 ```
 
 Open **http://localhost:3001/new**:
@@ -136,6 +130,8 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 
 | Command | What it does |
 |---|---|
+| `bun run setup` | Local setup, safe to re-run: env files, Postgres, migrations, Chromium, dependency check |
+| `bun run doctor` | Checks Postgres, the OpenAI models, the decision provider and Playwright |
 | `bun run dev` | API, worker and dashboard, with reload |
 | `bun run check-types` | TypeScript across every package |
 | `cd apps/server && bun test` | 400+ tests against a throwaway `ruvo_test` database (Postgres must be up). Run it from `apps/server` so `.env.test` applies. |
