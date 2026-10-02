@@ -4,7 +4,7 @@
 # Its own project name keeps it apart from the dev docker-compose.yml.
 name: ruvo-prod
 
-# API, worker, migrations and the egress guard share one image and one configuration.
+# API, worker and migrations share one image and one configuration; the egress guard uses the image alone.
 x-server: &server
   image: ruvo-server:latest
   build:
@@ -83,11 +83,17 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   # The egress guard: every connection the fetch service makes goes through this SOCKS proxy, which refuses private addresses.
+  # The fetch service's browsers can reach it, so it gets none of RUVO's configuration or secrets.
   egress:
-    <<: *server
+    image: ruvo-server:latest
     command: ["bun", "src/fetch/egressGuard.ts"]
     restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
     networks: [default, scrape]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   # Web search for finding sources; no published port, the worker reaches it as http://searxng:8080.
   searxng:
