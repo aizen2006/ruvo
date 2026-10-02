@@ -80,8 +80,9 @@ const checks: Check[] = [
     },
   },
   {
-    name: `fetch service ${new URL(env.SCRAPLING_URL).host}`,
+    name: `fetch service ${env.SCRAPLING_URL ? new URL(env.SCRAPLING_URL).host : ""}`,
     run: async () => {
+      if (!env.SCRAPLING_URL) return skip("off (SCRAPLING_URL is blank): pages are read with plain requests only");
       const health = await fetch(`${env.SCRAPLING_URL}/health`).catch(() => null);
       if (!health) return skip("not running; start it with `bun run dev`");
       if (!health.ok) throw new Error(`/health: HTTP ${health.status}`);

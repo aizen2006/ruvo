@@ -11,6 +11,14 @@ const unsetIfBlank = z
   .optional()
   .transform((v) => (v ? v : undefined));
 
+/** A local service's URL with its usual address as the default; a blank value turns the service off. */
+const serviceUrl = (usual: string) =>
+  z
+    .string()
+    .default(usual)
+    .transform((v) => v || undefined)
+    .pipe(z.string().url().optional());
+
 const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   /** Interface the API listens on; unset means this machine only, or every interface in production (a container). */
@@ -35,12 +43,17 @@ const EnvSchema = z.object({
   WORKER_INLINE: flag,
   FETCH_CACHE_MODE: z.enum(["off", "ttl", "prefer_cache", "cache_only"]).default("ttl"),
   USER_AGENT: z.string().default("RUVO/0.1 (+https://github.com/aizen2006/ruvo)"),
-  /** RUVO's Scrapling fetch service (infra/scrapling), which `bun run dev` starts with your local Scrapling. */
-  SCRAPLING_URL: z.string().url().default("http://127.0.0.1:8001"),
+  /**
+   * RUVO's Scrapling fetch service (infra/scrapling), which `bun run dev` starts with your local Scrapling.
+   * Blank: pages are read with plain requests only (no browser, no stealth), e.g. on a host without Scrapling.
+   */
+  SCRAPLING_URL: serviceUrl("http://127.0.0.1:8001"),
   /** The Python that has Scrapling installed; unset means `python` on Windows and `python3` elsewhere. */
   SCRAPLING_PYTHON: unsetIfBlank,
 
-  /** Firecrawl (optional): web search for finding sources. Without a key, RUVO plans only known and linked sources. */
+  /** SearXNG, the local web search for finding sources (docker compose runs it); blank turns it off. */
+  SEARXNG_URL: serviceUrl("http://127.0.0.1:8888"),
+  /** Firecrawl (optional): the backup when SearXNG fails or finds nothing, and the last way to read a page Scrapling could not. */
   FIRECRAWL_API_KEY: unsetIfBlank,
   FIRECRAWL_BASE_URL: z.string().url().default("https://api.firecrawl.dev"),
   /** USD per Firecrawl credit, for cost estimates (Hobby: ~$16/5k credits). */

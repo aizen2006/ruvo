@@ -47,6 +47,7 @@ await save("greenhouse-job", await http(gh.jobs[0]!.absolute_url));
 
 // Workable board: an empty shell over HTTP, the real list only after rendering.
 await save("workable-shell", await http("https://apply.workable.com/huggingface/"));
+if (!env.SCRAPLING_URL) throw new Error("SCRAPLING_URL is blank; the rendered fixture needs the fetch service");
 const rendered = await createScraplingClient(env.SCRAPLING_URL).fetch(
   { url: "https://apply.workable.com/huggingface/", engine: "browser", timeoutMs: 30_000, maxBytes: 5 * 1024 * 1024 },
   AbortSignal.timeout(60_000),

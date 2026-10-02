@@ -18,8 +18,8 @@ import { createWorkflowMemory } from "../memory/workflowMemory";
 // RUVO's own demo site (see fixtures/careersSite) is reachable despite the private-network guards;
 // it isn't served in production, so nothing local is trusted there.
 const trustedOrigins = env.NODE_ENV === "production" ? [] : [`http://localhost:${env.PORT}`];
-/** RUVO's Scrapling fetch service: plain requests, the browser and the stealth browser. */
-const scrapling = createScraplingClient(env.SCRAPLING_URL);
+/** RUVO's Scrapling fetch service: plain requests, the browser and the stealth browser. Off when SCRAPLING_URL is blank. */
+const scrapling = env.SCRAPLING_URL ? createScraplingClient(env.SCRAPLING_URL) : undefined;
 /** Shared with web discovery, so it never plans a page the fetcher would refuse. */
 export const robots = createRobots({ userAgent: env.USER_AGENT, scrapling });
 export const fetcher = createFetcher({
