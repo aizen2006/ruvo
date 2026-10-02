@@ -83,14 +83,18 @@ export async function repairRecipe(run: RunContext, input: RepairInput): Promise
         const report = `${kind}: ${failure.detail}`;
         const local = localRepair(run, page, recipe, input.fields);
         if (local) return saveRepair(run, page, recipe, local, report, "fixed selectors locally, no LLM needed");
-        const relocated = await relocateRecipe(page, recipe, run.signal);
-        if (relocated) return saveRepair(run, page, recipe, relocated, report, "re-found its fields with Scrapling from the last page it read, no LLM needed");
+        const relocated = await relocate(run, page, recipe, report);
+        if (relocated) return relocated;
         emit(run, "repair.local_failed", `${host}: no local selector fix passed acceptance; asking the LLM`, {});
         return rediscover(run, page, recipe, input.fields, report);
       }
 
-      case "ESCALATE":
-        return rediscover(run, page, recipe, input.fields, `${kind}: ${failure.detail}`);
+      case "ESCALATE": {
+        const report = `${kind}: ${failure.detail}`;
+        // Re-finding the fields costs no AI, so it goes first whenever the page has content to search.
+        const relocated = kind === "EMPTY_RENDER" ? null : await relocate(run, page, recipe, report);
+        return relocated ?? rediscover(run, page, recipe, input.fields, report);
+      }
     }
   }
   return null;
@@ -99,6 +103,12 @@ export async function repairRecipe(run: RunContext, input: RepairInput): Promise
 function localRepair(run: RunContext, page: FetchedPage, recipe: Recipe, fields: FieldSpec[]) {
   const roles = Object.fromEntries(fields.map((f) => [f.name, f.catalogKey]));
   return relaxRecipe({ html: page.html, url: page.url, state: toPageState(page.html, page.url), def: recipe.def, acceptance: recipe.acceptance, roles });
+}
+
+/** Scrapling re-finds the recipe's fields on the changed page, from the last page it read; null when it can't. */
+async function relocate(run: RunContext, page: FetchedPage, recipe: Recipe, failure: string) {
+  const fix = await relocateRecipe(page, recipe, run.signal);
+  return fix && saveRepair(run, page, recipe, fix, failure, "re-found its fields with Scrapling from the last page it read, no LLM needed");
 }
 
 async function rediscover(run: RunContext, page: FetchedPage, parent: Recipe, fields: FieldSpec[], failureReport: string) {
