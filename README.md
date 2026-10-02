@@ -191,4 +191,4 @@ A few rules shaped the code:
 
 ## License
 
-No license has been chosen yet, so all rights are reserved by the author for now.
+[MIT](LICENSE).
