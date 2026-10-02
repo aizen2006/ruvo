@@ -164,7 +164,7 @@ export default function Landing() {
           </Step>
           <CollectingBand>
             <StepText n={3} id="collect-heading" title="Watch it collect" muted="text-sheet/80">
-              <p>RUVO reads each site&apos;s own data feed first and the page itself second. It follows next-page links, keeps to robots.txt, and stops where a site says no.</p>
+              <p>RUVO reads each site&apos;s own data feed first and the page itself second. It follows next-page links, keeps to robots.txt, and opens a stealth browser only when a site puts up a bot check.</p>
             </StepText>
           </CollectingBand>
           <Step n={4} title="Open the list. Every value has a receipt." example={<ListExample />} wide>

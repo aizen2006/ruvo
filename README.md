@@ -39,9 +39,12 @@ dropped, not guessed.
 3. **Sources are found, then collected politely.** Greenhouse, Ashby, Lever and Workable APIs,
    the Hacker News hiring thread, and any page you link. With a Firecrawl key, RUVO also searches
    the web for list pages, single-record pages and public profiles, so you don't have to name a
-   site. List pages are followed across their "next page" links. Plain HTTP comes first. A headless browser is
-   used only when a page is an empty JavaScript shell. robots.txt is obeyed, and blocks are never
-   worked around.
+   site. List pages are followed across their "next page" links. Pages are fetched by
+   [Scrapling](https://github.com/D4Vinci/Scrapling), cheapest method first: a plain request
+   with Chrome's fingerprint, then a browser when a page is an empty JavaScript shell, then a
+   stealth browser when a site shows a bot check. robots.txt is still obeyed. A guard checks
+   every connection Scrapling makes, so nothing reaches your private network. Each receipt says
+   how its page was fetched.
 4. **Web pages are read with recorded recipes.** The first time RUVO sees a list page, an LLM
    proposes CSS selectors. RUVO runs them on the page and keeps them only if they pass
    acceptance checks. Every later run replays them with no AI at all.
@@ -59,16 +62,27 @@ why.
 
 ## Run it
 
-You need **Bun 1.4.2+**, **Node 24+**, **Docker**, and an **OpenAI API key**. A TypeSafe key for
-Jev is optional; without one, rules and the LLM judge make the calls.
+You need **Bun 1.4.2+**, **Node 24+**, **Docker**, **Python with Scrapling**, and an **OpenAI
+API key**. A TypeSafe key for Jev is optional; without one, rules and the LLM judge make the
+calls.
+
+Install Scrapling with its extras, then its browsers:
+
+```bash
+pip install "scrapling[all]"
+scrapling install
+python -c "import importlib.metadata as m; print(m.metadata('scrapling').get_all('Provides-Extra'))"
+```
+
+The last line checks that the extras exist; its list should include `fetchers`. Then:
 
 ```bash
 git clone https://github.com/aizen2006/ruvo && cd ruvo
 bun install
-bun run setup        # env files, Postgres 17, tables, Chromium, then a dependency check
+bun run setup        # env files, Postgres 17, tables, then a dependency check
                      # set OPENAI_API_KEY (and TYPESAFE_API_KEY) in apps/server/.env
 bun run doctor       # re-check every dependency after changing settings
-bun run dev          # API :3000, worker, dashboard :3001
+bun run dev          # API :3000, worker, fetch service and its guard, dashboard :3001
 ```
 
 Open **http://localhost:3001/new**:
@@ -108,6 +122,8 @@ All settings live in `apps/server/.env`. The template lists every variable with 
 | `DAILY_BUDGET_USD` | unset | You want a hard daily cap. New runs are refused once the last 24 hours of AI and search spend reach it. |
 | `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
 | `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want RUVO to find sources by searching the web. Without a key it uses only known job boards and pages you link. |
+| `SCRAPLING_URL` | `http://127.0.0.1:8001` | Port 8001 is taken, or the fetch service runs elsewhere. `bun run dev` starts the service on this URL's port. |
+| `SCRAPLING_PYTHON` | `python` on Windows, `python3` elsewhere | The Python that has Scrapling installed is another one, such as a virtualenv's. |
 | `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
 
 Each run has a mode, and the mode sets its budgets:
@@ -130,9 +146,9 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 
 | Command | What it does |
 |---|---|
-| `bun run setup` | Local setup, safe to re-run: env files, Postgres, migrations, Chromium, dependency check |
-| `bun run doctor` | Checks Postgres, the OpenAI models, the decision provider and Playwright |
-| `bun run dev` | API, worker and dashboard, with reload |
+| `bun run setup` | Local setup, safe to re-run: env files, Postgres, migrations, dependency check |
+| `bun run doctor` | Checks Postgres, the OpenAI models, the decision provider and the fetch service |
+| `bun run dev` | API, worker, fetch service and dashboard, with reload |
 | `bun run check-types` | TypeScript across every package |
 | `cd apps/server && bun test` | 400+ tests against a throwaway `ruvo_test` database (Postgres must be up). Run it from `apps/server` so `.env.test` applies. |
 | `bun run --filter server eval` | Golden prompts with checks on each compiled contract; run it after changing a prompt |
@@ -146,7 +162,9 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 
 ```
 apps/server         Bun + Express 5 API and a separate run worker. Drizzle on Postgres
-                    (including the job queue), Playwright, cheerio, OpenAI, Jev.
+                    (including the job queue), cheerio, OpenAI, Jev, and the SOCKS guard
+                    in front of the fetch service.
+infra/scrapling     The fetch service: a small Python server around Scrapling.
 apps/web            Next.js 16 dashboard: Tailwind v4, shadcn/ui-style components on Radix,
                     TanStack Query. docs/design.md covers tokens, words and components.
 packages/contracts  zod schemas both sides share: contract, plan, workflow IR, records, runs.
@@ -167,6 +185,10 @@ A few rules shaped the code:
 - **Budgets degrade a run instead of failing it.** When the AI budget runs out, remaining steps
   carry on without AI and the run says so. At the time limit, slow steps stop and what was
   gathered is still saved.
+- **Fetch with the cheapest method that works, and only where allowed.** Scrapling moves to a
+  browser or the stealth browser only when a cheaper method fails. robots.txt, per-site rate
+  limits and circuit breakers still apply, HTTP 451 stops a source, and RUVO never logs in or
+  reaches your private network.
 
 ## Limits, honestly
 
@@ -175,12 +197,15 @@ A few rules shaped the code:
 - **Social profiles come from search snippets only.** Instagram, X, LinkedIn and similar sites
   forbid crawlers, so RUVO never fetches them. It reads what the search result itself shows (name,
   handle, bio, sometimes a follower count) and labels those values "From search results".
-- **Some sites say no.** lib.rs, for example, refuses RUVO's crawler, and RUVO stops there.
-  `Crawl-delay` is honoured up to 10 seconds.
+- **The stealth browser gets past sites' bot checks.** That can break a site's terms of use, and
+  the risk sits with whoever runs RUVO. Receipts mark every page fetched that way. robots.txt is
+  still obeyed (`Crawl-delay` up to 10 seconds), and a site that answers HTTP 451 is left alone.
 - **The AI judge can be wrong.** It once rejected "Senior Member of Technical Staff, Multimodal
   AI" as not an AI role. Rules settle the clear cases first, so the judge only sees ambiguous ones.
-- **The private-network guard checks DNS before fetching, not at connect time.** A hostile DNS
-  server could still rebind a name between the two lookups. Run RUVO where that matters.
+- **The private-network guard is strict for pages, looser for APIs.** Every connection Scrapling
+  makes, browsers included, is checked at connect time and pinned to the address that was
+  checked. RUVO's own API calls (the job-board and Hacker News JSON APIs) still check DNS just
+  before connecting, so a hostile DNS server could rebind a name between the two lookups.
 - **Some numbers are approximate.** Cost estimates are averages; budgets cap the number of AI
   calls, not their length. The workflow-memory threshold (0.9 similarity) is tuned on a handful
   of requests.

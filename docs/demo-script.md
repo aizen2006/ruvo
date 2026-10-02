@@ -6,11 +6,11 @@ away. It then shows re-runs, self-repair and plan reuse.
 
 ## Before the demo
 
-Set up as in the README (install, migrate, browsers), then:
+Set up as in the README (Scrapling, install, migrate), then:
 
 ```bash
 docker compose up -d --wait
-bun run dev                          # terminal 1, repo root: API :3000, worker, dashboard :3001
+bun run dev                          # terminal 1, repo root: API :3000, worker, fetch service, dashboard :3001
 cd apps/server && bun run seed:demo  # terminal 2: warms caches, resets the demo site, prints run links
 ```
 
@@ -135,7 +135,7 @@ Close by recapping the path: a plain request, then a plan you can check, then a 
 
 | Symptom | What to do |
 |---|---|
-| A source "couldn't be read" | With details on, Activity gives the reason (for example "refused automated access"). RUVO never works around blocks; the other sources still complete. |
+| A source "couldn't be read" | With details on, Activity gives the reason (for example "refused automated access"). RUVO stops a source that robots.txt or HTTP 451 refuses, or that still fails after the stealth browser; the other sources still complete. |
 | The live run is slow | Switch to the golden-run tab from `seed:demo`. |
 | Jev errors or is slow | `DECIDER_PROVIDER=off`; Decisions then shows rules and the LLM judge only. |
 | No network | `FETCH_CACHE_MODE=cache_only`, `LLM_CACHE_MODE=cache_only` (after seeding). |

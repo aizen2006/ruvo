@@ -185,6 +185,10 @@ The default screens use this vocabulary (`packages/contracts/src/plain.ts`, re-e
 | `LLM` | Found by AI, quote checked |
 | `SEARCH` | From search results |
 | `DERIVED` | Worked out by RUVO |
+| fetched via `http` | Read directly |
+| fetched via `browser` | Opened in a browser |
+| fetched via `stealth` | Opened in a stealth browser, past a bot check |
+| fetched via `search` | From search results |
 | budgets, LLM calls | "up to N pages", dollars |
 | planner / worker model | the model that **understands your request** / **reads the pages** |
 | workflow, recipes, decisions, events | behind **Show details** |

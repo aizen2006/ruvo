@@ -11,7 +11,7 @@ unless noted.
 3. **Every AI step has a fallback**: the template planner, a rules-only decider, parsers for Hacker News posts, and local selector repair before LLM rediscovery.
 4. **Everything nondeterministic is cached.** That covers pages (per URL and transport), LLM calls (per input hash) and decisions (per task and state hash). Re-runs are therefore reproducible, a crashed run can resume by replaying from the caches, and demos can run offline.
 5. **Postgres is the only source of truth, including the job queue.** The decision provider is an accelerator: when it fails, RUVO skips it.
-6. **Fetching is polite and safe.** RUVO sends an honest User-Agent, follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is; `Crawl-delay` is honoured up to 10 s), applies per-host rate limits and circuit breakers, blocks requests to private networks, and caps response size. It never uses stealth techniques or solves captchas.
+6. **Fetching uses the cheapest method that works, and stays within limits.** Scrapling fetches pages with its full toolbox (Chrome impersonation, a browser, and a stealth browser that solves Cloudflare checks), moving to a stronger method only when a cheaper one fails. RUVO still follows robots.txt (a 4xx robots file means everything is allowed, a 5xx means nothing is; `Crawl-delay` is honoured up to 10 s), applies per-host rate limits and circuit breakers, stops a source on HTTP 451, caps response size, and never logs in. A SOCKS guard checks every connection Scrapling makes, browsers included, so no request reaches a private network. Receipts record how each page was fetched.
 
 ## From request to dataset
 
@@ -93,14 +93,27 @@ Every change the compiler makes is recorded in `provenance.warnings`.
 
 ### Fetching (`fetch/`)
 
-**Checks, in order:** cache → private-network guard → circuit breaker → robots.txt → budget → per-host rate-limited transport, with retries and `Retry-After`.
+**Checks, in order:** cache → private-network guard → circuit breaker → robots.txt → budget → per-host rate-limited transport, with retries and `Retry-After`. Every step of the ladder below goes through the same checks.
 
-**Fetch modes:**
-- `http`: plain request.
-- `browser`: Playwright render.
-- `auto`: plain request first. The page is rendered in the browser if it has under 500 characters of text, or shows single-page-app markers with under 2,000 (`sufficiency.ts`).
+**The fetch service** (`infra/scrapling/server.py`, client in `fetch/scrapling.ts`): a small Python server around Scrapling, at `SCRAPLING_URL`. `POST /fetch` takes a URL and an engine and returns the status, final URL, headers and body. It has three engines, each one fetch per call, so no cookies are shared between pages:
+- `http`: a plain request with Chrome's TLS and header fingerprint.
+- `browser`: a Chromium render that waits for the network to go idle. Images, fonts and media are blocked; stylesheets load.
+- `stealth`: Scrapling's stealth browser, which solves Cloudflare checks. At most two browser or stealth fetches run at once.
 
-**Browser pool:** each page gets its own browser context. Images, fonts and media are blocked, and every request the page makes has its host resolved and checked against private networks. The pool waits for the text to stop changing rather than for network idle, and returns HTML only.
+Page fetches go through the service. The job-board and Hacker News JSON APIs (`fetcher.json()`) and the dev demo site keep RUVO's in-process HTTP path. If the service is unreachable, the fetch fails as `service_down`; that is not retried and never counts against a site's circuit breaker.
+
+**The egress guard** (`fetch/egressGuard.ts`): Scrapling's only way out is a SOCKS5 proxy run by RUVO. The guard resolves each target, checks the addresses with the same rule as `assertPublicUrl` (`fetch/ssrf.ts`), and connects only to the addresses it checked, so a DNS rebind has nothing to change. Browsers use it too, so every request a page makes is checked. In development `bun run dev` starts the guard on 127.0.0.1:1080 and the service behind it (`scripts/fetch-service.ts`).
+
+**The ladder:**
+- `http` mode: the `http` engine only.
+- `browser` mode: the `browser` engine.
+- `auto` mode: `http` first. The page goes to the browser if it has under 500 characters of text, or shows single-page-app markers with under 2,000 (`sufficiency.ts`).
+- In any mode, a bot challenge (status 403, 429 or 503 with `cf-mitigated: challenge` or a Cloudflare challenge marker in the body) goes to the `stealth` engine once.
+- HTTP 451, and any status of 400 or more left after the ladder, stop the source. A browser or stealth result with such a status, or a stealth page still showing a challenge, is an error and is never saved.
+
+**robots.txt behind a bot check:** when robots.txt itself answers with a challenge, it is read through the stealth browser, so the challenge is never mistaken for a 4xx that allows everything.
+
+**Receipts:** each page records how it was fetched in `pages.via` (`http`, `browser`, `stealth` or `search`), and each value's evidence carries it as `fetchedVia`. The receipt shows it in words, for example "Opened in a stealth browser, past a bot check".
 
 ### Pages and recipes (`page/`, `recipes/`)
 

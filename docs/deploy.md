@@ -1,7 +1,15 @@
 # Deploying RUVO
 
 `docker-compose.prod.yml` runs the whole stack on one machine with Docker: Postgres, a one-shot
-migration, the API (port 3000), the run worker and the dashboard (port 3001).
+migration, the API (port 3000), the run worker, the dashboard (port 3001), and two containers
+for fetching:
+
+- **`scrapling`**, the fetch service, built from `infra/scrapling/Dockerfile`. The worker sends it
+  every page fetch.
+- **`egress`**, the guard (`bun src/fetch/egressGuard.ts`), a SOCKS proxy that refuses any
+  connection to a private address and connects only to the address it checked.
+
+The fetch service sits on an internal network with the guard, so the guard is its only way out.
 
 ## Run it
 
@@ -34,7 +42,8 @@ Runs are claimed from a queue in Postgres, so more workers means more runs in pa
 docker compose -f docker-compose.prod.yml up -d --scale worker=3
 ```
 
-Each worker runs its own headless Chromium, so allow roughly 1 GB of memory per worker.
+Workers run no browser, so they need no extra shared memory. Browsers run in the one
+`scrapling` container, at most two at a time, whichever worker asked.
 
 ## Security
 
@@ -45,7 +54,7 @@ with HTTPS and authentication (or a VPN), and don't publish Postgres.
 
 ## Operations
 
-- **Logs:** `docker compose -f docker-compose.prod.yml logs -f api worker`
+- **Logs:** `docker compose -f docker-compose.prod.yml logs -f api worker scrapling egress`
 - **Health:** `GET /health` on the API returns 200 while it can reach the database.
 - **Backups:** `docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U ruvo ruvo > ruvo.sql`.
   Postgres holds everything, remembered plans included.
