@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { DatasetContract } from "@repo/contracts";
+import type { DatasetContract, QualityReport, SourceBranch } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { db } from "../src/db/client";
-import { evidence, records, runEvents } from "../src/db/schema";
+import { evidence, records, runEvents, runs } from "../src/db/schema";
 import { toCandidate, type Candidate } from "../src/execute/candidate";
-import { executeWorkflow } from "../src/execute/executor";
+import { executeWorkflow, type FindMore } from "../src/execute/executor";
 import { describeMatch, match } from "../src/execute/steps/match";
 import { validate } from "../src/execute/steps/validate";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
@@ -34,13 +34,13 @@ const company = (name: string, ats: RegistryCompany["ats"], slug: string, tags: 
 
 const budgets = { maxPages: 50, maxBrowserPages: 0, maxLlmCalls: 0, maxDurationMs: 60_000, maxRecords: 500 };
 
-async function runWith(companies: RegistryCompany[], contract: DatasetContract = DEMO_CONTRACT, limits = budgets, slow = false) {
+async function runWith(companies: RegistryCompany[], contract: DatasetContract = DEMO_CONTRACT, limits = budgets, slow = false, findMore?: FindMore) {
   const run = await insertRun({ status: "running" });
   const ir = buildTemplateIr(contract, companies, { budgets: limits, maxItemsPerSource: 40 });
   const { fetcher: fixtures } = fixtureFetcher({ "greenhouse.io": "greenhouse", "ashbyhq.com": "ashby", "lever.co": "lever" });
   const fetcher = slow ? neverAnswers : fixtures;
   const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract, ir, fetcher, llm: fakeLlm(), decider: offDecider });
-  await executeWorkflow(ctx);
+  await executeWorkflow(ctx, findMore);
   await ctx.dispose();
   return { run, ctx };
 }
@@ -98,6 +98,84 @@ describe("executeWorkflow", () => {
       await ctx.dispose();
     }
     expect((await recordsOf(run.id)).length).toBe(2);
+  });
+});
+
+describe("looking for more leads", () => {
+  const openai = company("OpenAI", "ashby", "openai", ["ai_lab"]);
+  /** The branch for one more company's board, as a FindMore would return it. Every Ashby board serves the fixture's 2 good leads. */
+  const board = (name: string, ats: RegistryCompany["ats"] = "ashby") =>
+    buildTemplateIr(DEMO_CONTRACT, [company(name, ats, name.toLowerCase(), ["ai_lab"])], { budgets, maxItemsPerSource: 40 }).sources;
+
+  /** Hands out `rounds` in turn (an Error is thrown) and records each round it was asked for. */
+  function fakeMore(...rounds: Array<SourceBranch[] | Error>) {
+    const asked: number[] = [];
+    const findMore: FindMore = async (_ctx, round) => {
+      asked.push(round);
+      const next = rounds.shift() ?? [];
+      if (next instanceof Error) throw next;
+      return next;
+    };
+    return Object.assign(findMore, { asked });
+  }
+
+  /** OpenAI's board (2 good leads in the fixture), then whatever `findMore` finds. */
+  const runMore = (findMore: FindMore, { maxRecords = 500, maxDurationMs = 60_000, slow = false } = {}) =>
+    runWith([openai], { ...DEMO_CONTRACT, maxRecords }, { ...budgets, maxDurationMs }, slow, findMore);
+
+  const moreEvents = async (runId: string) =>
+    (await db.select().from(runEvents).where(eq(runEvents.runId, runId)).orderBy(runEvents.seq)).filter((e) => e.type.startsWith("more."));
+
+  test("a run short of leads reads the sources each round finds, for at most two extra rounds", async () => {
+    const more = fakeMore(board("Perplexity"), board("Cohere"), board("Mistral"));
+    const { run } = await runMore(more);
+
+    expect(more.asked).toEqual([2, 3]);
+    expect((await moreEvents(run.id)).map((e) => e.message)).toEqual([
+      "Only 2 good leads so far; looking for more (round 2)",
+      "Round 2 added 2 good leads",
+      "Only 4 good leads so far; looking for more (round 3)",
+      "Round 3 added 2 good leads",
+    ]);
+    // Dedupe, the quality report and the summary run once, over every source read.
+    const [{ report }] = (await db.select({ report: runs.qualityReport }).from(runs).where(eq(runs.id, run.id))) as [{ report: QualityReport }];
+    expect(report.bySource.map((s) => s.label).sort()).toEqual(["Cohere", "OpenAI", "Perplexity"]);
+    const summary = (await db.select().from(runEvents).where(eq(runEvents.runId, run.id))).find((e) => e.type === "run.summary");
+    expect(summary?.message).toBe("2 valid, 0 incomplete, 0 rejected, 4 duplicates, from 3 sources");
+  });
+
+  test("a run that already has enough leads does not look for more", async () => {
+    const more = fakeMore(board("Perplexity"));
+    const { run } = await runMore(more, { maxRecords: 2 });
+    expect(more.asked).toEqual([]);
+    expect(await moreEvents(run.id)).toEqual([]);
+  });
+
+  test("no round starts once less than a third of the time limit is left", async () => {
+    const more = fakeMore(board("Perplexity"));
+    await runMore(more, { maxDurationMs: 50, slow: true });
+    expect(more.asked).toEqual([]);
+  });
+
+  test("a round that finds no new source ends the rounds", async () => {
+    const more = fakeMore([], board("Perplexity"));
+    await runMore(more);
+    expect(more.asked).toEqual([2]);
+  });
+
+  test("failing to look for more ends the rounds with a warning, not the run", async () => {
+    const more = fakeMore(new Error("SearXNG did not answer"), board("Perplexity"));
+    const { run } = await runMore(more);
+    expect(more.asked).toEqual([2]);
+    expect((await moreEvents(run.id)).at(-1)).toMatchObject({ level: "warn", message: "Stopped looking for more leads: SearXNG did not answer" });
+    expect((await recordsOf(run.id)).length).toBe(2);
+  });
+
+  test("sources from later rounds count towards the run failing when none could be collected", async () => {
+    const more = fakeMore(board("Missing Co", "workable"));
+    await expect(runWith([company("Gone Co", "workable", "gone", [])], DEMO_CONTRACT, budgets, false, more)).rejects.toThrow(
+      "None of the 2 sources could be collected",
+    );
   });
 });
 
