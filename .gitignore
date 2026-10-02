@@ -38,4 +38,5 @@ yarn-error.log*
 *.pem
 
 # Agent worktrees
-.claude/worktrees/
+.claude
+brag-output
