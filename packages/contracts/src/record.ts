@@ -5,8 +5,8 @@ export const EVIDENCE_METHODS = ["API", "JSON_LD", "EMBEDDED_JSON", "DOM", "REGE
 export const EvidenceMethod = z.enum(EVIDENCE_METHODS);
 export type EvidenceMethod = z.infer<typeof EvidenceMethod>;
 
-/** How a page was fetched; "stealth" is the stealth browser used past a bot check. */
-export const PAGE_VIAS = ["http", "browser", "stealth", "search"] as const;
+/** How a page was fetched; "stealth" is the stealth browser used past a bot check, "firecrawl" the last resort when Scrapling could not read it. */
+export const PAGE_VIAS = ["http", "browser", "stealth", "search", "firecrawl"] as const;
 export const PageVia = z.enum(PAGE_VIAS);
 export type PageVia = z.infer<typeof PageVia>;
 

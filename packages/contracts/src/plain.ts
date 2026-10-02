@@ -34,4 +34,5 @@ export const FETCH_PHRASE: Record<PageVia, string> = {
   browser: "Opened in a browser",
   stealth: "Opened in a stealth browser, past a bot check",
   search: "From search results",
+  firecrawl: "Read through Firecrawl",
 };

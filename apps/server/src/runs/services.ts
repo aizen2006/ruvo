@@ -23,7 +23,7 @@ const trustedOrigins = env.NODE_ENV === "production" ? [] : [`http://localhost:$
 const scrapling = env.SCRAPLING_URL ? createScraplingClient(env.SCRAPLING_URL) : undefined;
 /** SearXNG, the free local web search; off when SEARXNG_URL is blank. */
 const searxng = env.SEARXNG_URL ? createSearxng(env.SEARXNG_URL) : undefined;
-/** Firecrawl (with a key): the backup web search. */
+/** Firecrawl (with a key): the backup web search, and the last way to read a page. */
 const firecrawl = env.FIRECRAWL_API_KEY ? createFirecrawl({ apiKey: env.FIRECRAWL_API_KEY, baseUrl: env.FIRECRAWL_BASE_URL }) : undefined;
 /** Shared with web discovery, so it never plans a page the fetcher would refuse. */
 export const robots = createRobots({ userAgent: env.USER_AGENT, scrapling });
@@ -32,6 +32,7 @@ export const fetcher = createFetcher({
   robots,
   cacheMode: env.FETCH_CACHE_MODE,
   scrapling,
+  firecrawl: firecrawl && { client: firecrawl, usdPerCredit: env.FIRECRAWL_USD_PER_CREDIT },
   trustedOrigins,
 });
 export const llm = createLlmClient({ env });

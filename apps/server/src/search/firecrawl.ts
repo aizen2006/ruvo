@@ -37,7 +37,7 @@ export interface FirecrawlDocument {
   links?: string[];
   /** Present when a jsonOptions/extract schema was supplied. */
   json?: unknown;
-  metadata?: { title?: string; description?: string; sourceURL?: string; url?: string; statusCode?: number };
+  metadata?: { title?: string; description?: string; sourceURL?: string; url?: string; statusCode?: number; creditsUsed?: number };
 }
 
 export interface SearchResultItem {
@@ -139,9 +139,11 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
 
     async scrape(url, o = {}) {
       const { signal, ...options } = o;
-      const body = { url, formats: options.formats ?? ["markdown"], onlyMainContent: options.onlyMainContent ?? true, ...options };
-      const res = await call<{ data: FirecrawlDocument; creditsUsed?: number }>("/v2/scrape", body, signal);
-      return { document: res.data, creditsUsed: res.creditsUsed ?? 0 };
+      // Firecrawl gives up before this client does, so a slow page is never scraped (and billed) twice.
+      const body = { url, formats: options.formats ?? ["markdown"], onlyMainContent: options.onlyMainContent ?? true, timeout: timeoutMs - 5_000, ...options };
+      const res = await call<{ data: FirecrawlDocument }>("/v2/scrape", body, signal);
+      // A scrape reports its credits in the page's metadata (a search reports them at the top level).
+      return { document: res.data, creditsUsed: res.data.metadata?.creditsUsed ?? 0 };
     },
   };
 }

@@ -83,6 +83,14 @@ export function createSearchRunner(deps: SearchRunnerDeps): SearchRunner {
   };
 }
 
+/**
+ * Records a Firecrawl scrape (the fetcher's last way to read a page) with the searches, so a run's
+ * cost and the daily budget count its credits. Its key is the page's URL, which no search key matches.
+ */
+export async function recordScrape(runId: string | undefined, url: string, credits: number, costUsd: number) {
+  await log({ runId, provider: "firecrawl", query: url, inputHash: sha256(url), credits, costUsd });
+}
+
 async function findCached(inputHash: string): Promise<{ hits: SearchResultItem[]; provider: string } | null> {
   const [row] = await db
     .select({ hits: searchCalls.hits, provider: searchCalls.provider })
@@ -94,7 +102,7 @@ async function findCached(inputHash: string): Promise<{ hits: SearchResultItem[]
 }
 
 function log(row: {
-  runId: string;
+  runId: string | undefined;
   provider: string;
   query: string;
   inputHash: string;
@@ -105,7 +113,7 @@ function log(row: {
   error?: string;
 }) {
   return db.insert(searchCalls).values({
-    runId: row.runId,
+    runId: row.runId ?? null,
     provider: row.provider,
     query: row.query,
     inputHash: row.inputHash,

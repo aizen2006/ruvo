@@ -1,12 +1,14 @@
 import type { RunContext } from "../runs/runContext";
 import { createCircuitBreaker, type CircuitBreaker } from "../libs/circuitBreaker";
 import { parseRetryAfter, withRetry } from "../libs/retry";
+import { recordScrape } from "../search/cache";
+import type { FirecrawlClient } from "../search/firecrawl";
 import { FetchError } from "./errors";
 import { createHostLimiter, type HostLimiter } from "./hostLimiter";
 import { findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
 import { readCapped } from "./readCapped";
 import { createRobots, type Robots } from "./robots";
-import { STEALTH_TIMEOUT_MS, type ScraplingClient } from "./scrapling";
+import { STEALTH_TIMEOUT_MS, type ScraplingClient, type ScraplingEngine } from "./scrapling";
 import { assertPublicUrl } from "./ssrf";
 import { assessHtml, hasChallengeMarkers, isBotChallenge } from "./sufficiency";
 
@@ -16,8 +18,9 @@ export interface FetchRequest {
   /** Short reason shown in logs/events, e.g. "greenhouse board". */
   purpose: string;
   /**
-   * http: plain request; browser: render in a browser; stealth: Scrapling's stealth browser;
-   * auto: http, then the browser if the page is a JS shell. A bot check goes to the stealth browser in any mode.
+   * http: plain request; browser: render in a browser; stealth: Scrapling's stealth browser; firecrawl: Firecrawl's scrape;
+   * auto: http, then the browser if the page is a JS shell. A bot check goes to the stealth browser in any mode, and
+   * Firecrawl (with a key) reads a page the stealth browser was refused, or any page while the Scrapling service is down.
    */
   mode?: Via | "auto";
   /** Skip stored copies and fetch again (the new copy is still stored). Used when retrying a failure. */
@@ -34,12 +37,12 @@ export interface FetchResult {
   fromCache: boolean;
   contentType: string | null;
   body: string;
-  /** Set when a fetch had to move to a stronger method (the browser, or the stealth browser past a bot check), with the reason. */
+  /** Set when a fetch had to move to a stronger method (the browser, or the stealth browser or Firecrawl past a bot check), with the reason. */
   escalation: { reason: string; textLength: number } | null;
 }
 
-/** The slice of a run a fetch needs: cancellation, budget and counters. */
-export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics">;
+/** The slice of a run a fetch needs: cancellation, budget and counters, and the run a paid fetch (Firecrawl) is charged to. */
+export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics"> & Partial<Pick<RunContext, "runId">>;
 
 export interface Fetcher {
   fetch(scope: FetchScope, req: FetchRequest): Promise<FetchResult>;
@@ -60,6 +63,8 @@ export interface FetcherOptions {
   breaker?: CircuitBreaker;
   /** RUVO's Scrapling fetch service. Without it (tests), pages are fetched in-process over plain HTTP only. */
   scrapling?: ScraplingClient;
+  /** The last way to read a page, when the Scrapling service is down or a site refuses even the stealth browser. */
+  firecrawl?: { client: FirecrawlClient; usdPerCredit: number };
 }
 
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
@@ -72,7 +77,8 @@ type Fetched = { finalUrl: string; status: number; contentType: string | null; b
 /**
  * Polite, cached fetching through RUVO's Scrapling service, moving to a stronger method only when a
  * cheaper one fails: plain HTTP, then a browser for a JavaScript shell, or the stealth browser for a
- * bot check. Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
+ * bot check; last, Firecrawl (with a key) when the stealth browser is refused or the Scrapling service is down.
+ * Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
  */
 export function createFetcher(opts: FetcherOptions): Fetcher {
   const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent });
@@ -80,7 +86,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   const breaker = opts.breaker ?? createCircuitBreaker({ threshold: 5, cooldownMs: 60_000 });
   const cacheTtlMs = opts.cacheTtlMs ?? 6 * 60 * 60 * 1000;
   const timeoutMs = opts.timeoutMs ?? 20_000;
-  const engineTimeoutMs: Record<Via, number> = { http: timeoutMs, browser: timeoutMs + 10_000, stealth: STEALTH_TIMEOUT_MS };
+  const engineTimeoutMs: Record<ScraplingEngine, number> = { http: timeoutMs, browser: timeoutMs + 10_000, stealth: STEALTH_TIMEOUT_MS };
 
   const trusted = new Set(opts.trustedOrigins ?? []);
   const guard = async (url: string) => {
@@ -117,27 +123,37 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
 
   /**
    * One rung of the ladder: the stored copy, or the checks and one fetch the way `via` names.
-   * A bot check is never stored: the stealth browser fetches the page instead, once.
+   * A bot check is never stored: the stealth browser fetches the page instead, once. Firecrawl
+   * (a browser page in the budget) reads the page only when Scrapling could not (see firecrawlMayRead).
    */
   async function fetchVia(scope: FetchScope, req: FetchRequest, via: Via): Promise<FetchResult> {
     const service = serviceFor(req);
-    if (via !== "http" && !service) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
+    if ((via === "browser" || via === "stealth") && !service) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
+    if (via === "firecrawl" && !opts.firecrawl) throw new FetchError("unsupported_content", "Firecrawl is not configured", { url: req.url });
     const cached = req.fresh ? null : await fromCache(scope, req.url, via);
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, via === "http" ? ["pages"] : ["pages", "browserPages"]);
-    const transport = () => (service ? scraplingGet(service, scope, req, via) : httpGet(scope, req));
-    const { challenge, ...fetched } = await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
-      // Only plain requests are retried: a render spends a browser page each time.
-      retries: via === "http" ? 2 : 0,
-      baseMs: 500,
-      maxDelayMs: 30_000,
-      shouldRetry: (err) => err instanceof FetchError && err.retryable,
-      retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
-      signal: scope.signal,
-    }).catch((err: unknown) => {
+    const transport = () => (via === "firecrawl" ? firecrawlGet(scope, req) : service ? scraplingGet(service, scope, req, via) : httpGet(scope, req));
+    let response: Fetched;
+    try {
+      response = await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
+        // Only plain requests are retried: a render spends a browser page each time.
+        retries: via === "http" ? 2 : 0,
+        baseMs: 500,
+        maxDelayMs: 30_000,
+        shouldRetry: (err) => err instanceof FetchError && err.retryable,
+        retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
+        signal: scope.signal,
+      });
+    } catch (err) {
       if (err instanceof FetchError && (err.retryable || err.kind === "network")) breaker.recordFailure(host);
-      throw err;
-    });
+      if (!firecrawlMayRead(req, via, err)) throw err;
+      // If Firecrawl cannot read the page either, it failed for the reason Scrapling met.
+      return fetchVia(scope, req, "firecrawl").catch((failed: unknown) => {
+        throw scope.signal.aborted ? failed : err;
+      });
+    }
+    const { challenge, ...fetched } = response;
     if (challenge) {
       const passed = await fetchVia(scope, req, "stealth");
       return { ...passed, escalation: { reason: `a bot check (HTTP ${fetched.status})`, textLength: assessHtml(fetched.body).textLength } };
@@ -148,17 +164,30 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     return toResult(await savePage({ url: req.url, via, ...fetched }), false);
   }
 
+  /**
+   * Whether Firecrawl may read a page (never an API) after `via` failed with `err`: the Scrapling service
+   * is down, or a site refused even the stealth browser with a bot check, 403 or 429. Never past an HTTP 451.
+   */
+  function firecrawlMayRead(req: FetchRequest, via: Via, err: unknown): boolean {
+    if (!opts.firecrawl || req.expect === "json" || !(err instanceof FetchError)) return false;
+    if (err.kind === "service_down") return true;
+    const { status, challenge } = err.details;
+    return via === "stealth" && err.kind === "http_status" && status !== 451 && (challenge === true || status === 403 || status === 429);
+  }
+
   async function fetchPage(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
     // A malformed URL (e.g. scraped from a page) fails this page as a FetchError, not the whole source.
     if (!URL.canParse(req.url)) throw new FetchError("ssrf_blocked", `Invalid URL: ${req.url}`, { url: req.url });
     const mode = req.mode ?? "http";
     if (mode !== "auto") return fetchVia(scope, req, mode);
 
-    // auto: a copy from an earlier escalation (past a bot check first) beats fetching the page again.
-    const escalated = req.fresh ? null : ((await fromCache(scope, req.url, "stealth")) ?? (await fromCache(scope, req.url, "browser")));
+    // auto: a copy from an earlier escalation (past a bot check first, Firecrawl last) beats fetching the page again.
+    const escalated = req.fresh
+      ? null
+      : ((await fromCache(scope, req.url, "stealth")) ?? (await fromCache(scope, req.url, "browser")) ?? (await fromCache(scope, req.url, "firecrawl")));
     if (escalated) return escalated;
     const page = await fetchVia(scope, req, "http");
-    // A page from past a bot check was rendered by the stealth browser already.
+    // A page from past a bot check, or from Firecrawl, was rendered already.
     if (page.via !== "http" || !serviceFor(req)) return page;
     const verdict = assessHtml(page.body);
     if (verdict.sufficient) return page;
@@ -170,7 +199,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
    * One fetch through the Scrapling service. An error status fails as a FetchError, so error pages are
    * never stored; a bot check met over plain HTTP or in the browser comes back marked for the stealth browser.
    */
-  async function scraplingGet(service: ScraplingClient, scope: FetchScope, req: FetchRequest, via: Via): Promise<Fetched> {
+  async function scraplingGet(service: ScraplingClient, scope: FetchScope, req: FetchRequest, via: ScraplingEngine): Promise<Fetched> {
     if (via === "http") scope.metrics.inc("httpRequests");
     const res = await service.fetch(
       {
@@ -203,6 +232,23 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
       throw new FetchError("unsupported_content", `Unexpected content-type "${fetched.contentType}" from ${res.url}`, { url: res.url });
     }
     return fetched;
+  }
+
+  /** One page read through Firecrawl's scrape, as rendered HTML. Its credits are recorded with the searches, so the run's cost counts them. */
+  async function firecrawlGet(scope: FetchScope, req: FetchRequest): Promise<Fetched> {
+    const { client, usdPerCredit } = opts.firecrawl!;
+    const { document, creditsUsed } = await client.scrape(req.url, { formats: ["rawHtml"], onlyMainContent: false, signal: scope.signal });
+    await recordScrape(scope.runId, req.url, creditsUsed, creditsUsed * usdPerCredit);
+    const finalUrl = document.metadata?.url ?? req.url;
+    const status = document.metadata?.statusCode ?? 200;
+    const body = document.rawHtml ?? "";
+    const challenge = hasChallengeMarkers(body);
+    if (status >= 400 || challenge) {
+      throw new FetchError("http_status", `Firecrawl could not read ${finalUrl} (HTTP ${status}${challenge ? ", a bot check" : ""})`, { url: finalUrl, status, challenge });
+    }
+    const maxBytes = req.maxBytes ?? DEFAULT_MAX_BYTES;
+    if (Buffer.byteLength(body) > maxBytes) throw new FetchError("too_large", `Response from ${finalUrl} exceeds ${maxBytes} bytes`, { url: finalUrl });
+    return { finalUrl, status, contentType: "text/html", body };
   }
 
   async function httpGet(scope: FetchScope, req: FetchRequest): Promise<Fetched> {
