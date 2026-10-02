@@ -1,3 +1,4 @@
+import type { RecipeDef } from "@repo/contracts";
 import { FetchError, type FetchErrorKind } from "./errors";
 
 /** A plain request with Chrome's fingerprint, a browser, or the stealth browser that gets past bot checks. */
@@ -16,9 +17,17 @@ export interface ScraplingPage {
   body: string;
 }
 
+/** Where a recipe's item and fields are on a changed page, as CSS paths to the elements; null where nothing was found. */
+export interface Relocated {
+  item: string | null;
+  fields: Record<string, string | null>;
+}
+
 export interface ScraplingClient {
   /** One fetch with one engine. An HTTP error status comes back as a page; a failed fetch throws a FetchError. */
   fetch(req: { url: string; engine: ScraplingEngine; timeoutMs: number; maxBytes: number; accept?: string }, signal: AbortSignal): Promise<ScraplingPage>;
+  /** Finds a recipe's item and fields, as read on the old page, on the new one with Scrapling's adaptive parser (no network). */
+  relocate(req: RecipeDef & { oldHtml: string; newHtml: string }, signal: AbortSignal): Promise<Relocated>;
 }
 
 /** The service's failures as fetch errors; "blocked" means the egress guard refused an internal address. */
@@ -51,6 +60,16 @@ export function createScraplingClient(baseUrl: string): ScraplingClient {
       const kind = FAILURES[reply.error ?? ""];
       if (kind) throw new FetchError(kind, `${req.url}: ${reply.message}`, { url: req.url });
       throw new Error(`RUVO's fetch service failed on ${req.url} (HTTP ${res.status}): ${reply.message ?? "unexpected reply"}`);
+    },
+    async relocate(req, signal) {
+      const res = await fetch(new URL("/relocate", baseUrl), {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(req),
+        signal,
+      });
+      if (!res.ok) throw new Error(`RUVO's fetch service could not relocate a recipe (HTTP ${res.status})`);
+      return (await res.json()) as Relocated;
     },
   };
 }
