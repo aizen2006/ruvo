@@ -1,4 +1,5 @@
 import type { FieldSpec, Recipe } from "@repo/contracts";
+import type { Via } from "../fetch/pageCache";
 import { toPageState } from "../page/pageState";
 import { discoverRecipe } from "../recipes/discover";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
@@ -15,7 +16,7 @@ export interface FetchedPage {
   finalUrl: string;
   /** Stored snapshot, referenced by evidence. */
   pageId: string | null;
-  via: "http" | "browser";
+  via: Via;
 }
 
 export interface Repaired {
@@ -32,7 +33,7 @@ export interface RepairInput {
   failure: { kind: "SELECTOR_MISS" | "PARTIAL_FILL"; detail: string };
   fields: FieldSpec[];
   /** Fetches the page again, bypassing the cache (used by RETRY and SWITCH_TO_BROWSER). */
-  refetch(mode: "http" | "browser"): Promise<FetchedPage>;
+  refetch(mode: Via): Promise<FetchedPage>;
 }
 
 /** At most this many repair actions per source per run (e.g. switch to browser, then fix selectors). */

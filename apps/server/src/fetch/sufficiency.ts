@@ -27,3 +27,18 @@ export function assessHtml(html: string): Sufficiency {
   }
   return { sufficient: true, reason: null, textLength };
 }
+
+const CHALLENGE_STATUS = new Set([403, 429, 503]);
+// Cloudflare's challenge page. Not /cdn-cgi/challenge-platform/ or the Turnstile script: good pages carry those too.
+const CHALLENGE_MARKERS = ["<title>Just a moment...</title>", "_cf_chl_opt", "cType: '"];
+
+/** A bot check (e.g. Cloudflare's "Just a moment...") in place of the page, from any fetch method. */
+export function isBotChallenge(status: number, headers: Record<string, string>, body: string): boolean {
+  return CHALLENGE_STATUS.has(status) && (headers["cf-mitigated"] === "challenge" || hasChallengeMarkers(body));
+}
+
+/**
+ * The bot check's markers in the page itself. A stealth browser result is judged by these alone:
+ * Scrapling keeps the cf-mitigated header on a page it got past.
+ */
+export const hasChallengeMarkers = (body: string) => CHALLENGE_MARKERS.some((marker) => body.includes(marker));

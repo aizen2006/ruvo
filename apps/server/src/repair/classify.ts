@@ -71,9 +71,13 @@ export function explainFailure(err: unknown): string {
       return "the address does not return a web page";
     case "network":
       return `${host} did not respond in time`;
+    case "service_down":
+      return `RUVO's fetch service is not running; "bun run dev" starts it`;
     case "http_status": {
       const status = err.details.status;
-      if (err.blocked || status === 401) return `${host} refused automated access (HTTP ${status}); RUVO does not work around blocks`;
+      if (status === 451) return "the page is blocked for legal reasons (HTTP 451)";
+      if (err.details.challenge) return `${host} refused access: even the stealth browser could not get past its bot check`;
+      if (err.blocked || status === 401) return `${host} refused access (HTTP ${status})`;
       if (status === 404 || status === 410) return `the page no longer exists (HTTP ${status})`;
       if (status === 429) return `${host} is limiting requests; try again later`;
       return `${host} returned an error (HTTP ${status})`;

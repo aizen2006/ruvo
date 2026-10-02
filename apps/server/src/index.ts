@@ -6,7 +6,6 @@ import { logger } from "./libs/logger";
 import { onShutdown } from "./libs/shutdown";
 import { runPipeline } from "./runs/pipeline";
 import { prepareRun } from "./runs/prepare";
-import { browser } from "./runs/services";
 import { startWorker } from "./runs/worker";
 
 await bootstrap();
@@ -25,7 +24,6 @@ onShutdown(async () => {
   const closed = new Promise<void>((resolve) => server.close(() => resolve()));
   server.closeIdleConnections();
   await worker?.stop();
-  await browser.close();
   await closed;
   await sql.end({ timeout: 5 });
 });

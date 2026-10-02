@@ -1,4 +1,5 @@
 import { choiceBand, type DecisionRequest, type DecisionScope, type Decider } from "../decide/decider";
+import type { Via } from "../fetch/pageCache";
 import type { Failure } from "./classify";
 
 export const REPAIR_ACTIONS = ["RETRY", "SWITCH_TO_BROWSER", "CHANGE_SELECTOR", "ESCALATE", "STOP"] as const;
@@ -15,7 +16,7 @@ const MEANING: Record<RepairAction, string> = {
 
 export interface RepairContext {
   failure: Failure;
-  via: "http" | "browser";
+  via: Via;
   /** Items the recipe found vs. the last successful run, for the decision model. */
   itemsFound: number;
   itemsExpected: number | null;

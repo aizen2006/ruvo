@@ -1,22 +1,25 @@
 import type { RunContext } from "../runs/runContext";
 import { createCircuitBreaker, type CircuitBreaker } from "../libs/circuitBreaker";
 import { parseRetryAfter, withRetry } from "../libs/retry";
-import type { BrowserPool } from "./browser";
 import { FetchError } from "./errors";
 import { createHostLimiter, type HostLimiter } from "./hostLimiter";
 import { findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
 import { readCapped } from "./readCapped";
 import { createRobots, type Robots } from "./robots";
+import { STEALTH_TIMEOUT_MS, type ScraplingClient } from "./scrapling";
 import { assertPublicUrl } from "./ssrf";
-import { assessHtml } from "./sufficiency";
+import { assessHtml, hasChallengeMarkers, isBotChallenge } from "./sufficiency";
 
 export interface FetchRequest {
   url: string;
   expect: "json" | "html" | "text";
   /** Short reason shown in logs/events, e.g. "greenhouse board". */
   purpose: string;
-  /** http: plain request; browser: render with Playwright; auto: http, then browser if the page is a JS shell. */
-  mode?: "http" | "browser" | "auto";
+  /**
+   * http: plain request; browser: render in a browser; stealth: Scrapling's stealth browser;
+   * auto: http, then the browser if the page is a JS shell. A bot check goes to the stealth browser in any mode.
+   */
+  mode?: Via | "auto";
   /** Skip stored copies and fetch again (the new copy is still stored). Used when retrying a failure. */
   fresh?: boolean;
   maxBytes?: number;
@@ -31,7 +34,7 @@ export interface FetchResult {
   fromCache: boolean;
   contentType: string | null;
   body: string;
-  /** Set when an auto fetch had to switch to the browser, with the reason. */
+  /** Set when a fetch had to move to a stronger method (the browser, or the stealth browser past a bot check), with the reason. */
   escalation: { reason: string; textLength: number } | null;
 }
 
@@ -55,18 +58,21 @@ export interface FetcherOptions {
   robots?: Robots;
   limiter?: HostLimiter;
   breaker?: CircuitBreaker;
-  /** Needed for browser and auto fetches. */
-  browser?: BrowserPool;
+  /** RUVO's Scrapling fetch service. Without it (tests), pages are fetched in-process over plain HTTP only. */
+  scrapling?: ScraplingClient;
 }
 
 const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 
 type BudgetKey = "pages" | "browserPages";
+/** A response as fetched; `challenge` marks a bot check, which is never stored. */
+type Fetched = { finalUrl: string; status: number; contentType: string | null; body: string; challenge?: boolean };
 
 /**
- * Polite, cached fetching over HTTP or a headless browser. Every request passes:
- * cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
+ * Polite, cached fetching through RUVO's Scrapling service, moving to a stronger method only when a
+ * cheaper one fails: plain HTTP, then a browser for a JavaScript shell, or the stealth browser for a
+ * bot check. Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
  */
 export function createFetcher(opts: FetcherOptions): Fetcher {
   const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent });
@@ -74,12 +80,16 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   const breaker = opts.breaker ?? createCircuitBreaker({ threshold: 5, cooldownMs: 60_000 });
   const cacheTtlMs = opts.cacheTtlMs ?? 6 * 60 * 60 * 1000;
   const timeoutMs = opts.timeoutMs ?? 20_000;
+  const engineTimeoutMs: Record<Via, number> = { http: timeoutMs, browser: timeoutMs + 10_000, stealth: STEALTH_TIMEOUT_MS };
 
   const trusted = new Set(opts.trustedOrigins ?? []);
   const guard = async (url: string) => {
     if (opts.allowPrivateNetwork || trusted.has(new URL(url).origin)) return;
     await assertPublicUrl(url);
   };
+  // JSON APIs (no browser needed, bodies up to 40 MB) and trusted origins (the service's guard refuses
+  // local addresses) are fetched in-process, as is everything without a service.
+  const serviceFor = (req: FetchRequest) => (req.expect === "json" || trusted.has(new URL(req.url).origin) ? undefined : opts.scrapling);
 
   /** Stored copy of a page for this transport, honouring the cache mode. */
   async function fromCache(scope: FetchScope, url: string, via: Via): Promise<FetchResult | null> {
@@ -105,78 +115,97 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     return { host, crawlDelayMs };
   }
 
-  async function fetchHttp(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
-    const cached = req.fresh ? null : await fromCache(scope, req.url, "http");
+  /**
+   * One rung of the ladder: the stored copy, or the checks and one fetch the way `via` names.
+   * A bot check is never stored: the stealth browser fetches the page instead, once.
+   */
+  async function fetchVia(scope: FetchScope, req: FetchRequest, via: Via): Promise<FetchResult> {
+    const service = serviceFor(req);
+    if (via !== "http" && !service) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
+    const cached = req.fresh ? null : await fromCache(scope, req.url, via);
     if (cached) return cached;
-    const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages"]);
-    try {
-      const response = await withRetry(() => limiter.run(host, crawlDelayMs, () => httpGet(scope, req), scope.signal), {
-        retries: 2,
-        baseMs: 500,
-        maxDelayMs: 30_000,
-        shouldRetry: (err) => err instanceof FetchError && err.retryable,
-        retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
-        signal: scope.signal,
-      });
-      breaker.recordSuccess(host);
-      scope.metrics.inc("pagesVisited");
-      return toResult(await savePage({ url: req.url, via: "http", ...response }), false);
-    } catch (err) {
+    const { host, crawlDelayMs } = await preflight(scope, req.url, via === "http" ? ["pages"] : ["pages", "browserPages"]);
+    const transport = () => (service ? scraplingGet(service, scope, req, via) : httpGet(scope, req));
+    const { challenge, ...fetched } = await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
+      // Only plain requests are retried: a render spends a browser page each time.
+      retries: via === "http" ? 2 : 0,
+      baseMs: 500,
+      maxDelayMs: 30_000,
+      shouldRetry: (err) => err instanceof FetchError && err.retryable,
+      retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
+      signal: scope.signal,
+    }).catch((err: unknown) => {
       if (err instanceof FetchError && (err.retryable || err.kind === "network")) breaker.recordFailure(host);
       throw err;
+    });
+    if (challenge) {
+      const passed = await fetchVia(scope, req, "stealth");
+      return { ...passed, escalation: { reason: `a bot check (HTTP ${fetched.status})`, textLength: assessHtml(fetched.body).textLength } };
     }
-  }
-
-  async function fetchBrowser(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
-    if (!opts.browser) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
-    const cached = req.fresh ? null : await fromCache(scope, req.url, "browser");
-    if (cached) return cached;
-    const { host, crawlDelayMs } = await preflight(scope, req.url, ["pages", "browserPages"]);
-    try {
-      const rendered = await limiter.run(
-        host,
-        crawlDelayMs,
-        () => opts.browser!.render(req.url, { signal: scope.signal, timeoutMs: timeoutMs + 10_000 }),
-        scope.signal,
-      );
-      breaker.recordSuccess(host);
-      scope.metrics.inc("pagesVisited");
-      scope.metrics.inc("browserPages");
-      const page = await savePage({
-        url: req.url,
-        finalUrl: rendered.finalUrl,
-        via: "browser",
-        status: rendered.status,
-        contentType: "text/html",
-        body: rendered.html,
-      });
-      return toResult(page, false);
-    } catch (err) {
-      if (scope.signal.aborted) throw err;
-      breaker.recordFailure(host);
-      if (err instanceof FetchError) throw err;
-      throw new FetchError("network", `Browser could not load ${req.url}: ${(err as Error).message}`, { url: req.url });
-    }
+    breaker.recordSuccess(host);
+    scope.metrics.inc("pagesVisited");
+    if (via !== "http") scope.metrics.inc("browserPages");
+    return toResult(await savePage({ url: req.url, via, ...fetched }), false);
   }
 
   async function fetchPage(scope: FetchScope, req: FetchRequest): Promise<FetchResult> {
     // A malformed URL (e.g. scraped from a page) fails this page as a FetchError, not the whole source.
     if (!URL.canParse(req.url)) throw new FetchError("ssrf_blocked", `Invalid URL: ${req.url}`, { url: req.url });
     const mode = req.mode ?? "http";
-    if (mode === "browser") return fetchBrowser(scope, req);
-    if (mode === "http") return fetchHttp(scope, req);
+    if (mode !== "auto") return fetchVia(scope, req, mode);
 
-    // auto: a rendered copy from an earlier escalation beats re-fetching the empty shell.
-    const rendered = req.fresh ? null : await fromCache(scope, req.url, "browser");
-    if (rendered) return rendered;
-    const page = await fetchHttp(scope, req);
+    // auto: a copy from an earlier escalation (past a bot check first) beats fetching the page again.
+    const escalated = req.fresh ? null : ((await fromCache(scope, req.url, "stealth")) ?? (await fromCache(scope, req.url, "browser")));
+    if (escalated) return escalated;
+    const page = await fetchVia(scope, req, "http");
+    // A page from past a bot check was rendered by the stealth browser already.
+    if (page.via !== "http" || !serviceFor(req)) return page;
     const verdict = assessHtml(page.body);
-    if (verdict.sufficient || !opts.browser) return page;
-    const escalated = await fetchBrowser(scope, req);
-    return { ...escalated, escalation: { reason: verdict.reason!, textLength: verdict.textLength } };
+    if (verdict.sufficient) return page;
+    const rendered = await fetchVia(scope, req, "browser");
+    return { ...rendered, escalation: rendered.escalation ?? { reason: verdict.reason!, textLength: verdict.textLength } };
   }
 
-  async function httpGet(scope: FetchScope, req: FetchRequest) {
+  /**
+   * One fetch through the Scrapling service. An error status fails as a FetchError, so error pages are
+   * never stored; a bot check met over plain HTTP or in the browser comes back marked for the stealth browser.
+   */
+  async function scraplingGet(service: ScraplingClient, scope: FetchScope, req: FetchRequest, via: Via): Promise<Fetched> {
+    if (via === "http") scope.metrics.inc("httpRequests");
+    const res = await service.fetch(
+      {
+        url: req.url,
+        engine: via,
+        timeoutMs: engineTimeoutMs[via],
+        maxBytes: req.maxBytes ?? DEFAULT_MAX_BYTES,
+        accept: via === "http" ? ACCEPT[req.expect] : undefined,
+      },
+      scope.signal,
+    );
+    const fetched = {
+      finalUrl: res.url,
+      status: res.status,
+      // A rendered page is HTML, whatever the response's content-type said.
+      contentType: via === "http" ? (res.headers["content-type"] ?? null) : "text/html",
+      body: res.body,
+    };
+    if (via !== "stealth" && isBotChallenge(res.status, res.headers, res.body)) return { ...fetched, challenge: true };
+    const challenge = via === "stealth" && hasChallengeMarkers(res.body);
+    if (res.status >= 400 || challenge) {
+      throw new FetchError("http_status", challenge ? `${res.url} still shows a bot check (HTTP ${res.status})` : `HTTP ${res.status} from ${res.url}`, {
+        url: res.url,
+        status: res.status,
+        retryAfterMs: parseRetryAfter(res.headers["retry-after"] ?? null),
+        challenge,
+      });
+    }
+    if (!acceptsContentType(req.expect, fetched.contentType)) {
+      throw new FetchError("unsupported_content", `Unexpected content-type "${fetched.contentType}" from ${res.url}`, { url: res.url });
+    }
+    return fetched;
+  }
+
+  async function httpGet(scope: FetchScope, req: FetchRequest): Promise<Fetched> {
     const signal = AbortSignal.any([scope.signal, AbortSignal.timeout(timeoutMs)]);
     let url = req.url;
 

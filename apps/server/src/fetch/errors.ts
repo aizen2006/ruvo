@@ -10,13 +10,20 @@ export type FetchErrorKind =
   | "http_status"
   | "network"
   | "too_large"
-  | "unsupported_content";
+  | "unsupported_content"
+  | "service_down"; // RUVO's Scrapling fetch service is not running; not the site's fault, so never retried or held against it
 
 export class FetchError extends Error {
   constructor(
     readonly kind: FetchErrorKind,
     message: string,
-    readonly details: { url: string; status?: number; retryAfterMs?: number } = { url: "" },
+    readonly details: {
+      url: string;
+      status?: number;
+      retryAfterMs?: number;
+      /** The page was a bot check that even the stealth browser could not get past. */
+      challenge?: boolean;
+    } = { url: "" },
   ) {
     super(message);
     this.name = "FetchError";
@@ -30,7 +37,7 @@ export class FetchError extends Error {
 
   /** The site is refusing us; stop the source rather than retrying (see repair policy). */
   get blocked(): boolean {
-    return this.kind === "http_status" && (this.details.status === 403 || this.details.status === 451);
+    return this.kind === "http_status" && (this.details.status === 403 || this.details.status === 451 || this.details.challenge === true);
   }
 }
 

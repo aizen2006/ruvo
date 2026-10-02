@@ -48,7 +48,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
       run.emit({
         stage: "collecting",
         type: "fetch.escalated",
-        message: `${new URL(url).host}: ${page.escalation.reason} over HTTP, rendered in the browser`,
+        message: `${new URL(url).host}: ${page.escalation.reason}${page.via === "stealth" ? ", opened in the stealth browser" : " over HTTP, rendered in the browser"}`,
         data: page.escalation,
       });
     }
@@ -60,7 +60,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
       .filter((f) => LIST_FIELDS.has(f.catalogKey) && !(company && f.catalogKey === "company"))
       .map((f) => (owner && f.catalogKey === "company" ? { ...f, required: false } : f));
     const companyKey = run.contract.fields.find((f) => f.catalogKey === "company")?.name;
-    const refetch = async (mode: "http" | "browser"): Promise<FetchedPage> => {
+    const refetch: RepairInput["refetch"] = async (mode) => {
       const again = await fetcher.fetch(scope, { url, expect: "html", purpose: "list page (retry)", mode, fresh: true });
       return toFetched(again);
     };
