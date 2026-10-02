@@ -2,9 +2,11 @@
  * Captures real pages into test/fixtures/html/ for PageState and recipe tests:
  * `bun scripts/capture-html-fixtures.ts`. Styles, SVG and scripts without data are
  * stripped so fixtures stay small; data scripts (JSON-LD, embedded state) are kept.
+ * The rendered page comes from the fetch service, so run `bun run dev` first.
  */
 import { mkdir, writeFile } from "node:fs/promises";
-import { chromium } from "playwright";
+import { env } from "../src/config/env";
+import { createScraplingClient } from "../src/fetch/scrapling";
 
 const OUT = new URL("../test/fixtures/html/", import.meta.url);
 const UA = "RUVO/0.1 (+https://github.com/aizen2006/ruvo)";
@@ -45,9 +47,8 @@ await save("greenhouse-job", await http(gh.jobs[0]!.absolute_url));
 
 // Workable board: an empty shell over HTTP, the real list only after rendering.
 await save("workable-shell", await http("https://apply.workable.com/huggingface/"));
-const browser = await chromium.launch();
-const page = await browser.newPage({ userAgent: UA });
-await page.goto("https://apply.workable.com/huggingface/", { waitUntil: "domcontentloaded" });
-await page.waitForSelector("li[data-ui='job']", { timeout: 30_000 }).catch(() => page.waitForTimeout(8000));
-await save("workable-rendered", await page.content());
-await browser.close();
+const rendered = await createScraplingClient(env.SCRAPLING_URL).fetch(
+  { url: "https://apply.workable.com/huggingface/", engine: "browser", timeoutMs: 30_000, maxBytes: 5 * 1024 * 1024 },
+  AbortSignal.timeout(60_000),
+);
+await save("workable-rendered", rendered.body);
