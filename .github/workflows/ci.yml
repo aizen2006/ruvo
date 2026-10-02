@@ -1,0 +1,40 @@
+# Type checks, the server's tests against Postgres, and a production build of the dashboard.
+# The tests need only Postgres: the Scrapling service, SearXNG and the AI providers are faked.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ruvo
+          POSTGRES_PASSWORD: ruvo
+          POSTGRES_DB: ruvo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ruvo -d ruvo"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: bun install --frozen-lockfile
+      - run: bun run check-types
+      - run: bun test
+        working-directory: apps/server
+      - run: bun run build
+        working-directory: apps/web
