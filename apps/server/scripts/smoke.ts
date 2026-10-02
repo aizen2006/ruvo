@@ -98,6 +98,20 @@ const checks: Check[] = [
       return pass(`scrapling ${scrapling} fetched https://example.com: HTTP ${page.status}`);
     },
   },
+  {
+    name: `searxng ${env.SEARXNG_URL ? new URL(env.SEARXNG_URL).host : ""}`,
+    run: async () => {
+      if (!env.SEARXNG_URL) return skip("off (SEARXNG_URL is blank): web search needs a Firecrawl key");
+      const base = env.SEARXNG_URL.replace(/\/$/, "");
+      const health = await fetch(`${base}/healthz`).catch(() => null);
+      if (!health) return skip("not running; start it with docker compose up -d");
+      if (!health.ok) throw new Error(`/healthz: HTTP ${health.status}`);
+      const res = await fetch(`${base}/search?q=SearXNG&format=json`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}${res.status === 403 ? ": its settings.yml must allow the json format" : ""}`);
+      const { results } = (await res.json()) as { results: unknown[] };
+      return pass(`a JSON search found ${results.length} results`);
+    },
+  },
 ];
 
 let failed = 0;
