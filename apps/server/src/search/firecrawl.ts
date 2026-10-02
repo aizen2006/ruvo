@@ -1,9 +1,8 @@
 import { withRetry } from "../libs/retry";
 
 /**
- * Client for the Firecrawl API (https://docs.firecrawl.dev). Firecrawl obeys robots.txt and
- * identifies itself, so RUVO uses it as a compliant search / scrape / crawl / extract engine.
- * Every response reports the credits it spent, which RUVO turns into a dollar cost.
+ * Client for the Firecrawl API (https://docs.firecrawl.dev): web search, and scraping a single
+ * page. Every response reports the credits it spent, which RUVO turns into a dollar cost.
  *
  * Only the fields RUVO uses are typed; unknown fields pass through untouched.
  */
@@ -64,30 +63,6 @@ export interface ScrapeResult {
   creditsUsed: number;
 }
 
-export interface MapResult {
-  links: Array<{ url: string; title?: string; description?: string }>;
-}
-
-export interface CrawlStarted {
-  id: string;
-  url: string;
-}
-
-export interface CrawlStatus {
-  status: "scraping" | "completed" | "failed" | "cancelled";
-  total: number;
-  completed: number;
-  creditsUsed: number;
-  next?: string | null;
-  data: FirecrawlDocument[];
-}
-
-export interface ExtractResult {
-  data: unknown;
-  sources?: Record<string, string[]>;
-  creditsUsed: number;
-}
-
 /** A subset of Firecrawl's scrape formats and options RUVO needs. */
 export interface ScrapeOptions {
   formats?: Array<"markdown" | "html" | "rawHtml" | "links" | { type: "json"; schema?: unknown; prompt?: string }>;
@@ -104,11 +79,6 @@ export interface FirecrawlClient {
   readonly enabled: true;
   search(query: string, opts?: { limit?: number; sources?: Array<"web" | "news" | "images">; country?: string; tbs?: string; location?: string; scrape?: ScrapeOptions; signal?: AbortSignal }): Promise<SearchResponse>;
   scrape(url: string, opts?: ScrapeOptions & { signal?: AbortSignal }): Promise<ScrapeResult>;
-  map(url: string, opts?: { search?: string; limit?: number; includeSubdomains?: boolean; signal?: AbortSignal }): Promise<MapResult>;
-  startCrawl(url: string, opts?: { limit?: number; maxDiscoveryDepth?: number; includePaths?: string[]; excludePaths?: string[]; sitemap?: "include" | "skip" | "only"; delay?: number; scrapeOptions?: ScrapeOptions; prompt?: string; signal?: AbortSignal }): Promise<CrawlStarted>;
-  crawlStatus(id: string, opts?: { signal?: AbortSignal }): Promise<CrawlStatus>;
-  cancelCrawl(id: string, opts?: { signal?: AbortSignal }): Promise<void>;
-  extract(opts: { urls: string[]; prompt?: string; schema?: unknown; enableWebSearch?: boolean; signal?: AbortSignal }): Promise<ExtractResult>;
 }
 
 const isRetryable = (e: unknown) => e instanceof FirecrawlError && e.retryable;
@@ -118,8 +88,8 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
   const timeoutMs = opts.timeoutMs ?? 45_000;
   const doFetch = opts.fetchImpl ?? fetch;
 
-  /** One POST/GET to Firecrawl, with retries on 429/5xx and a per-request timeout. */
-  async function call<T>(method: "POST" | "GET" | "DELETE", path: string, body: unknown, signal?: AbortSignal): Promise<T> {
+  /** One POST to Firecrawl, with retries on 429/5xx and a per-request timeout. */
+  async function call<T>(path: string, body: unknown, signal?: AbortSignal): Promise<T> {
     return withRetry(
       async () => {
         const timeout = AbortSignal.timeout(timeoutMs);
@@ -127,9 +97,9 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
         let res: Response;
         try {
           res = await doFetch(`${baseUrl}${path}`, {
-            method,
+            method: "POST",
             headers: { authorization: `Bearer ${opts.apiKey}`, "content-type": "application/json" },
-            body: body === undefined ? undefined : JSON.stringify(body),
+            body: JSON.stringify(body),
             signal: composite,
           });
         } catch (err) {
@@ -161,7 +131,7 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
         ...(o.location ? { location: o.location } : {}),
         ...(o.scrape ? { scrapeOptions: o.scrape } : {}),
       };
-      const res = await call<{ data: { web?: SearchResultItem[]; news?: SearchResultItem[]; images?: SearchResponse["images"] }; creditsUsed?: number }>("POST", "/v2/search", body, o.signal);
+      const res = await call<{ data: { web?: SearchResultItem[]; news?: SearchResultItem[]; images?: SearchResponse["images"] }; creditsUsed?: number }>("/v2/search", body, o.signal);
       return {
         web: res.data.web ?? [],
         news: res.data.news ?? [],
@@ -173,35 +143,8 @@ export function createFirecrawl(opts: FirecrawlOptions): FirecrawlClient {
     async scrape(url, o = {}) {
       const { signal, ...options } = o;
       const body = { url, formats: options.formats ?? ["markdown"], onlyMainContent: options.onlyMainContent ?? true, ...options };
-      const res = await call<{ data: FirecrawlDocument; creditsUsed?: number }>("POST", "/v2/scrape", body, signal);
+      const res = await call<{ data: FirecrawlDocument; creditsUsed?: number }>("/v2/scrape", body, signal);
       return { document: res.data, creditsUsed: res.creditsUsed ?? 0 };
-    },
-
-    async map(url, o = {}) {
-      const body = { url, ...(o.search ? { search: o.search } : {}), ...(o.limit ? { limit: o.limit } : {}), includeSubdomains: o.includeSubdomains ?? false };
-      const res = await call<{ links: MapResult["links"] }>("POST", "/v2/map", body, o.signal);
-      return { links: res.links ?? [] };
-    },
-
-    async startCrawl(url, o = {}) {
-      const { signal, ...options } = o;
-      const res = await call<{ id: string; url: string }>("POST", "/v2/crawl", { url, ...options }, signal);
-      return { id: res.id, url: res.url };
-    },
-
-    async crawlStatus(id, o = {}) {
-      const res = await call<CrawlStatus>("GET", `/v2/crawl/${id}`, undefined, o.signal);
-      return res;
-    },
-
-    async cancelCrawl(id, o = {}) {
-      await call("DELETE", `/v2/crawl/${id}`, undefined, o.signal);
-    },
-
-    async extract(o) {
-      const { signal, ...body } = o;
-      const res = await call<{ data: unknown; sources?: Record<string, string[]>; creditsUsed?: number }>("POST", "/v2/extract", body, signal);
-      return { data: res.data, sources: res.sources, creditsUsed: res.creditsUsed ?? 0 };
     },
   };
 }

@@ -44,12 +44,6 @@ describe("firecrawl client", () => {
     expect(res.document.markdown).toBe("# Title");
   });
 
-  test("extract passes urls, schema and prompt", async () => {
-    const { impl, calls } = fakeFetch([{ body: { success: true, data: { rows: [] }, sources: {}, creditsUsed: 5 } }]);
-    await client(impl).extract({ urls: ["https://a.com"], prompt: "founders", schema: { type: "object" } });
-    expect(calls[0]).toMatchObject({ url: "https://api.firecrawl.dev/v2/extract", method: "POST", body: { urls: ["https://a.com"], prompt: "founders", schema: { type: "object" } } });
-  });
-
   test("retries a 429 then succeeds", async () => {
     const { impl, calls } = fakeFetch([
       { status: 429, body: { success: false, error: "rate limited" } },

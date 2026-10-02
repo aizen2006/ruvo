@@ -32,7 +32,7 @@ export const fetcher = createFetcher({
 });
 export const llm = createLlmClient({ env });
 
-/** Firecrawl for web search, crawl and extraction; disabled (RUVO's own fetcher only) without a key. */
+/** Firecrawl for web search; disabled without a key. */
 export const firecrawl: MaybeFirecrawl = env.FIRECRAWL_API_KEY
   ? createFirecrawl({ apiKey: env.FIRECRAWL_API_KEY, baseUrl: env.FIRECRAWL_BASE_URL })
   : firecrawlDisabled;
