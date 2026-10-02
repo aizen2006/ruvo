@@ -94,9 +94,24 @@ describe("robots.txt (RFC 9309)", () => {
     let body = "User-agent: *\nAllow: /\n";
     using server = Bun.serve({ port: 0, fetch: () => new Response(body) });
     const url = `http://127.0.0.1:${server.port}/x`;
-    expect((await createRobots({ userAgent: "RUVO/0.1" }).check(url)).allowed).toBe(true);
+    expect((await createRobots({ userAgent: "RUVO/0.1", allowPrivateNetwork: true }).check(url)).allowed).toBe(true);
     body += `# ${"x".repeat(600 * 1024)}\n`;
-    expect((await createRobots({ userAgent: "RUVO/0.1" }).check(url)).allowed).toBe(false);
+    expect((await createRobots({ userAgent: "RUVO/0.1", allowPrivateNetwork: true }).check(url)).allowed).toBe(false);
+  });
+
+  test("a host on a private network is never asked, and counts as unreachable", async () => {
+    let asked = 0;
+    using server = Bun.serve({
+      port: 0,
+      fetch: () => {
+        asked++;
+        return new Response();
+      },
+    });
+    for (const host of ["127.0.0.1", "localhost"]) {
+      expect((await createRobots({ userAgent: "RUVO/0.1" }).check(`http://${host}:${server.port}/x`)).allowed).toBe(false);
+    }
+    expect(asked).toBe(0);
   });
 
   test("applies disallow rules and crawl-delay", async () => {
@@ -134,7 +149,7 @@ describe("robots.txt (RFC 9309)", () => {
           throw new Error("unexpected relocate");
         },
       };
-      return { robots: createRobots({ userAgent: "RUVO/0.1", scrapling }), asked };
+      return { robots: createRobots({ userAgent: "RUVO/0.1", scrapling, allowPrivateNetwork: true }), asked };
     };
 
     test("is read with the stealth browser, and its rules apply", async () => {

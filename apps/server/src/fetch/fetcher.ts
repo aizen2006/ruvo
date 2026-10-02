@@ -55,7 +55,7 @@ export interface FetcherOptions {
   cacheTtlMs?: number;
   /** Only for tests: skips the SSRF guard for every URL. */
   allowPrivateNetwork?: boolean;
-  /** Origins exempt from the SSRF guard and the page cache, e.g. RUVO's own demo site on localhost. */
+  /** Origins exempt from the SSRF guard, robots.txt and the page cache, e.g. RUVO's own demo site on localhost. */
   trustedOrigins?: string[];
   timeoutMs?: number;
   robots?: Robots;
@@ -81,7 +81,7 @@ type Fetched = { finalUrl: string; status: number; contentType: string | null; b
  * Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
  */
 export function createFetcher(opts: FetcherOptions): Fetcher {
-  const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent });
+  const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent, allowPrivateNetwork: opts.allowPrivateNetwork });
   const limiter = opts.limiter ?? createHostLimiter({ maxConcurrent: 2, minDelayMs: 200 });
   const breaker = opts.breaker ?? createCircuitBreaker({ threshold: 5, cooldownMs: 60_000 });
   const cacheTtlMs = opts.cacheTtlMs ?? 6 * 60 * 60 * 1000;
@@ -111,9 +111,10 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   async function preflight(scope: FetchScope, url: string, budget: BudgetKey[]) {
     if (opts.cacheMode === "cache_only") throw new FetchError("cache_miss", `Not in cache (cache_only mode): ${url}`, { url });
     await guard(url);
-    const host = new URL(url).host;
+    const { host, origin } = new URL(url);
     if (breaker.isOpen(host)) throw new FetchError("circuit_open", `Skipping ${host}: too many recent failures`, { url });
-    const { allowed, crawlDelayMs } = await robots.check(url);
+    // robots.txt is never read from a local address, so a trusted origin (RUVO's own demo site) is not asked about.
+    const { allowed, crawlDelayMs } = trusted.has(origin) ? { allowed: true, crawlDelayMs: 0 } : await robots.check(url);
     if (!allowed) throw new FetchError("robots_disallowed", `robots.txt disallows ${url}`, { url });
     const short = budget.find((key) => scope.budget.left(key) < 1);
     if (short) throw new FetchError("budget_exhausted", `${short === "pages" ? "Page" : "Browser page"} budget exhausted for this run`, { url });

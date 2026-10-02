@@ -153,7 +153,9 @@ describe("in-process fetching", () => {
 
   test("a trusted origin is fetched in-process even with the service configured", async () => {
     const { client, calls } = fakeScrapling({});
-    const fetcher = fetcherWith(client, { allowPrivateNetwork: false, trustedOrigins: [new URL(local).origin] });
+    // Real robots.txt handling, which reads nothing from a local address: the trusted origin is not asked about.
+    const robots = createRobots({ userAgent: "RUVO-test" });
+    const fetcher = fetcherWith(client, { allowPrivateNetwork: false, trustedOrigins: [new URL(local).origin], robots });
     expect(await fetcher.fetch(scope(), req("auto", local))).toMatchObject({ via: "http", body: "<p>local</p>" });
     expect(calls).toEqual([]);
   });

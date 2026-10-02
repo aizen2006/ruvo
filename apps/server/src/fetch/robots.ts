@@ -1,7 +1,7 @@
 import robotsParser from "robots-parser";
 import { readCapped } from "./readCapped";
 import { STEALTH_TIMEOUT_MS, type ScraplingClient } from "./scrapling";
-import { resolvesInternally } from "./ssrf";
+import { publicAddresses, resolvesInternally } from "./ssrf";
 import { hasChallengeMarkers, isBotChallenge } from "./sufficiency";
 
 type RobotsRules = { isAllowed(url: string): boolean; crawlDelayMs: number };
@@ -25,10 +25,14 @@ export function createRobots(opts: {
   fetchText?: (url: string) => Promise<{ status: number; text: string }>;
   /** Reads a robots.txt past the bot check in front of it (lib.rs has one). */
   scrapling?: ScraplingClient;
+  /** Only for tests: reads robots.txt from a host on a private network too. */
+  allowPrivateNetwork?: boolean;
 }) {
   const fetchText =
     opts.fetchText ??
     (async (url: string) => {
+      // A host on this machine or its network is never asked: it throws here, so its robots.txt counts as unreachable.
+      if (!opts.allowPrivateNetwork) await publicAddresses(new URL(url).hostname, url);
       // Redirects are followed by hand (up to 5, per RFC 9309) so none can lead to an internal address.
       let target = url;
       for (let hop = 0; hop <= 5; hop++) {
