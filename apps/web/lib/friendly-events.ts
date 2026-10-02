@@ -45,6 +45,11 @@ const LINE: Record<string, (e: RunEvent) => string | null> = {
   "budget.exhausted": () => "Reached this mode's limit; finishing with what it has",
   "source.time_limit": () => "Reached the time limit; finishing with what it has",
   "run.summary": () => "Done",
+  // Extra rounds for a run short of good leads; their messages are already plain.
+  "more.started": (e) => e.message,
+  "more.searched": (e) => e.message,
+  "more.completed": (e) => e.message,
+  "more.failed": () => "Couldn't look for more leads; finishing with what it has",
 };
 
 export function friendlyLine(event: RunEvent): string | null {
