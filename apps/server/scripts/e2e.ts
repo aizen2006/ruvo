@@ -48,7 +48,9 @@ check("valid records are listed", Boolean(sample));
 if (sample) {
   const { evidence } = await call<{ evidence: Evidence[] }>(`/api/runs/${runId}/evidence/${sample.id}`);
   const fields = new Set(evidence.map((e) => e.field));
-  check("sample record has evidence for company, title and url", ["company", "title", "url"].every((f) => fields.has(f)));
+  // Models name columns differently ("url", "job_url"); the contract maps each to its catalog key.
+  const nameOf = (key: string) => run.contract?.fields.find((f) => f.catalogKey === key)?.name ?? key;
+  check("sample record has evidence for company, title and url", ["company", "title", "url"].every((k) => fields.has(nameOf(k))));
   check("every evidence row points at a source URL", evidence.every((e) => e.sourceUrl.startsWith("http")));
   check("sample record has a match reason", typeof sample.data.match_reason === "string" && sample.data.match_reason.length > 0);
   check("sample record has a confidence score", sample.confidence > 0, `${sample.confidence}`);
