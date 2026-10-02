@@ -1,6 +1,7 @@
 import type {
   DatasetContract,
   Evidence,
+  PageVia,
   PlanDraft,
   QualityReport,
   Recipe,
@@ -120,7 +121,7 @@ export const pages = pgTable(
     host: text("host").notNull(),
     // "stealth": opened in Scrapling's stealth browser, past a bot check.
     // "search": a search result's title and snippet, kept as evidence (the page itself is never fetched).
-    via: text("via").$type<"http" | "browser" | "stealth" | "search">().notNull(),
+    via: text("via").$type<PageVia>().notNull(),
     status: integer("status").notNull(),
     contentType: text("content_type"),
     contentHash: text("content_hash").notNull(),
