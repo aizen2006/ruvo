@@ -25,6 +25,9 @@ const BOARD_SITES: Record<Ats, { site: string; hosts: string[] }> = {
 
 const PROBE_CONCURRENCY = 8;
 
+/** Results read per board search: a whole page of them, as each can be another company at no extra search. */
+export const BOARD_RESULTS = 20;
+
 export const platformName = (ats: Ats) => ats[0]!.toUpperCase() + ats.slice(1);
 
 /** A search for postings on every board platform at once: `Backend Developer (site:greenhouse.io OR site:jobs.ashbyhq.com OR …)`. */
@@ -134,5 +137,6 @@ function companyName(slug: string, titles: string[]): string {
     return n === key || (Math.min(n.length, key.length) >= 3 && (n.startsWith(key) || n.endsWith(key) || key.startsWith(n)));
   };
   const named = titles.flatMap((t) => t.split(/\s+(?:[-–—|@]|at)\s+/)).filter(fits).sort((a, b) => b.length - a.length)[0];
-  return named?.trim() ?? words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  // Search engines cut long titles short with "...".
+  return named?.replace(/\s*(?:\.\.\.|…)$/, "").trim() ?? words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }

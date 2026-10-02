@@ -7,7 +7,7 @@ import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
 import type { FetchScope } from "../fetch/fetcher";
 import { autoDetectCompanies } from "../plan/atsDetect";
-import { boardOf, boardQuery, boardsFromHits, platformName, roleWords } from "../plan/boardSearch";
+import { BOARD_RESULTS, boardOf, boardQuery, boardsFromHits, platformName, roleWords } from "../plan/boardSearch";
 import { discoverSources, foundCandidate, type SourceCandidate } from "../plan/discovery";
 import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
@@ -203,15 +203,17 @@ async function searchRounds(
       });
       if (queries.length === 0) break;
     }
-    // Board searches take turns with page searches, so both get a share when the budget runs out mid-round.
+    // Board searches get at most half the searches left (rounded up), page searches the rest.
     const boardSearches = jobs && boards < maxBoards ? (round === 1 ? [roleWords(contract)] : queries.filter((q) => !q.includes("site:"))).map(boardQuery) : [];
-    const turns = queries.flatMap((q, i) => [boardSearches[i], q].filter((s) => s !== undefined));
-    const { hits, searches } = await runSearches(turns.slice(0, scope.budget.left("searches")), web.searcher, opts);
+    const boardRun = await runSearches(boardSearches.slice(0, Math.ceil(scope.budget.left("searches") / 2)), web.searcher, { ...opts, resultsPerQuery: BOARD_RESULTS });
+    const pageRun = await runSearches(queries.slice(0, scope.budget.left("searches")), web.searcher, opts);
+    const searches = [...boardRun.searches, ...pageRun.searches];
     emitSearches(bus, searches);
 
     const seen = new Set([...planned, ...found.sources].map((s) => s.ref));
+    const hits = [...boardRun.hits, ...pageRun.hits];
     const newBoards = jobs && boards < maxBoards ? await boardsFromHits(contract, hits, { seen, max: maxBoards - boards, userAgent: env.USER_AGENT }) : [];
-    const pages = await sourcesFromHits(contract, jobs ? hits.filter((h) => !boardOf(h.url)) : hits, web, llm, opts);
+    const pages = await sourcesFromHits(contract, jobs ? pageRun.hits.filter((h) => !boardOf(h.url)) : pageRun.hits, web, llm, opts);
     const fresh = [...newBoards, ...pages.filter((s) => !seen.has(s.ref))];
     // Profiles found again join their site's group; new sources go last, so earlier rounds' are read first.
     found.sources = [...addFoundSources(found.sources, pages.filter((s) => seen.has(s.ref))), ...fresh];
