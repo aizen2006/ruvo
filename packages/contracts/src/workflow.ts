@@ -41,7 +41,7 @@ export const Budgets = z.object({
   maxPages: z.number(),
   maxBrowserPages: z.number(),
   maxLlmCalls: z.number(),
-  /** Web searches (Firecrawl). Optional so older budget literals stay valid; treated as 0 when absent. */
+  /** Web searches (SearXNG, then Firecrawl). Optional so older budget literals stay valid; treated as 0 when absent. */
   maxSearches: z.number().optional(),
   maxDurationMs: z.number(),
   maxRecords: z.number(),
