@@ -105,6 +105,19 @@ describe("robots.txt (RFC 9309)", () => {
     expect((await robots.check("https://example.com/public")).allowed).toBe(true);
   });
 
+  test("concurrent checks of one origin share one load", async () => {
+    let loads = 0;
+    const robots = createRobots({
+      userAgent: "RUVO/0.1",
+      fetchText: async () => {
+        loads++;
+        return { status: 404, text: "" };
+      },
+    });
+    await Promise.all(["/a", "/b", "/c"].map((path) => robots.check(`https://example.com${path}`)));
+    expect(loads).toBe(1);
+  });
+
   describe("behind a bot check", () => {
     const server = Bun.serve({ port: 0, fetch: () => new Response("Just a moment...", { status: 403, headers: { "cf-mitigated": "challenge" } }) });
     const base = `http://127.0.0.1:${server.port}`;

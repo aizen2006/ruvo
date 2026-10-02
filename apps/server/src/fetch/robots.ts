@@ -44,17 +44,22 @@ export function createRobots(opts: {
       // Too many redirects, or one into a private network: treat robots.txt as unavailable.
       return { status: 404, text: "" };
     });
-  const cache = new Map<string, { rules: RobotsRules; expiresAt: number }>();
+  const cache = new Map<string, { rules: RobotsRules | Promise<RobotsRules>; expiresAt: number }>();
 
   async function rulesFor(url: URL): Promise<RobotsRules> {
     const cached = cache.get(url.origin);
     if (cached && cached.expiresAt > Date.now()) return cached.rules;
 
     const robotsUrl = `${url.origin}/robots.txt`;
-    // An unreachable robots.txt is retried once, then disallows only briefly so one blip can't block a host for long.
-    const rules = (await load(robotsUrl)) ?? (await load(robotsUrl));
-    cache.set(url.origin, { rules: rules ?? DENY_ALL, expiresAt: Date.now() + (rules ? CACHE_TTL_MS : UNREACHABLE_TTL_MS) });
-    return rules ?? DENY_ALL;
+    const loading = (async () => {
+      // An unreachable robots.txt is retried once, then disallows only briefly so one blip can't block a host for long.
+      const rules = (await load(robotsUrl)) ?? (await load(robotsUrl));
+      cache.set(url.origin, { rules: rules ?? DENY_ALL, expiresAt: Date.now() + (rules ? CACHE_TTL_MS : UNREACHABLE_TTL_MS) });
+      return rules ?? DENY_ALL;
+    })();
+    // Concurrent checks of this origin share the load until its verdict replaces it.
+    cache.set(url.origin, { rules: loading, expiresAt: Infinity });
+    return loading;
   }
 
   /** The site's rules, or null if robots.txt is unreachable (5xx or network error). */
