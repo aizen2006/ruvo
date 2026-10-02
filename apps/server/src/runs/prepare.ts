@@ -1,26 +1,38 @@
-import type { DatasetContract, SearchLog, Stage } from "@repo/contracts";
+import type { DatasetContract, FoundSource, SearchLog, Stage } from "@repo/contracts";
+import { ATS_LIST } from "../adapters/ats";
 import { compileRequirement } from "../compile/requirementCompiler";
 import { env } from "../config/env";
 import type { ClaimedRun } from "../db/queue";
 import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
+import type { FetchScope } from "../fetch/fetcher";
 import { autoDetectCompanies } from "../plan/atsDetect";
-import { discoverSources, foundCandidate } from "../plan/discovery";
+import { boardOf, boardQuery, boardsFromHits, platformName, roleWords } from "../plan/boardSearch";
+import { discoverSources, foundCandidate, type SourceCandidate } from "../plan/discovery";
 import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
 import { planForContract } from "../plan/planner";
 import { listRegistry } from "../plan/registry";
-import { addFoundSources, discoverFromSearch, moreSearchQueries, searchQueriesFor, type WebDiscovery, type WebSearch } from "../plan/webDiscovery";
+import {
+  addFoundSources,
+  discoverFromSearch,
+  moreSearchQueries,
+  runSearches,
+  searchQueriesFor,
+  sourcesFromHits,
+  type WebDiscovery,
+  type WebSearch,
+} from "../plan/webDiscovery";
 import { createBudget } from "./budget";
 import { recompileWorkflow } from "./editContract";
 import { createEventBus, nextEventSeq, type EmitInput, type EventBus } from "./eventBus";
 import { createMetrics } from "./metrics";
-import { budgetsForMode, runModels, searchResultsPerQuery } from "./modes";
+import { budgetsForMode, newBoardsForMode, runModels, searchResultsPerQuery } from "./modes";
 import { llm as sharedLlm, memory, webSearch } from "./services";
 import type { RunPreparer } from "./worker";
 
-/** Below this many known job boards, a job request also searches the web. */
-const THIN_JOB_SOURCES = 3;
+/** Search rounds while preparing a run, at most; each round after the first searches with new queries. */
+const MAX_SEARCH_ROUNDS = 5;
 
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
@@ -68,15 +80,10 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
     }
 
     let search: WebDiscovery | null = null;
-    if (web && wantsSearch(contract, discovery.candidates.length)) {
-      const queries = searchQueriesFor(contract);
-      await stage("discovering", {
-        type: "discovery.search_started",
-        message: `Searching the web (${queries.length} ${queries.length === 1 ? "search" : "searches"})`,
-      });
+    if (web && wantsSearch(contract)) {
+      await stage("discovering", { type: "discovery.search_started", message: `Searching the web (up to ${caps.maxSearches} searches)` });
       const scope = { signal, budget: createBudget(caps), metrics: createMetrics() };
-      search = await discoverFromSearch(contract, web, llm, { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode) });
-      emitSearches(bus, search.searches);
+      search = await searchRounds(contract, { web, llm, bus, run, scope, planned: discovery.candidates });
       const known = new Set(discovery.candidates.map((c) => c.ref));
       const added = search.sources.filter((s) => !known.has(s.ref)).map(foundCandidate);
       discovery.candidates.push(...added);
@@ -172,13 +179,68 @@ function emitSearches(bus: EventBus, searches: SearchLog[]) {
 }
 
 /**
- * Whether to search the web: always for other records, and for jobs only when the known boards
- * cover the request thinly. Linked pages with no written queries mean "read these pages".
+ * Searches the web for sources in rounds, until the search budget is spent, a round finds nothing
+ * new or MAX_SEARCH_ROUNDS have run; rounds after the first search with new queries from the
+ * worker model. Hits become pages to read (list and single-record pages, profiles). For a job
+ * request, each round also searches the job-board platforms, and every posting found on them
+ * becomes its company's board instead, read through the ATS API like a registry company.
  */
-function wantsSearch(contract: DatasetContract, candidates: number): boolean {
+async function searchRounds(
+  contract: DatasetContract,
+  { web, llm, bus, run, scope, planned }: { web: WebSearch; llm: LlmClient; bus: EventBus; run: ClaimedRun; scope: FetchScope; planned: SourceCandidate[] },
+): Promise<WebDiscovery> {
+  const opts = { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode) };
+  const jobs = contract.entity === "job_posting";
+  const maxBoards = newBoardsForMode(run.mode);
+  const found: WebDiscovery = { sources: [], searches: [] };
+  let boards = 0;
+  let queries = searchQueriesFor(contract);
+  for (let round = 1; round <= MAX_SEARCH_ROUNDS && scope.budget.left("searches") > 0; round++) {
+    if (round > 1) {
+      queries = await moreSearchQueries(contract, found.searches.map((s) => s.query), llm, scope.signal).catch((err) => {
+        if (scope.signal.aborted) throw err;
+        return [];
+      });
+      if (queries.length === 0) break;
+    }
+    // Board searches take turns with page searches, so both get a share when the budget runs out mid-round.
+    const boardSearches = jobs && boards < maxBoards ? (round === 1 ? [roleWords(contract)] : queries.filter((q) => !q.includes("site:"))).map(boardQuery) : [];
+    const turns = queries.flatMap((q, i) => [boardSearches[i], q].filter((s) => s !== undefined));
+    const { hits, searches } = await runSearches(turns.slice(0, scope.budget.left("searches")), web.searcher, opts);
+    emitSearches(bus, searches);
+
+    const seen = new Set([...planned, ...found.sources].map((s) => s.ref));
+    const newBoards = jobs && boards < maxBoards ? await boardsFromHits(contract, hits, { seen, max: maxBoards - boards, userAgent: env.USER_AGENT }) : [];
+    const pages = await sourcesFromHits(contract, jobs ? hits.filter((h) => !boardOf(h.url)) : hits, web, llm, opts);
+    const fresh = [...newBoards, ...pages.filter((s) => !seen.has(s.ref))];
+    // Profiles found again join their site's group; new sources go last, so earlier rounds' are read first.
+    found.sources = [...addFoundSources(found.sources, pages.filter((s) => seen.has(s.ref))), ...fresh];
+    found.searches.push(...searches);
+    boards += newBoards.length;
+    bus.emit({ stage: "discovering", type: "discovery.search_round", message: roundMessage(round, newBoards, fresh.length - newBoards.length) });
+    if (fresh.length === 0) break;
+  }
+  return found;
+}
+
+/** "Search round 2: 4 more companies on Greenhouse and Lever, plus 2 more sources". */
+function roundMessage(round: number, boards: FoundSource[], pages: number): string {
+  const platforms = ATS_LIST.filter((ats) => boards.some((b) => b.adapter === ats)).map(platformName);
+  const found = [
+    boards.length > 0 &&
+      `${boards.length} more ${boards.length === 1 ? "company" : "companies"}${platforms.length ? ` on ${new Intl.ListFormat("en-GB").format(platforms)}` : ""}`,
+    pages > 0 && `${pages} more source${pages === 1 ? "" : "s"}`,
+  ].filter(Boolean);
+  return `Search round ${round}: ${found.join(", plus ") || "nothing new"}`;
+}
+
+/**
+ * Whether to search the web: always, unless the user linked pages and wrote no queries, which
+ * means "read these pages".
+ */
+function wantsSearch(contract: DatasetContract): boolean {
   const { urls, searchQueries } = contract.sourceHints;
-  if (urls.length > 0 && searchQueries.length === 0) return false;
-  return contract.entity !== "job_posting" || (candidates < THIN_JOB_SOURCES && urls.length === 0);
+  return urls.length === 0 || searchQueries.length > 0;
 }
 
 function noSourcesMessage(contract: DatasetContract, search: WebDiscovery | null): string {

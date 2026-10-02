@@ -189,13 +189,19 @@ describe("preparing a run with web search", () => {
     };
   };
 
+  // New queries in the order the model thinks of them: planning's second search round gets the first.
+  const MORE = ["climate podcast hosts", "climate podcast interviews"];
+
   const worker = (searchResults: Record<string, SearchResultItem[]>) => {
     const fake = fakeResponses({
       dataset_contract: PODCASTS,
       plan_draft: planAll,
       search_hit_kinds: allRecords,
-      // One query already tried, one new.
-      more_search_queries: { queries: ["Best climate tech podcasts", "climate podcast interviews"] },
+      // One query already tried (in other letters), and the next new one.
+      more_search_queries: ({ input }: { input: Array<{ content: string }> }) => {
+        const { tried } = JSON.parse(input.at(-1)!.content) as { tried: string[] };
+        return { queries: ["Best climate tech podcasts", ...MORE.filter((q) => !tried.includes(q)).slice(0, 1)] };
+      },
     });
     const llm = createLlmClient({
       env: { MODEL_PLANNER: "gpt-6-sol", MODEL_WORKER: "gpt-6-luna", LLM_CACHE_MODE: "off", OPENAI_API_KEY: "x" },
@@ -217,9 +223,10 @@ describe("preparing a run with web search", () => {
 
     const { ir } = (await api.get(`/api/runs/${runId}/workflow`)).body;
     expect(ir.sources.map((s: { ref: string }) => s.ref)).toContain("html_list:https://podlist.example/best-climate-podcasts");
-    expect(ir.search.queries.map((q: { query: string }) => q.query)).toEqual(PODCASTS.sourceHints.searchQueries);
+    // A second round searched the model's new query; it found nothing new, so the rounds stopped.
+    expect(ir.search.queries.map((q: { query: string }) => q.query)).toEqual([...PODCASTS.sourceHints.searchQueries, "climate podcast hosts"]);
     const events = (await api.get(`/api/runs/${runId}/events`)).body as Array<{ type: string; stage: string }>;
-    expect(events.filter((e) => e.type === "discovery.searched").map((e) => e.stage)).toEqual(["discovering", "discovering"]);
+    expect(events.filter((e) => e.type === "discovery.searched").map((e) => e.stage)).toEqual(["discovering", "discovering", "discovering"]);
 
     const removed = "html_list:https://podlist.example/best-climate-podcasts";
     const res = await api.raw(`/api/runs/${runId}/contract`, {
@@ -255,7 +262,7 @@ describe("preparing a run with web search", () => {
     const before = (await api.get(`/api/runs/${runId}/workflow`)).body.ir;
     const after = (await api.get(`/api/runs/${res.body.runId}/workflow`)).body.ir;
     expect(after.provenance.plannedBy).toBe("find_more");
-    expect(after.search.queries.map((q: { query: string }) => q.query)).toEqual([...PODCASTS.sourceHints.searchQueries, "climate podcast interviews"]);
+    expect(after.search.queries.map((q: { query: string }) => q.query)).toEqual([...PODCASTS.sourceHints.searchQueries, ...MORE]);
     const refs = after.sources.map((s: { ref: string }) => s.ref);
     expect(refs.length).toBe(before.sources.length + 1);
     expect(refs).toContain("html_list:https://greenshows.example/directory/climate");

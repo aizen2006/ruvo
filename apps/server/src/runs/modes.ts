@@ -75,6 +75,13 @@ export const searchResultsPerQuery = (mode: RunMode) => (mode === "thorough" ? 2
 /** List pages a paginated source may read; deeper modes follow more "next" links. */
 export const listPagesForMode = (mode: RunMode) => ({ quick: 2, balanced: 5, thorough: 10 })[mode];
 
+/**
+ * Companies web search may add to a job request's plan. Each is one more board to collect and
+ * judge: a Balanced run read 16 registry boards in 1.5 of its 4 minutes, so 15 more fit beside
+ * them; Quick has room for few, Thorough for twice as many.
+ */
+export const newBoardsForMode = (mode: RunMode) => ({ quick: 5, balanced: 15, thorough: 30 })[mode];
+
 /** A stored run's models; runs created before modes existed fall back to the configured pair. */
 export const runModels = (run: { modelPlanner: string | null; modelWorker: string | null }, e: ModelEnv): ModelChoice => ({
   planner: run.modelPlanner ?? e.MODEL_PLANNER,
