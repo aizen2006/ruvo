@@ -183,10 +183,9 @@ def value(el, attr: str) -> str:
     return " ".join((el.get_all_text(separator=" ") if attr == "text" else el.attrib.get(attr, "")).split())
 
 
-def shown(record, attr: str) -> set[str]:
-    """Every value a record shows for `attr`: its pieces of text, or that attribute on any of its elements."""
-    pieces = record.css("::text").getall() if attr == "text" else [el.attrib.get(attr, "") for el in record.css("*")]
-    return {" ".join(piece.split()) for piece in pieces} - {""}
+def shown(record) -> set[str]:
+    """Every piece of text a record shows, whitespace collapsed."""
+    return {" ".join(piece.split()) for piece in record.css("::text").getall()} - {""}
 
 
 def relocate_field(old_el, new_item, attr: str):
@@ -215,8 +214,10 @@ def relocate_recipe(old_html: str, new_html: str, item_selector: str, fields: li
     if not old_items or not new_items:
         return None, {}
     # The old and new item sharing the most text show the same record, so fields are matched against their own values.
-    old_texts, new_texts = [shown(item, "text") for item in old_items], [shown(item, "text") for item in new_items]
+    old_texts, new_texts = [shown(item) for item in old_items], [shown(item) for item in new_items]
     o, n = max(product(range(len(old_items)), range(len(new_items))), key=lambda p: len(old_texts[p[0]] & new_texts[p[1]]))
+    if not old_texts[o] & new_texts[n]:
+        return None, {}  # no record is on both pages, so no field could be checked
     old_item, new_item = old_items[o], new_items[n]
 
     relocated = {}
@@ -224,11 +225,8 @@ def relocate_recipe(old_html: str, new_html: str, item_selector: str, fields: li
         selector, attr = field["selector"], field["attr"]
         old_el = old_item.css(selector).first if selector else None  # an empty selector reads the item itself
         new_el = old_el and (new_item.css(selector).first or relocate_field(old_el, new_item, attr))
-        if new_el is None:
-            continue
-        # Where a field is gone, Scrapling still offers the closest element; a value the record showed as other data is that data.
-        new_value = value(new_el, attr)
-        if new_value == value(old_el, attr) or new_value not in shown(old_item, attr):
+        # Where a field is gone, Scrapling still offers the closest element: it is the field only if it reads the same value.
+        if new_el is not None and value(new_el, attr) == value(old_el, attr):
             relocated[field["name"]] = css_path(new_el)
     return css_path(new_item), relocated
 
