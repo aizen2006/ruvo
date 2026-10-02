@@ -1,7 +1,7 @@
 /**
  * Local setup, safe to re-run: `bun run setup` from the repo root.
- * Creates the env files from their templates, starts Postgres, applies migrations,
- * installs Chromium for Playwright, then checks every dependency (`bun run doctor`).
+ * Creates the env files from their templates, checks that Python can run the Scrapling fetch service,
+ * starts Postgres, applies migrations, then checks every dependency (`bun run doctor`).
  */
 import { $ } from "bun";
 import { existsSync } from "node:fs";
@@ -21,16 +21,22 @@ for (const { template, target, note } of envFiles) {
   console.log(`Created ${relative(root, target)} from its template${note ? `; ${note}` : ""}.`);
 }
 
+// Bun loads only the current directory's .env (the repo root's), so read SCRAPLING_PYTHON from the server's.
+process.loadEnvFile(join(server, ".env"));
+const python = process.env.SCRAPLING_PYTHON || (process.platform === "win32" ? "python" : "python3");
+const scrapling = await $`${python} -c "import scrapling, starlette, uvicorn"`.quiet().nothrow();
+if (scrapling.exitCode !== 0) {
+  console.log(`\nThe fetch service needs Scrapling in ${python}: pip install "scrapling[all]", then scrapling install`);
+}
+
 console.log("\nStarting Postgres...");
 await $`docker compose up -d --wait`.cwd(root);
 console.log("\nApplying migrations...");
 await $`bun run db:migrate`.cwd(server);
-console.log("\nInstalling Chromium for Playwright...");
-await $`bun run browsers`.cwd(server);
 console.log("\nChecking dependencies...");
 const doctor = await $`bun run smoke`.cwd(server).nothrow();
 console.log(
   doctor.exitCode === 0
-    ? "\nReady. Run `bun run dev` and open http://localhost:3001/new"
+    ? "\nReady. Run `bun run dev`, which also starts the fetch service, and open http://localhost:3001/new"
     : "\nFix the failed checks above, then run `bun run doctor` again.",
 );
