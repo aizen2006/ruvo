@@ -1,8 +1,9 @@
-import { describe, expect, setSystemTime, test } from "bun:test";
+import { afterAll, describe, expect, setSystemTime, test } from "bun:test";
 import { FetchError } from "../src/fetch/errors";
 import { createHostLimiter } from "../src/fetch/hostLimiter";
 import { createRobots } from "../src/fetch/robots";
-import { assertPublicUrl, isInternalAddress } from "../src/fetch/ssrf";
+import type { ScraplingClient } from "../src/fetch/scrapling";
+import { assertPublicUrl, isInternalAddress, publicAddresses } from "../src/fetch/ssrf";
 import { createCircuitBreaker } from "../src/libs/circuitBreaker";
 import { parseRetryAfter, withRetry } from "../src/libs/retry";
 
@@ -25,13 +26,31 @@ describe("ssrf guard", () => {
     ["64:ff9b::a9fe:a9fe", true],
     ["2002:7f00:1::", true],
     ["ff02::1", true],
+    ["198.18.0.1", true],
+    ["198.19.255.255", true],
+    ["192.0.0.8", true],
+    ["64:ff9b:1::808:808", true],
+    ["::ffff:0:808:808", true],
+    ["2001::1", true],
+    ["2001:0:4136:e378:8000:63bf:3fff:fdd2", true],
+    ["fec0::1", true],
     ["not-an-address", true],
     ["8.8.8.8", false],
+    ["198.20.0.1", false],
+    ["192.0.1.1", false],
     ["::ffff:8.8.8.8", false],
     ["64:ff9b::808:808", false],
+    ["2001:4860:4860::8888", false],
     ["2606:4700::1111", false],
   ])("%s internal=%p", (address, internal) => {
     expect(isInternalAddress(address)).toBe(internal);
+  });
+
+  test("checks IP literals without DNS, bracketed IPv6 too", async () => {
+    expect(await publicAddresses("8.8.8.8")).toEqual([{ address: "8.8.8.8", family: 4 }]);
+    expect(await publicAddresses("[2606:4700::1111]")).toEqual([{ address: "2606:4700::1111", family: 6 }]);
+    await expect(publicAddresses("10.0.0.1")).rejects.toMatchObject({ kind: "ssrf_blocked" });
+    await expect(publicAddresses("[::1]")).rejects.toMatchObject({ kind: "ssrf_blocked" });
   });
 
   test("rejects non-http schemes and internal hosts", async () => {
@@ -85,6 +104,37 @@ describe("robots.txt (RFC 9309)", () => {
     expect(await robots.check("https://example.com/private/a")).toEqual({ allowed: false, crawlDelayMs: 1000 });
     expect((await robots.check("https://example.com/public")).allowed).toBe(true);
   });
+
+  describe("behind a bot check", () => {
+    const server = Bun.serve({ port: 0, fetch: () => new Response("Just a moment...", { status: 403, headers: { "cf-mitigated": "challenge" } }) });
+    const base = `http://127.0.0.1:${server.port}`;
+    afterAll(() => server.stop());
+    /** A fake Scrapling service that answers the stealth engine with `read`. */
+    const stealthReading = (read: () => Promise<string>) => {
+      const asked: string[] = [];
+      const scrapling: ScraplingClient = {
+        async fetch({ url, engine }) {
+          asked.push(`${engine} ${url}`);
+          return { status: 200, url, headers: {}, body: await read() };
+        },
+      };
+      return { robots: createRobots({ userAgent: "RUVO/0.1", scrapling }), asked };
+    };
+
+    test("is read with the stealth browser, and its rules apply", async () => {
+      const { robots, asked } = stealthReading(async () => "User-agent: *\nDisallow: /private\n");
+      expect((await robots.check(`${base}/private/a`)).allowed).toBe(false);
+      expect((await robots.check(`${base}/public`)).allowed).toBe(true);
+      expect(asked).toEqual([`stealth ${base}/robots.txt`]);
+    });
+
+    test("disallows everything when the stealth read fails", async () => {
+      const { robots } = stealthReading(async () => {
+        throw new FetchError("network", "timed out", { url: base });
+      });
+      expect((await robots.check(`${base}/public`)).allowed).toBe(false);
+    });
+  });
 });
 
 describe("host limiter", () => {
@@ -108,6 +158,26 @@ describe("host limiter", () => {
     await Promise.all([1, 2, 3].map(() => limiter.run("b.com", 40, async () => void starts.push(Date.now()))));
     expect(starts[1]! - starts[0]!).toBeGreaterThanOrEqual(35);
     expect(starts[2]! - starts[1]!).toBeGreaterThanOrEqual(35);
+  });
+
+  // Bug: start slots are fixed when reserved, so a start that runs late (busy event loop) leaves the next one too close.
+  test.todo("keeps the crawl delay after a start that ran late", async () => {
+    const limiter = createHostLimiter({ maxConcurrent: 5, minDelayMs: 0 });
+    const starts: number[] = [];
+    const busy = (ms: number) => {
+      const until = Date.now() + ms;
+      while (Date.now() < until);
+    };
+    // The first task holds the thread past the second start's slot (40 ms), which therefore runs late.
+    await Promise.all(
+      [60, 0, 0].map((holdMs) =>
+        limiter.run("c.com", 40, async () => {
+          starts.push(Date.now());
+          busy(holdMs);
+        }),
+      ),
+    );
+    expect(starts[2]! - starts[1]!).toBeGreaterThanOrEqual(40);
   });
 });
 
