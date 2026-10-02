@@ -41,7 +41,7 @@ const LIMITS = [
   "It reads what's public. It doesn't log in, click through pages or scroll.",
   "Instagram, X and LinkedIn forbid crawlers, so profiles come from search results only, and say so.",
   "When a site's robots.txt says no, RUVO stops there.",
-  "Jobs are what it knows best. For other lists it needs a Firecrawl key to search the web, or pages you link.",
+  "Jobs are what it knows best. Other lists come from a web search and pages you link, so they are only as good as what the search finds.",
   "The AI that judges borderline rows can be wrong. That is why every value shows its source.",
 ];
 
