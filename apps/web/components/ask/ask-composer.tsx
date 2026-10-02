@@ -145,7 +145,7 @@ export function AskComposer() {
             </Button>
           </div>
         </div>
-        {chatgpt.data && !(chatgpt.data.signedIn && chatgpt.data.serverRunning) && (
+        {chatgpt.data?.account === "chatgpt" && !(chatgpt.data.signedIn && chatgpt.data.serverRunning) && (
           <p className="text-small text-graphite">
             {chatgpt.data.signedIn ? "The ChatGPT sign-in server isn't running: start it from" : "RUVO isn't signed in with ChatGPT yet: sign in from"}{" "}
             <Link href="/settings" className="text-ink underline underline-offset-4">
