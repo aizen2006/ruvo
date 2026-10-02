@@ -9,7 +9,7 @@ export type RepairAction = (typeof REPAIR_ACTIONS)[number];
 const MEANING: Record<RepairAction, string> = {
   RETRY: "try the same request again; the failure looks temporary",
   SWITCH_TO_BROWSER: "the page needs JavaScript; render it in a browser",
-  CHANGE_SELECTOR: "the page layout shifted slightly; adjust the recorded selectors locally",
+  CHANGE_SELECTOR: "the page layout changed; adjust the recorded selectors locally, or re-find the fields from the last page the recipe read",
   ESCALATE: "the page was redesigned; ask the LLM to work out a new recipe",
   STOP: "give up on this source for this run",
 };

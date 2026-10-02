@@ -8,6 +8,7 @@ import type { RunContext } from "../runs/runContext";
 import { classifyReplay } from "./classify";
 import { chooseRepair } from "./policy";
 import { relaxRecipe } from "./relax";
+import { relocateRecipe } from "./relocate";
 
 /** A page as fetched, and how it was fetched. */
 export interface FetchedPage {
@@ -79,10 +80,13 @@ export async function repairRecipe(run: RunContext, input: RepairInput): Promise
       }
 
       case "CHANGE_SELECTOR": {
+        const report = `${kind}: ${failure.detail}`;
         const local = localRepair(run, page, recipe, input.fields);
-        if (local) return saveRepair(run, page, recipe, local.def, local.result, "local_repair", `${kind}: ${failure.detail}`);
+        if (local) return saveRepair(run, page, recipe, local, report, "fixed selectors locally, no LLM needed");
+        const relocated = await relocateRecipe(page, recipe, run.signal);
+        if (relocated) return saveRepair(run, page, recipe, relocated, report, "re-found its fields with Scrapling from the last page it read, no LLM needed");
         emit(run, "repair.local_failed", `${host}: no local selector fix passed acceptance; asking the LLM`, {});
-        return rediscover(run, page, recipe, input.fields, `${kind}: ${failure.detail}`);
+        return rediscover(run, page, recipe, input.fields, report);
       }
 
       case "ESCALATE":
@@ -108,18 +112,19 @@ async function rediscover(run: RunContext, page: FetchedPage, parent: Recipe, fi
   return { recipe: found.recipe, result: found.result, page };
 }
 
-async function saveRepair(run: RunContext, page: FetchedPage, parent: Recipe, def: Recipe["def"], result: ReplayResult, origin: Recipe["origin"], failure: string) {
+/** Saves a fix made without the LLM as recipe v+1; `how` says how, in the run's activity. */
+async function saveRepair(run: RunContext, page: FetchedPage, parent: Recipe, fix: { def: Recipe["def"]; result: ReplayResult }, failure: string, how: string) {
   const recipe = await saveRecipe({
     host: parent.host,
     urlPattern: parent.urlPattern,
     pageType: parent.pageType,
     parentId: parent.id,
-    origin,
-    def,
+    origin: "local_repair",
+    def: fix.def,
     acceptance: parent.acceptance,
   });
-  noteRepair(run, parent, recipe, failure, "fixed selectors locally, no LLM needed");
-  return { recipe, result, page };
+  noteRepair(run, parent, recipe, failure, how);
+  return { recipe, result: fix.result, page };
 }
 
 function noteRepair(run: RunContext, parent: Recipe, recipe: Recipe, failure: string, how: string) {
