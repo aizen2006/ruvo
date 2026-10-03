@@ -171,6 +171,25 @@ describe("looking for more leads", () => {
     expect((await recordsOf(run.id)).length).toBe(2);
   });
 
+  test("cancelling the run while it looks for more stops the run, not just the rounds", async () => {
+    const run = await insertRun({ status: "running" });
+    const controller = new AbortController();
+    const ir = buildTemplateIr(DEMO_CONTRACT, [openai], { budgets, maxItemsPerSource: 40 });
+    const { fetcher } = fixtureFetcher({ "ashbyhq.com": "ashby" });
+    const ctx = await createRunContext({ runId: run.id, signal: controller.signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider });
+    const cancelled: FindMore = async (c) => {
+      controller.abort("cancelled");
+      c.signal.throwIfAborted();
+      return board("Perplexity");
+    };
+    await expect(executeWorkflow(ctx, cancelled)).rejects.toBe("cancelled");
+    await ctx.dispose();
+    const types = (await db.select().from(runEvents).where(eq(runEvents.runId, run.id))).map((e) => e.type);
+    expect(types).toContain("more.started");
+    expect(types).not.toContain("more.failed");
+    expect(types).not.toContain("run.summary");
+  });
+
   test("sources from later rounds count towards the run failing when none could be collected", async () => {
     const more = fakeMore(board("Missing Co", "workable"));
     await expect(runWith([company("Gone Co", "workable", "gone", [])], DEMO_CONTRACT, budgets, false, more)).rejects.toThrow(
