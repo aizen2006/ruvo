@@ -1,13 +1,15 @@
-import type { Criterion, DatasetContract, FoundSource } from "@repo/contracts";
+import type { Criterion, DatasetContract, FoundSource, SearchLog } from "@repo/contracts";
 import { ATS_LIST, type Ats } from "../adapters/ats";
 import type { SearchHit } from "../adapters/searchHits";
 import { itemKeyFor } from "../execute/contractFields";
 import { compileKeywords, firstKeywordMatch } from "../execute/keywords";
 import { mapLimit } from "../libs/limit";
+import type { LlmClient } from "../llm/client";
 import { recordBoards, type Probe } from "./atsDetect";
 import { probeBoard, type ProbeHit } from "./atsProbe";
 import { isExcluded, normalize, registryCandidate } from "./discovery";
 import { listRegistry, type RegistryCompany } from "./registry";
+import { runSearches, sourcesFromHits, type WebDiscoveryOptions, type WebSearch } from "./webDiscovery";
 
 /**
  * Job boards found on the web: a posting on an ATS platform RUVO reads (Greenhouse, Ashby,
@@ -26,12 +28,12 @@ const BOARD_SITES: Record<Ats, { site: string; hosts: string[] }> = {
 const PROBE_CONCURRENCY = 8;
 
 /** Results read per board search: a whole page of them, as each can be another company at no extra search. */
-export const BOARD_RESULTS = 20;
+const BOARD_RESULTS = 20;
 
 export const platformName = (ats: Ats) => ats[0]!.toUpperCase() + ats.slice(1);
 
 /** A search for postings on every board platform at once: `Backend Developer (site:greenhouse.io OR site:jobs.ashbyhq.com OR …)`. */
-export const boardQuery = (words: string) => `${words} (${ATS_LIST.map((ats) => `site:${BOARD_SITES[ats].site}`).join(" OR ")})`;
+const boardQuery = (words: string) => `${words} (${ATS_LIST.map((ats) => `site:${BOARD_SITES[ats].site}`).join(" OR ")})`;
 
 /**
  * The role and place a job request asks for, in its own words: the longest role keyword its title
@@ -49,11 +51,34 @@ export function roleWords(contract: DatasetContract): string {
 }
 
 /**
+ * One round of searching the web for sources. The `queries` find pages to read (see
+ * sourcesFromHits). A job request also searches the board platforms for each of `boardWords`
+ * that names no site of its own, and the postings either kind of search finds name up to
+ * `maxBoards` boards not `seen` yet (see boardsFromHits); a posting is never read as a page.
+ * Pages come back whether seen or not, so a profile found again can join its site's group.
+ */
+export async function searchRound(
+  contract: DatasetContract,
+  web: WebSearch,
+  llm: LlmClient,
+  { queries, boardWords, maxBoards, ...opts }: WebDiscoveryOptions & { queries: string[]; boardWords: string[]; maxBoards: number; seen: ReadonlySet<string>; userAgent: string; probe?: Probe },
+): Promise<{ boards: FoundSource[]; pages: FoundSource[]; searches: SearchLog[] }> {
+  const jobs = contract.entity === "job_posting";
+  // Board searches get at most half the searches left (rounded up), page searches the rest.
+  const boardSearches = jobs && maxBoards > 0 ? boardWords.filter((w) => !w.includes("site:")).map(boardQuery) : [];
+  const boardRun = await runSearches(boardSearches.slice(0, Math.ceil(opts.scope.budget.left("searches") / 2)), web.searcher, { ...opts, resultsPerQuery: BOARD_RESULTS });
+  const pageRun = await runSearches(queries.slice(0, opts.scope.budget.left("searches")), web.searcher, opts);
+  const boards = jobs && maxBoards > 0 ? await boardsFromHits(contract, [...boardRun.hits, ...pageRun.hits], { ...opts, max: maxBoards }) : [];
+  const pages = await sourcesFromHits(contract, jobs ? pageRun.hits.filter((h) => !boardOf(h.url)) : pageRun.hits, web, llm, opts);
+  return { boards, pages, searches: [...boardRun.searches, ...pageRun.searches] };
+}
+
+/**
  * The board a posting's URL belongs to: job-boards.greenhouse.io/acme/jobs/1 → greenhouse, acme.
  * Slugs are lowercased, as the registry keeps them: Greenhouse and Ashby ignore case, and Lever
  * and Workable slugs are lowercase.
  */
-export function boardOf(raw: string): { ats: Ats; slug: string } | null {
+function boardOf(raw: string): { ats: Ats; slug: string } | null {
   let url: URL;
   try {
     url = new URL(raw);
@@ -82,7 +107,7 @@ interface Board {
  * boards are verified already; the others are checked with the board probe, a batch at a time
  * until `max` boards are kept, and join the registry, so later runs know them.
  */
-export async function boardsFromHits(
+async function boardsFromHits(
   contract: DatasetContract,
   hits: SearchHit[],
   opts: { seen: ReadonlySet<string>; max: number; userAgent: string; probe?: Probe },

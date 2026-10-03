@@ -7,7 +7,7 @@ import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
 import type { FetchScope } from "../fetch/fetcher";
 import { autoDetectCompanies } from "../plan/atsDetect";
-import { BOARD_RESULTS, boardOf, boardQuery, boardsFromHits, platformName, roleWords } from "../plan/boardSearch";
+import { platformName, roleWords, searchRound } from "../plan/boardSearch";
 import { discoverSources, foundCandidate, type SourceCandidate } from "../plan/discovery";
 import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
@@ -17,9 +17,7 @@ import {
   addFoundSources,
   discoverFromSearch,
   moreSearchQueries,
-  runSearches,
   searchQueriesFor,
-  sourcesFromHits,
   type WebDiscovery,
   type WebSearch,
 } from "../plan/webDiscovery";
@@ -190,8 +188,7 @@ async function searchRounds(
   contract: DatasetContract,
   { web, llm, bus, run, scope, planned }: { web: WebSearch; llm: LlmClient; bus: EventBus; run: ClaimedRun; scope: FetchScope; planned: SourceCandidate[] },
 ): Promise<WebDiscovery> {
-  const opts = { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode) };
-  const jobs = contract.entity === "job_posting";
+  const opts = { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode), userAgent: env.USER_AGENT };
   const maxBoards = newBoardsForMode(run.mode);
   const found: WebDiscovery = { sources: [], searches: [] };
   let boards = 0;
@@ -204,17 +201,11 @@ async function searchRounds(
       });
       if (queries.length === 0) break;
     }
-    // Board searches get at most half the searches left (rounded up), page searches the rest.
-    const boardSearches = jobs && boards < maxBoards ? (round === 1 ? [roleWords(contract)] : queries.filter((q) => !q.includes("site:"))).map(boardQuery) : [];
-    const boardRun = await runSearches(boardSearches.slice(0, Math.ceil(scope.budget.left("searches") / 2)), web.searcher, { ...opts, resultsPerQuery: BOARD_RESULTS });
-    const pageRun = await runSearches(queries.slice(0, scope.budget.left("searches")), web.searcher, opts);
-    const searches = [...boardRun.searches, ...pageRun.searches];
+    const seen = new Set([...planned, ...found.sources].map((s) => s.ref));
+    const boardWords = round === 1 ? [roleWords(contract)] : queries;
+    const { boards: newBoards, pages, searches } = await searchRound(contract, web, llm, { ...opts, queries, boardWords, seen, maxBoards: maxBoards - boards });
     emitSearches(bus, searches);
 
-    const seen = new Set([...planned, ...found.sources].map((s) => s.ref));
-    const hits = [...boardRun.hits, ...pageRun.hits];
-    const newBoards = jobs && boards < maxBoards ? await boardsFromHits(contract, hits, { seen, max: maxBoards - boards, userAgent: env.USER_AGENT }) : [];
-    const pages = await sourcesFromHits(contract, jobs ? pageRun.hits.filter((h) => !boardOf(h.url)) : pageRun.hits, web, llm, opts);
     const fresh = [...newBoards, ...pages.filter((s) => !seen.has(s.ref))];
     // Profiles found again join their site's group; new sources go last, so earlier rounds' are read first.
     found.sources = [...addFoundSources(found.sources, pages.filter((s) => seen.has(s.ref))), ...fresh];
