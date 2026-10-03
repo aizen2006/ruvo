@@ -3,6 +3,7 @@
 import type { RunDetail } from "@repo/contracts";
 import { ListPlus, RotateCw } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { LeadFunnel } from "@/components/run/lead-funnel";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { api } from "@/lib/api";
@@ -13,7 +14,7 @@ import { DownloadMenu } from "./download-menu";
 import { TrustSummary } from "./trust-summary";
 import { WhatChanged } from "./what-changed";
 
-/** A finished list: what it holds and cost, how far to trust it, what changed, and the rows. */
+/** A finished list: what it holds and cost, how far to trust it, how it narrowed into leads, what changed, and the rows. */
 export function ResultView({ run }: { run: RunDetail }) {
   const router = useRouter();
   const rerun = useRunAction(run.id, () => api.rerun(run.id));
@@ -87,6 +88,8 @@ export function ResultView({ run }: { run: RunDetail }) {
         </div>
       </div>
 
+      {/* A list that never got a plan has no funnel to show. */}
+      {run.funnel.sources > 0 && <LeadFunnel run={run} />}
       <WhatChanged run={run} />
       {run.contract && <DataTable run={run} />}
     </div>

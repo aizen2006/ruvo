@@ -16,6 +16,7 @@ import { isChatModel } from "../../llm/models";
 import { modelsForMode, runModels } from "../../runs/modes";
 import { db } from "../client";
 import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls, workflows } from "../schema";
+import { getRunFunnel } from "./funnel";
 
 /** Data access for runs and their events. Routes call these; they never write SQL themselves. */
 
@@ -156,14 +157,17 @@ export async function getRunDetail(runId: string): Promise<RunDetail> {
   const [row] = await selectSummaries().where(eq(runs.id, runId));
   if (!row) throw notFound("Run");
 
-  const [latestContract] = await db
-    .select({ contract: datasetContracts.contract })
-    .from(datasetContracts)
-    .where(eq(datasetContracts.requestId, row.requestId))
-    .orderBy(desc(datasetContracts.version))
-    .limit(1);
+  const [[latestContract], funnel] = await Promise.all([
+    db
+      .select({ contract: datasetContracts.contract })
+      .from(datasetContracts)
+      .where(eq(datasetContracts.requestId, row.requestId))
+      .orderBy(desc(datasetContracts.version))
+      .limit(1),
+    getRunFunnel(runId, row.metrics.rawRecords),
+  ]);
 
-  return { ...toSummary(row), contract: latestContract?.contract ?? null };
+  return { ...toSummary(row), contract: latestContract?.contract ?? null, funnel };
 }
 
 /** Approves a run that is waiting for review, handing it to the worker queue. */

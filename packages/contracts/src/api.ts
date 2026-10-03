@@ -2,7 +2,7 @@ import { z } from "zod";
 import { DatasetContract } from "./contract";
 import { ModelChoice, RunMode } from "./options";
 import { RecordStatus } from "./record";
-import { RunMetrics, RunStatus, Stage } from "./run";
+import { RunFunnel, RunMetrics, RunStatus, Stage } from "./run";
 
 /** Request/response shapes shared by the API routes and the dashboard client. */
 
@@ -44,6 +44,7 @@ export type RunSummary = z.infer<typeof RunSummary>;
 
 export const RunDetail = RunSummary.extend({
   contract: DatasetContract.nullable(),
+  funnel: RunFunnel,
 });
 export type RunDetail = z.infer<typeof RunDetail>;
 

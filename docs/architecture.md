@@ -188,6 +188,7 @@ Every decision is stored with the tier that made it. The Decisions tab shows how
 - **Quality report**: the record funnel, completeness per field, the extraction-method mix, the verification rate, a confidence histogram, reject reasons, and per-source counts.
 - **Diff**: new, removed and changed records compared with the previous completed run of the same request, matched by canonical key.
 - **Lead score** (`leadOf`, `packages/contracts/src/plain.ts`): each valid record scores 0–100, half from its match score and half from its confidence; Strong from 80, Good from 60, else Possible. Lists and exports put the best leads first and exports carry the tier and score.
+- **Funnel** (`db/repos/funnel.ts`): the run detail counts web searches and sources (from the workflow), collected (raw records), qualified (not invalid), complete (valid) and ready leads (valid, not a duplicate), so it also reads while collecting. It names the step that lost the most with its most common reason: a failed hard criterion, a missing required field, or duplicates.
 
 ### Self-repair (`repair/`)
 
@@ -260,7 +261,7 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 |---|---|
 | `GET /api/options` | Modes with their budgets, the AI account, and the models on offer with prices |
 | `POST /api/runs` | Create a run from a prompt (`mode`, optional `models`, `autoStart`, `Idempotency-Key`) |
-| `GET /api/runs`, `GET /api/runs/:id` | History and run detail |
+| `GET /api/runs`, `GET /api/runs/:id` | History and run detail (with its funnel) |
 | `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet) |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
 | `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows (records come best lead first) |

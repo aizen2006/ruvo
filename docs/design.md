@@ -151,11 +151,16 @@ Loading inside a panel keeps the dither `Skeleton`.
 ```
 
 **Collecting**: a black `void` panel with the dot field settling as `resolve` rises; the live
-count in Doto on top; the step track below it; first rows underneath on paper.
+count in Doto on top; the step track below it; the funnel so far and the first rows underneath on
+paper.
 
 **Result**: the dataset name in Doto, the row count in Doto with "rows" in Geist beside it (no
 coloured block), the trust summary as dot-matrix bars (rows of squares, filled in `ink`, the
-"checked against the page" share in signal), then the table.
+"checked against the page" share in signal), the funnel, then the table.
+
+**Funnel** (`components/run/lead-funnel.tsx`): six mono labels with their counts, joined by
+chevrons (Searched › Sources › Collected › Qualified › Complete › Ready leads), and under them the
+biggest drop in words: "2,495 of 2,520 failed: Suitable for two years' experience".
 
 **Table**: Geist Mono column headers on a 2px ink rule, hairline rows, no zebra, best lead first.
 The Lead column reads "Strong 93"; how sure a row is reads as a three-cell meter beside the word
@@ -179,6 +184,7 @@ The default screens use this vocabulary (`packages/contracts/src/plain.ts`, re-e
 | contract, criteria | the **plan**; rules are **must have** and **nice to have** |
 | confidence ≥ 0.9 / ≥ 0.75 / lower | **Sure** / **Likely** / **Check this** |
 | a valid record's lead score (half match score, half confidence) ≥ 80 / ≥ 60 / lower | **Strong** / **Good** / **Possible**, with the score: "Strong 93" |
+| funnel: web searches, sources, raw records, passed hard criteria, valid, valid after dedupe | **Searched**, **Sources**, **Collected**, **Qualified**, **Complete**, **Ready leads** |
 | `API` | From the site's data feed |
 | `JSON_LD` | From the page's listing data |
 | `EMBEDDED_JSON` | From data inside the page |

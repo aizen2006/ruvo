@@ -2,6 +2,7 @@
 
 import type { RunDetail, RunEvent } from "@repo/contracts";
 import { DotField } from "@/components/dot-field";
+import { LeadFunnel } from "@/components/run/lead-funnel";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/sonner";
 import { api } from "@/lib/api";
@@ -23,8 +24,8 @@ function settled(run: RunDetail) {
 
 /**
  * While RUVO gets ready and collects: a black panel whose dot field settles into rows as they
- * arrive, with the live count on top and the steps below; the first rows sit underneath on paper,
- * and a way to stop.
+ * arrive, with the live count on top and the steps below; the funnel so far and the first rows sit
+ * underneath on paper, and a way to stop.
  */
 export function CollectingView({ run, events }: { run: RunDetail; events: RunEvent[] }) {
   const stop = useRunAction(run.id, () => api.cancelRun(run.id));
@@ -76,6 +77,7 @@ export function CollectingView({ run, events }: { run: RunDetail; events: RunEve
       </section>
       {stop.error && <p className="text-small text-brick">{stop.error.message}</p>}
 
+      {collecting && <LeadFunnel run={run} />}
       {collecting && run.contract && <PreviewRows run={run} />}
     </div>
   );
