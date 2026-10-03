@@ -17,6 +17,8 @@ import type {
   RunOptions,
   RunStatus,
   RunSummary,
+  Settings,
+  SettingsUpdate,
   WorkflowIR,
 } from "@repo/contracts";
 
@@ -98,6 +100,11 @@ export const api = {
   signInWithChatgpt: () => request<ChatgptSignIn>("/api/chatgpt/sign-in", { method: "POST" }),
   startChatgptServer: () => request<ChatgptSignIn>("/api/chatgpt/start", { method: "POST" }),
   signOutOfChatgpt: () => request<ChatgptSignIn>("/api/chatgpt/sign-out", { method: "POST" }),
+  /** What RUVO runs with, for Settings (secrets only as set or not); served only outside production. */
+  getSettings: () => request<Settings>("/api/settings"),
+  /** Saves changed settings, then RUVO restarts; answers with the saving API's `startedAt`. */
+  saveSettings: (changes: SettingsUpdate) =>
+    request<Pick<Settings, "startedAt">>("/api/settings", { method: "PUT", body: JSON.stringify(changes) }),
   listRuns: (limit: number) => request<RunSummary[]>(`/api/runs?limit=${limit}`),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),
   startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),

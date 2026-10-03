@@ -7,7 +7,7 @@ import { toast } from "@/components/ui/sonner";
 import { api, isClientError } from "@/lib/api";
 import { useChatgptAction, useChatgptSignIn, useRunOptions } from "@/lib/queries";
 
-/** Which AI account RUVO uses, and signing in with ChatGPT on this machine. */
+/** Which AI account RUVO uses, and signing in with ChatGPT on this machine. Its buttons sit inside the Settings form, so none submits it. */
 export function AiAccountSection() {
   const options = useRunOptions();
   const chatgpt = useChatgptSignIn();
@@ -17,20 +17,15 @@ export function AiAccountSection() {
   const error = signIn.error ?? start.error ?? signOut.error;
 
   return (
-    <section aria-labelledby="ai-account" className="max-w-[640px] space-y-item">
-      <h2 id="ai-account" className="text-heading font-semibold">
-        AI account
-      </h2>
+    <section aria-labelledby="chatgpt-sign-in" className="space-y-item">
+      <h3 id="chatgpt-sign-in" className="font-mono text-micro text-graphite">
+        ChatGPT sign-in
+      </h3>
       {options.data && (
         <p className="text-graphite">
-          {options.data.account === "chatgpt" ? (
-            "RUVO uses your ChatGPT plan."
-          ) : (
-            <>
-              RUVO uses your OpenAI API key. Setting <code className="font-mono text-small">AI_ACCOUNT=chatgpt</code> in{" "}
-              <code className="font-mono text-small">apps/server/.env</code> and restarting RUVO switches it to your ChatGPT plan.
-            </>
-          )}
+          {options.data.account === "chatgpt"
+            ? "RUVO uses your ChatGPT plan, because no API key is set."
+            : "RUVO uses your OpenAI API key, so it doesn't use the ChatGPT sign-in."}
         </p>
       )}
 
@@ -54,6 +49,7 @@ export function AiAccountSection() {
             <>
               <p>Not signed in with ChatGPT on this machine.</p>
               <Button
+                type="button"
                 variant="primary"
                 disabled={signIn.isPending}
                 onClick={() => signIn.mutate(undefined, { onSuccess: ({ loginUrl }) => window.open(loginUrl, "_blank", "noopener,noreferrer") })}
@@ -72,11 +68,12 @@ export function AiAccountSection() {
               )}
               <div className="flex flex-wrap gap-item">
                 {!chatgpt.data.serverRunning && (
-                  <Button variant="primary" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => toast("Started") })}>
+                  <Button type="button" variant="primary" disabled={start.isPending} onClick={() => start.mutate(undefined, { onSuccess: () => toast("Started") })}>
                     {start.isPending ? "Starting…" : "Start the sign-in server"}
                   </Button>
                 )}
                 <Button
+                  type="button"
                   variant="danger"
                   disabled={signOut.isPending}
                   onClick={() =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { isTerminal, type ChatgptSignIn, type RunEvent, type RunStatus } from "@repo/contracts";
+import { isTerminal, type ChatgptSignIn, type RunEvent, type RunStatus, type SettingsUpdate } from "@repo/contracts";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 import { api, isClientError, type RecordFilters } from "./api";
@@ -44,6 +44,45 @@ export const useChatgptSignIn = (enabled = true) =>
 export function useChatgptAction(action: () => Promise<ChatgptSignIn>) {
   const client = useQueryClient();
   return useMutation({ mutationFn: action, onSuccess: (status) => client.setQueryData(chatgptKey, status) });
+}
+
+const settingsKey = ["settings"] as const;
+/** How long Settings waits for RUVO to come back after saving. */
+const RESTART_TIMEOUT_MS = 60_000;
+
+/** What RUVO runs with; served only outside production. */
+export const useSettings = () => useQuery({ queryKey: settingsKey, queryFn: api.getSettings });
+
+/**
+ * Saves settings. RUVO restarts to read them, so `restarting` stays true until the restarted API
+ * answers (a new `startedAt`); then the settings, options and sign-in it now uses are loaded again.
+ */
+export function useSaveSettings() {
+  const client = useQueryClient();
+  const [restarting, setRestarting] = useState(false);
+  const save = useMutation({
+    mutationFn: async (changes: SettingsUpdate) => {
+      const { startedAt } = await api.saveSettings(changes);
+      setRestarting(true);
+      try {
+        for (const deadline = Date.now() + RESTART_TIMEOUT_MS; Date.now() < deadline; ) {
+          await new Promise((resolve) => setTimeout(resolve, 1_000));
+          const settings = await api.getSettings().catch(() => null);
+          if (settings && settings.startedAt !== startedAt) return settings;
+        }
+        throw new Error("Saved, but RUVO didn't restart. Started without `bun run dev`, it needs a restart to use the new settings.");
+      } finally {
+        setRestarting(false);
+      }
+    },
+    onSuccess: (settings) => {
+      client.setQueryData(settingsKey, settings);
+      // Adding or removing the API key switches the account, and with it the models and the sign-in shown.
+      void client.invalidateQueries({ queryKey: ["options"] });
+      void client.invalidateQueries({ queryKey: chatgptKey });
+    },
+  });
+  return { ...save, restarting };
 }
 
 /** The newest `limit` runs; refreshed while any of them is still in progress. */
