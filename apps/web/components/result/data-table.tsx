@@ -316,7 +316,7 @@ export function DataTable({ run }: { run: RunDetail }) {
  * Marks a row the previous run of the same request didn't have; new rows are found rows, so it wears
  * the signal. A space, not a margin, sets it apart, so a badge that wraps starts its line flush.
  */
-const NewBadge = () => (
+export const NewBadge = () => (
   <>
     {" "}
     <Badge tone="chosen" className="align-middle">

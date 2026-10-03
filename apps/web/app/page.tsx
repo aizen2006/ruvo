@@ -10,7 +10,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const REPO = "https://github.com/aizen2006/ruvo";
-const DESCRIPTION = "Ask for a list in plain words. RUVO collects it from public sources and shows where every value came from, with the words it was read from.";
+const DESCRIPTION =
+  "Ask for a list in plain words. RUVO searches the web, reads every public source it can, and hands back the best leads first, each value with the words it was read from.";
 
 export const metadata: Metadata = {
   title: "RUVO | Ask for a list, get it back with receipts",
@@ -37,12 +38,41 @@ const MODES = [
   { label: "Thorough", time: "up to 8 minutes" },
 ];
 
-const LIMITS = [
-  "It reads what's public. It doesn't log in, click through pages or scroll.",
-  "Instagram, X and LinkedIn forbid crawlers, so profiles come from search results only, and say so.",
-  "When a site's robots.txt says no, RUVO stops there.",
-  "Jobs are what it knows best. Other lists come from a web search and pages you link, so they are only as good as what the search finds.",
-  "The AI that judges borderline rows can be wrong. That is why every value shows its source.",
+/** Lines RUVO never crosses: each reads as "It won't …", then why. */
+const WONT = [
+  { line: "Log in, click through pages or scroll.", why: "It reads what's public." },
+  { line: "Open Instagram, X or LinkedIn.", why: "They forbid crawlers, so profiles come from search results only, and say so." },
+  { line: "Go where robots.txt says no.", why: "Not even where its stealth browser could get in." },
+  { line: "Reach into your own network.", why: "A guard checks every page RUVO opens and refuses private addresses." },
+  { line: "Read a page blocked for legal reasons.", why: "An HTTP 451 stops that source." },
+  { line: "Guess a value.", why: "Anything it can't find on the page is dropped." },
+];
+
+/** Honest caveats, separate from the lines it never crosses. */
+const GOOD_TO_KNOW = [
+  "Its stealth browser gets past bot checks, which can break a site's terms. Receipts mark every page read that way.",
+  "Signing in with ChatGPT goes through openai-oauth, which is unofficial: it could stop working, and a ChatGPT plan has usage limits.",
+  "Jobs are what it knows best. Other lists come from web search and pages you link, so they're only as good as what the search finds.",
+  "The AI that judges borderline rows can be wrong. That's why every value shows its source.",
+];
+
+/** What RUVO is built on, for the "What's inside" strip under the hero. */
+const INSIDE = [
+  {
+    title: "Scrapling gets the page",
+    body: "Every page is fetched by Scrapling: a plain request with Chrome's fingerprint, a real browser for pages built in JavaScript, and a stealth browser that gets past Cloudflare checks.",
+    link: { href: "https://github.com/D4Vinci/Scrapling", label: "Scrapling on GitHub" },
+  },
+  {
+    title: "Free AI with your ChatGPT plan",
+    body: "Sign in with ChatGPT in Settings and RUVO's AI calls run on your plan through openai-oauth, at no extra cost. Prefer an OpenAI API key? Add one and it is used instead.",
+    link: { href: "https://github.com/EvanZhouDev/openai-oauth", label: "openai-oauth on GitHub" },
+  },
+  {
+    title: "Its own search engine",
+    body: "SearXNG runs on your machine, so every request searches the web for free, in rounds, until the leads stop coming.",
+    link: { href: "https://github.com/searxng/searxng", label: "SearXNG on GitHub" },
+  },
 ];
 
 const frame = "mx-auto w-full max-w-[1200px] px-4 sm:px-6";
@@ -118,7 +148,10 @@ function PlanExample() {
       </div>
       <div className="space-y-tight">
         <dt className="text-small font-semibold">Where it will look</dt>
-        <dd className="text-small">The job boards of well-known tech companies on Greenhouse, Ashby, Lever and Workable, the Hacker News hiring thread, and a web search for boards you didn&apos;t name.</dd>
+        <dd className="text-small">
+          A web search, every time, in rounds: more companies hiring on Greenhouse, Ashby, Lever and Workable, and job lists on any site RUVO may read. Plus its own list of
+          well-known tech companies and the Hacker News hiring thread.
+        </dd>
       </div>
     </dl>
   );
@@ -136,8 +169,8 @@ export default function Landing() {
             Ask for a list. Get it back with receipts.
           </h1>
           <p className="max-w-[46ch] text-heading text-graphite">
-            Say what you need in plain words. RUVO finds it on public job boards, websites and search results, then hands you a table where every value shows the page it
-            came from and the words it was read from.
+            Say what you need in plain words. RUVO searches the web for it every time, reads job boards, websites and search results, and hands you the best leads first, in a
+            table where every value shows the page it came from and the words it was read from.
           </p>
           <div className="flex flex-wrap items-center gap-item">
             <Link href="/new" className={buttonVariants({ variant: "primary", size: "lg" })}>
@@ -149,6 +182,23 @@ export default function Landing() {
           </div>
           <p className="hidden font-mono text-small text-graphite motion-reduce:hidden [@media(hover:hover)]:block">Move your pointer over the dots to read them into rows.</p>
         </div>
+      </section>
+
+      <section aria-labelledby="inside-heading" className={cn(frame, "space-y-group border-t border-hairline-strong py-section")}>
+        <h2 id="inside-heading" className="text-title font-semibold">
+          What&apos;s inside
+        </h2>
+        <ul className="grid gap-group md:grid-cols-3">
+          {INSIDE.map((item) => (
+            <li key={item.title} className="space-y-item rounded-panel border border-hairline bg-sheet p-group">
+              <h3 className="text-heading font-semibold">{item.title}</h3>
+              <p className="text-graphite">{item.body}</p>
+              <a href={item.link.href} className="inline-block font-mono text-small text-ink underline underline-offset-4 hover:decoration-2">
+                {item.link.label}
+              </a>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section aria-labelledby="how-heading">
@@ -164,40 +214,61 @@ export default function Landing() {
           </Step>
           <CollectingBand>
             <StepText n={3} id="collect-heading" title="Watch it collect" muted="text-sheet/80">
-              <p>RUVO reads each site&apos;s own data feed first and the page itself second. It follows next-page links, keeps to robots.txt, and opens a stealth browser only when a site puts up a bot check.</p>
+              <p>
+                RUVO searches the web in rounds, then reads each site&apos;s own data feed first and the page itself second: a plain request, a real browser for pages built in
+                JavaScript, and a stealth browser only when a bot check stands in the way. It keeps to robots.txt, and when a run comes up short of good leads, it goes back
+                for more.
+              </p>
             </StepText>
           </CollectingBand>
-          <Step n={4} title="Open the list. Every value has a receipt." example={<ListExample />} wide>
+          <Step n={4} title="Open the list. Best leads first, every value with a receipt." example={<ListExample />} wide>
             <p>
-              Click a row to see where each value came from and the exact words it was read from. A value RUVO can&apos;t find on the page is dropped, not guessed. Download the list
-              as an Excel workbook with its receipts, or as a CSV.
+              Each lead gets a score out of 100 and a rating, Strong, Good or Possible, and a funnel shows what every step kept and where the rest were lost. Click a row to see
+              where each value came from and the exact words it was read from; a value RUVO can&apos;t find on the page is dropped, not guessed. Run it again later and New marks
+              what the last run didn&apos;t have. Download the list as an Excel workbook with its receipts, or as a CSV.
             </p>
           </Step>
         </ol>
       </section>
 
       <section aria-label="Limits and setup" className={cn(frame, "grid gap-section border-t border-hairline-strong py-section md:grid-cols-2")}>
-        <div className="space-y-group">
-          <h2 className="text-title font-semibold">What it won&apos;t do</h2>
-          <ul className="space-y-item">
-            {LIMITS.map((limit) => (
-              <li key={limit} className="flex gap-item">
-                <span aria-hidden className="mt-2 size-1.5 shrink-0 bg-ink" />
-                {limit}
-              </li>
-            ))}
-          </ul>
+        <div className="space-y-stack">
+          <div className="space-y-group">
+            <h2 className="text-title font-semibold">What it won&apos;t do</h2>
+            <ul className="space-y-item">
+              {WONT.map(({ line, why }) => (
+                <li key={line} className="flex gap-item">
+                  <span aria-hidden className="mt-2 size-1.5 shrink-0 bg-ink" />
+                  <span>
+                    <strong className="font-semibold">{line}</strong> <span className="text-graphite">{why}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className="space-y-item">
+            <h3 className="text-heading font-semibold">Good to know</h3>
+            <ul className="space-y-item text-graphite">
+              {GOOD_TO_KNOW.map((note) => (
+                <li key={note} className="flex gap-item">
+                  <span aria-hidden className="mt-2 size-1.5 shrink-0 bg-hairline-strong" />
+                  {note}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
         <div className="min-w-0 space-y-group">
           <h2 className="text-title font-semibold">It runs on your machine</h2>
           <p>
-            RUVO is open source. It runs on your computer with Docker and your own OpenAI key, so your requests and lists stay with you. There are no accounts: it is made for one
-            person on one machine.
+            RUVO is open source and runs on your computer: Postgres and its own search engine in Docker, Scrapling on your Python, and your OpenAI key or your ChatGPT plan,
+            signed in from Settings. Your requests and lists stay with you. There are no accounts: it is made for one person on one machine.
           </p>
           <pre className="overflow-x-auto rounded-panel bg-void p-group font-mono text-small leading-relaxed text-sheet">
-            <code>{`git clone ${REPO} && cd ruvo
-cp .env.example .env   # add your OpenAI key
-docker compose -f docker-compose.prod.yml up -d --build`}</code>
+            <code>{`pip install "scrapling[all]" && scrapling install
+git clone ${REPO} && cd ruvo
+bun install && bun run setup   # then add your OpenAI key, or sign in with ChatGPT
+bun run dev`}</code>
           </pre>
           <p className="text-graphite">Then open localhost:3001 and make your first list.</p>
         </div>

@@ -7,9 +7,10 @@ import { cn } from "@/lib/utils";
 const TOTAL_ROWS = 214;
 /** What RUVO is doing at each stretch of the scroll, in the collecting screen's own words. */
 const STEPS = [
-  { at: 0, label: "Reading job boards" },
-  { at: 0.35, label: "Following next pages" },
-  { at: 0.65, label: "Checking values against their pages" },
+  { at: 0, label: "Searching the web" },
+  { at: 0.25, label: "Reading job boards and pages" },
+  { at: 0.5, label: "Checking values against their pages" },
+  { at: 0.75, label: "Scoring the leads" },
   { at: 0.97, label: "Ready" },
 ];
 
@@ -52,7 +53,7 @@ export function CollectingBand({ children }: { children: ReactNode }) {
           <div className="space-y-group">
             <p className="flex items-baseline gap-item">
               <span className="font-dot text-count font-black tabular">{rows}</span>
-              <span className="text-heading">rows so far</span>
+              <span className="text-heading">leads so far</span>
             </p>
             <ol className="space-y-tight font-mono text-small">
               {STEPS.map((step, i) => {
