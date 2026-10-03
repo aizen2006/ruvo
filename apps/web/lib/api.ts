@@ -75,6 +75,7 @@ export type RecordFilters = {
   source?: string;
   remote?: "remote" | "hybrid" | "onsite";
   hasSalary?: boolean;
+  isNew?: boolean;
   minConfidence?: number;
   page?: number;
   pageSize?: number;

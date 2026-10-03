@@ -1,8 +1,8 @@
 import type { Evidence, ListRecordsQuery, Page, PageVia, RecordDTO } from "@repo/contracts";
-import { and, asc, count, desc, eq, gte, isNotNull, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, isNotNull, isNull, not, sql, type SQL } from "drizzle-orm";
 import { notFound } from "../../libs/errors";
 import { db } from "../client";
-import { evidence, pages, records } from "../schema";
+import { evidence, pages, records, runs } from "../schema";
 
 type RecordRow = typeof records.$inferSelect;
 type EvidenceRow = typeof evidence.$inferSelect;
@@ -72,11 +72,24 @@ const ordering = [
   asc(records.createdAt),
 ];
 
+/**
+ * Whether a record is new since the previous run of the same request: kept, and no record that run
+ * kept has its key. The run's diff ("added") compares the same way, and names that run once it is built.
+ */
+async function newSincePreviousRun(runId: string): Promise<SQL<boolean>> {
+  const [run] = await db.select({ previous: sql<string | null>`${runs.diff}->>'previousRunId'` }).from(runs).where(eq(runs.id, runId));
+  if (!run?.previous) return sql<boolean>`false`;
+  // The key stays outside the subquery: drizzle leaves a select list's columns unqualified.
+  return sql<boolean>`(${records.status} <> 'invalid' and ${records.duplicateOf} is null and coalesce(${records.canonicalKey}, ${records.itemKey}) not in (
+    select coalesce(canonical_key, item_key) from ${records} where run_id = ${run.previous} and status <> 'invalid' and duplicate_of is null))`;
+}
+
 export async function listRecords(runId: string, query: ListRecordsQuery, fields: FieldNames): Promise<Page<RecordDTO>> {
-  const where = recordFilters(runId, query, fields);
+  const isNew = await newSincePreviousRun(runId);
+  const where = and(recordFilters(runId, query, fields), query.isNew === undefined ? undefined : query.isNew ? isNew : not(isNew));
   const [rows, [total]] = await Promise.all([
     db
-      .select()
+      .select({ record: records, isNew })
       .from(records)
       .where(where)
       .orderBy(...ordering)
@@ -84,7 +97,7 @@ export async function listRecords(runId: string, query: ListRecordsQuery, fields
       .offset((query.page - 1) * query.pageSize),
     db.select({ value: count() }).from(records).where(where),
   ]);
-  return { items: rows.map(toRecordDTO), total: total?.value ?? 0, page: query.page, pageSize: query.pageSize };
+  return { items: rows.map((r) => ({ ...toRecordDTO(r.record), isNew: r.isNew })), total: total?.value ?? 0, page: query.page, pageSize: query.pageSize };
 }
 
 export async function getRecordWithEvidence(runId: string, recordId: string) {

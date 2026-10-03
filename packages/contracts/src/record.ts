@@ -61,5 +61,7 @@ export const RecordDTO = z.object({
   rejectReasons: z.array(z.string()),
   seenOn: z.array(z.string()),
   createdAt: z.string(),
+  /** Set in a records list: a kept record the previous run of the same request didn't have (its diff's "added"). */
+  isNew: z.boolean().optional(),
 });
 export type RecordDTO = z.infer<typeof RecordDTO>;

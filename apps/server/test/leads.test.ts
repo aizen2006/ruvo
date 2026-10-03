@@ -3,9 +3,11 @@ import { emptyMetrics, leadOf, type RecordDTO, type RecordStatus, type Signal } 
 import { db } from "../src/db/client";
 import { attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { records } from "../src/db/schema";
+import { buildRunDiff } from "../src/execute/diff";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
+import type { RunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { startTestServer } from "./helpers/http";
 
@@ -57,6 +59,31 @@ describe("records list", () => {
     // A surer row outranks a slightly better fit: "sure" scores 75, "fits" 69.
     expect(items.map((r) => r.data.key)).toEqual(["best", "sure", "fits", "weak", "incomplete"]);
     expect(items.map((r) => leadOf(r)?.score ?? null)).toEqual([94, 75, 69, 44, null]);
+  });
+
+  test("marks the kept records the previous run of the same request didn't have, and filters on them", async () => {
+    const first = await insertRun({ status: "completed", finishedAt: new Date() });
+    await db.insert(records).values(["a", "b"].map((key) => record(first.id, "valid", { itemKey: key })));
+    const second = await insertRun({ requestId: first.requestId, status: "running" });
+    await db.insert(records).values([
+      record(second.id, "valid", { itemKey: "a" }),
+      record(second.id, "valid", { itemKey: "c" }),
+      record(second.id, "incomplete", { itemKey: "d" }),
+      // Set aside rows are never new.
+      record(second.id, "invalid", { itemKey: "e" }),
+    ]);
+    const newKeys = async (query = "") => {
+      const { items } = (await api.get(`/api/runs/${second.id}/records${query}`)).body as { items: RecordDTO[] };
+      return items.filter((r) => r.isNew).map((r) => r.data.key);
+    };
+
+    // Until its diff names the previous run, a run has nothing new.
+    expect(await newKeys()).toEqual([]);
+    await buildRunDiff({ runId: second.id, contract: DEMO_CONTRACT } as RunContext);
+    expect(await newKeys()).toEqual(["c", "d"]);
+    expect((await api.get(`/api/runs/${second.id}/records?isNew=true`)).body.total).toBe(2);
+    expect(await newKeys("?isNew=true&status=valid")).toEqual(["c"]);
+    expect((await api.get(`/api/runs/${second.id}/records?isNew=false`)).body.items.map((r: RecordDTO) => r.data.key)).toEqual(["a", "e"]);
   });
 });
 

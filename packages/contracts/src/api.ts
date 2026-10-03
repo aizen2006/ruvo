@@ -59,6 +59,8 @@ export const ListRecordsQuery = z.object({
   source: z.string().optional(),
   remote: z.enum(["remote", "hybrid", "onsite"]).optional(),
   hasSalary: queryBool.optional(),
+  /** New since the previous run of the same request (see RecordDTO.isNew). */
+  isNew: queryBool.optional(),
   includeDuplicates: queryBool.default(false),
   minConfidence: z.coerce.number().min(0).max(1).optional(),
   page: z.coerce.number().int().positive().default(1),

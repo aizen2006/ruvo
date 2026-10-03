@@ -24,8 +24,8 @@ The references share one language, and RUVO takes these parts of it:
    screen at low intensity, faded out of the reading centre, and runs at full strength on the
    landing hero, the ask screen and while collecting, where it settles into lines as rows arrive.
 2. **Signal means found.** The orange signal marks found, proven or chosen: quoted evidence,
-   the selected option, progress. It is always a background behind black text, never text or
-   decoration.
+   the selected option, progress, a row that is new since the last run. It is always a background
+   behind black text, never text or decoration.
 3. **Quiet around the loud part.** Flat paper, hairlines, no shadows on static content, no cards
    inside cards. Only things that float (composer, menus, drawers) are frosted.
 4. **Plain words first, details on request.** The pipeline stays behind **Show details**.
@@ -164,7 +164,7 @@ biggest drop in words: "2,495 of 2,520 failed: Suitable for two years' experienc
 
 **Table**: Geist Mono column headers on a 2px ink rule, hairline rows, no zebra, best lead first.
 The Lead column reads "Strong 93"; how sure a row is reads as a three-cell meter beside the word
-(Sure, Likely, Check this).
+(Sure, Likely, Check this). A row the last run didn't have carries a **New** badge in signal.
 
 **Receipt drawer**: frosted, 20px radius. Each value's quote is set in Geist Mono on `sheet`
 with the found words behind signal.
@@ -184,6 +184,7 @@ The default screens use this vocabulary (`packages/contracts/src/plain.ts`, re-e
 | contract, criteria | the **plan**; rules are **must have** and **nice to have** |
 | confidence ≥ 0.9 / ≥ 0.75 / lower | **Sure** / **Likely** / **Check this** |
 | a valid record's lead score (half match score, half confidence) ≥ 80 / ≥ 60 / lower | **Strong** / **Good** / **Possible**, with the score: "Strong 93" |
+| a kept record the previous run of the same request didn't have | **New** |
 | funnel: web searches, sources, raw records, passed hard criteria, valid, valid after dedupe | **Searched**, **Sources**, **Collected**, **Qualified**, **Complete**, **Ready leads** |
 | `API` | From the site's data feed |
 | `JSON_LD` | From the page's listing data |

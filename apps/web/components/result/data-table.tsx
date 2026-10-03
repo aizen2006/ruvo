@@ -4,6 +4,7 @@ import type { DatasetContract, RecordDTO, RunDetail } from "@repo/contracts";
 import { ExternalLink, Search } from "lucide-react";
 import { useRef, useState, type ReactNode } from "react";
 import { columnTitle } from "@/components/plan/column-chips";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -11,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import type { RecordFilters } from "@/lib/api";
 import { cellText, linkField, tableColumns } from "@/lib/cells";
 import { formatNumber } from "@/lib/format";
-import { useRecords, useWorkflow } from "@/lib/queries";
+import { useDiff, useRecords, useWorkflow } from "@/lib/queries";
 import { useDebounced } from "@/lib/use-debounced";
 import { cn } from "@/lib/utils";
 import { CertaintyMark } from "./certainty-mark";
@@ -55,6 +56,7 @@ export function DataTable({ run }: { run: RunDetail }) {
   const [remote, setRemote] = useState<NonNullable<RecordFilters["remote"]> | typeof ANY>(ANY);
   const [salaryOnly, setSalaryOnly] = useState(false);
   const [sureOnly, setSureOnly] = useState(false);
+  const [newOnly, setNewOnly] = useState(false);
   const [source, setSource] = useState(ANY);
   const [page, setPage] = useState(1);
   const [openRecord, setOpenRecord] = useState<string | null>(null);
@@ -69,6 +71,7 @@ export function DataTable({ run }: { run: RunDetail }) {
     status: status === ANY ? undefined : status,
     remote: remote === ANY ? undefined : remote,
     hasSalary: salaryOnly || undefined,
+    isNew: newOnly || undefined,
     source: source === ANY ? undefined : source,
     minConfidence: sureOnly ? 0.9 : undefined,
     page,
@@ -76,6 +79,8 @@ export function DataTable({ run }: { run: RunDetail }) {
   };
   const { data, isFetching, error } = useRecords(run.id, filters, run.status);
   const { data: workflow } = useWorkflow(run.id, run.status);
+  // Rows are only new against a previous run of the same request.
+  const { data: diff } = useDiff(run.id, run.status);
 
   // Every filter change starts again at the first page.
   const refilter =
@@ -90,6 +95,7 @@ export function DataTable({ run }: { run: RunDetail }) {
     setRemote(ANY);
     setSalaryOnly(false);
     setSureOnly(false);
+    setNewOnly(false);
     setSource(ANY);
     setPage(1);
   };
@@ -100,7 +106,7 @@ export function DataTable({ run }: { run: RunDetail }) {
   const hasSalary = contract.fields.some((f) => f.catalogKey === "salary");
   const total = data?.total ?? 0;
   const kept = run.metrics.validRecords + run.metrics.incompleteRecords;
-  const onlyDefault = status === "valid" && !search && remote === ANY && !salaryOnly && !sureOnly && source === ANY;
+  const onlyDefault = status === "valid" && !search && remote === ANY && !salaryOnly && !sureOnly && !newOnly && source === ANY;
   const first = total ? (page - 1) * PAGE_SIZE + 1 : 0;
   const last = Math.min(page * PAGE_SIZE, total);
   const primary = contract.fields.find((f) => f.catalogKey === "title") ?? columns[0];
@@ -128,6 +134,11 @@ export function DataTable({ run }: { run: RunDetail }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-tight">
+        {diff?.previousRunId && (
+          <Chip pressed={newOnly} onClick={() => refilter(setNewOnly)(!newOnly)}>
+            New only
+          </Chip>
+        )}
         <Chip pressed={sureOnly} onClick={() => refilter(setSureOnly)(!sureOnly)}>
           Sure only
         </Chip>
@@ -214,6 +225,7 @@ export function DataTable({ run }: { run: RunDetail }) {
                       )}
                     >
                       <span className={cn((f.catalogKey === "match_reason" || f.catalogKey === "location") && "line-clamp-2")}>{cellText(record.data[f.name])}</span>
+                      {f === primary && record.isNew && <NewBadge />}
                     </TableCell>
                   ))}
                   <TableCell>
@@ -237,7 +249,10 @@ export function DataTable({ run }: { run: RunDetail }) {
             <li key={record.id}>
               <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-item py-3 text-left active:bg-canvas/70">
                 <span className="flex items-start justify-between gap-tight">
-                  <span className="font-medium">{cellText(record.data[primary?.name ?? ""])}</span>
+                  <span className="font-medium">
+                    {cellText(record.data[primary?.name ?? ""])}
+                    {record.isNew && <NewBadge />}
+                  </span>
                   <span className="flex shrink-0 flex-col items-end gap-1">
                     <LeadMark record={record} />
                     <CertaintyMark confidence={record.confidence} />
@@ -296,6 +311,19 @@ export function DataTable({ run }: { run: RunDetail }) {
     </section>
   );
 }
+
+/**
+ * Marks a row the previous run of the same request didn't have; new rows are found rows, so it wears
+ * the signal. A space, not a margin, sets it apart, so a badge that wraps starts its line flush.
+ */
+const NewBadge = () => (
+  <>
+    {" "}
+    <Badge tone="chosen" className="align-middle">
+      New
+    </Badge>
+  </>
+);
 
 function OpenLink({ href }: { href: string }) {
   if (!href) return null;
