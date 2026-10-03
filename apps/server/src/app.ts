@@ -6,8 +6,10 @@ import { datasetsRouter } from "./api/datasets.routes";
 import { optionsRouter } from "./api/options.routes";
 import { recipesRouter } from "./api/recipes.routes";
 import { runsRouter } from "./api/runs.routes";
+import { settingsRouter } from "./api/settings.routes";
 import { sql } from "./db/client";
 import { careersSite } from "./fixtures/careersSite";
+import { localOriginOnly } from "./middlewares/localOrigin";
 import { requestLogger } from "./middlewares/requestLogger";
 import { errorHandler, notFoundHandler } from "./middlewares/errorLogger";
 
@@ -33,8 +35,12 @@ export function createApp() {
   app.use("/api/recipes", recipesRouter);
   // Fictional demo site for self-repair demos; not served in production.
   if (process.env.NODE_ENV !== "production") app.use("/fixtures", careersSite);
-  // Signing in with ChatGPT from the dashboard starts programs on this machine; not served in production either.
-  if (process.env.NODE_ENV !== "production") app.use("/api/chatgpt", chatgptRouter);
+  // Signing in with ChatGPT starts programs on this machine and saving settings rewrites its .env:
+  // not served in production either, and only to pages on this machine.
+  if (process.env.NODE_ENV !== "production") {
+    app.use("/api/chatgpt", localOriginOnly, chatgptRouter);
+    app.use("/api/settings", localOriginOnly, settingsRouter);
+  }
 
   app.use(notFoundHandler);
   app.use(errorHandler);

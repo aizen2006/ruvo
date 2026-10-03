@@ -9,4 +9,5 @@ export * from "./quality";
 export * from "./diff";
 export * from "./decisions";
 export * from "./options";
+export * from "./settings";
 export * from "./plain";

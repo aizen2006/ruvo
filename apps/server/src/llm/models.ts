@@ -31,9 +31,9 @@ const CHATGPT_MODELS: ChatModel[] = [
   { id: "gpt-5.6-terra", label: "Terra 5.6", blurb: "Careful; good at understanding requests" },
 ];
 
-/** The models the configured AI account can use; on a ChatGPT plan calls are included, so they have no price. */
-export const modelCatalog = (): ModelOption[] =>
-  env.AI_ACCOUNT === "chatgpt"
+/** The models an AI account (the configured one by default) can use; on a ChatGPT plan calls are included, so they have no price. */
+export const modelCatalog = (account = env.AI_ACCOUNT): ModelOption[] =>
+  account === "chatgpt"
     ? CHATGPT_MODELS.map((m) => ({ ...m, inputPerMillion: 0, outputPerMillion: 0 }))
     : CHAT_MODELS.map((m) => ({ ...m, inputPerMillion: PRICES[m.id]!.input, outputPerMillion: PRICES[m.id]!.output }));
 
