@@ -257,7 +257,7 @@ export async function rerunRun(runId: string, { more = false } = {}) {
   if (!isTerminal(source.status)) throw conflict(`Run is still ${source.status}`);
   if (!source.workflowId) throw conflict("Run has no workflow to re-run");
 
-  // A stored model the AI account doesn't offer (AI_ACCOUNT changed since) gives way to the mode's current default.
+  // A stored model the AI account doesn't offer (the API key was added or removed since) gives way to the mode's current default.
   const defaults = modelsForMode(source.mode, undefined, env);
   const offered = (model: string | null, fallback: string) => (model && !isChatModel(model) ? fallback : model);
   const [run] = await db

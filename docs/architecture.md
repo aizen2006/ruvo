@@ -220,10 +220,10 @@ When a recorded recipe no longer fits its page, `html_list` hands the failure to
 
 ### The AI account (`llm/client.ts`, `llm/models.ts`)
 
-`AI_ACCOUNT` says how RUVO reaches OpenAI's models. `openaiFor` builds the one OpenAI SDK client that every call and the doctor use:
+The AI account follows one rule: an API key, when set, overrides the ChatGPT sign-in. `config/envSchema.ts` derives the account from `OPENAI_API_KEY`, and `openaiFor` builds the one OpenAI SDK client that every call and the doctor use:
 
-- **`api_key`** (the default): OpenAI's API with `OPENAI_API_KEY`. Calls are priced from the list prices in `llm/models.ts`.
-- **`chatgpt`**: the user's ChatGPT plan, through the openai-oauth sign-in server at `OPENAI_OAUTH_URL` (default `http://127.0.0.1:10531/v1`). The server holds the ChatGPT session, so RUVO sends it no key. openai-oauth is unofficial: it reuses the Codex CLI's sign-in.
+- **`api_key`** (whenever `OPENAI_API_KEY` is set): OpenAI's API with that key. Calls are priced from the list prices in `llm/models.ts`.
+- **`chatgpt`** (no key): the user's ChatGPT plan, through the openai-oauth sign-in server at `OPENAI_OAUTH_URL` (default `http://127.0.0.1:10531/v1`). The server holds the ChatGPT session, so RUVO sends it no key. openai-oauth is unofficial: it reuses the Codex CLI's sign-in.
 
 Each account has its own default models (`ACCOUNT_MODELS` in `config/envSchema.ts`): `gpt-6-sol` and `gpt-6-luna` with an API key; `gpt-5.6-terra` and `gpt-6-luna` on a ChatGPT plan, which doesn't offer `gpt-6-sol`. `MODEL_PLANNER` and `MODEL_WORKER` override them. On a ChatGPT plan:
 

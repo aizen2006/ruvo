@@ -28,9 +28,9 @@ succeeds. Any other server setting from `apps/server/.env.example` can go in the
 `https://api.example.com`). It is baked into the dashboard when the image builds, so after
 changing it rebuild with `up -d --build`.
 
-**The AI account** here is an OpenAI API key. `AI_ACCOUNT=chatgpt` is for a machine where the
-ChatGPT sign-in server (`bunx openai-oauth --detach`) runs next to RUVO: it listens on
-127.0.0.1, which the containers can't reach. Use it with `bun run dev` on your own computer.
+**The AI account** here is an OpenAI API key. Without a key RUVO uses the ChatGPT sign-in, which
+is for a machine where the sign-in server (`bunx openai-oauth --detach`) runs next to RUVO: it
+listens on 127.0.0.1, which the containers can't reach. Use it with `bun run dev` on your own computer.
 
 **A host without Scrapling.** This compose file always runs the fetch service. If you run the
 server some other way, on a host where Scrapling can't run, set `SCRAPLING_URL` blank. Pages
