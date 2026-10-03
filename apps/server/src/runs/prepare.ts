@@ -15,7 +15,6 @@ import { planForContract } from "../plan/planner";
 import { listRegistry } from "../plan/registry";
 import {
   addFoundSources,
-  discoverFromSearch,
   moreSearchQueries,
   searchQueriesFor,
   type WebDiscovery,
@@ -148,11 +147,21 @@ async function prepareMore(
   if (queries.length === 0) throw new Error("Could not think of new searches for this request");
 
   const scope = { signal, budget: createBudget(budgetsForMode(run.mode, env, contract.maxRecords)), metrics: createMetrics() };
-  const withQueries = { ...contract, sourceHints: { ...contract.sourceHints, searchQueries: queries } };
-  const found = await discoverFromSearch(withQueries, web, llm, { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode) });
+  // One round like a run's own extra rounds (see moreLeads): pages, plus job boards for job requests.
+  const seen = new Set([...ir.sources, ...(ir.search?.sources ?? [])].map((s) => s.ref));
+  const found = await searchRound(contract, web, llm, {
+    runId: run.id,
+    scope,
+    resultsPerQuery: searchResultsPerQuery(run.mode),
+    queries,
+    boardWords: queries,
+    seen,
+    maxBoards: newBoardsForMode(run.mode),
+    userAgent: env.USER_AGENT,
+  });
   emitSearches(bus, found.searches);
 
-  const search = { queries: [...(ir.search?.queries ?? []), ...found.searches], sources: addFoundSources(ir.search?.sources ?? [], found.sources) };
+  const search = { queries: [...(ir.search?.queries ?? []), ...found.searches], sources: addFoundSources(ir.search?.sources ?? [], [...found.boards, ...found.pages]) };
   const { ir: next } = await recompileWorkflow(run.id, { current, contract, contractId: current.contractId, mode: run.mode, search, plannedBy: "find_more" });
   const added = next.sources.length - ir.sources.length;
   await stage("planning", {
