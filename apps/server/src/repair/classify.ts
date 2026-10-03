@@ -58,7 +58,8 @@ export function explainFailure(err: unknown): string {
     case "robots_disallowed":
       return `${host}'s robots.txt does not allow automated reading of this page`;
     case "ssrf_blocked":
-      return "the address points to a private or local network, which RUVO does not read";
+      // A browser can't tell the guard's refusal from a host it couldn't reach (see infra/scrapling/server.py).
+      return "the address points to a private or local network, which RUVO does not read, or could not be reached";
     case "circuit_open":
       return `${host} failed repeatedly, so RUVO is pausing requests to it for a minute`;
     case "budget_exhausted":
