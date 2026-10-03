@@ -177,8 +177,8 @@ describe("run lifecycle", () => {
 
     const original = { ...env };
     try {
-      // Now on a ChatGPT plan, which offers gpt-6-luna but not gpt-6-sol.
-      Object.assign(env, loadEnv({ ...process.env, AI_ACCOUNT: "chatgpt", MODEL_PLANNER: "", MODEL_WORKER: "" }));
+      // Now on a ChatGPT plan (no API key), which offers gpt-6-luna but not gpt-6-sol.
+      Object.assign(env, loadEnv({ ...process.env, OPENAI_API_KEY: "", MODEL_PLANNER: "", MODEL_WORKER: "" }));
       for (const action of ["rerun", "more"]) {
         const { body } = await api.post(`/api/runs/${run.id}/${action}`);
         expect(await getRun(body.runId)).toMatchObject({ mode: "thorough", modelPlanner: "gpt-5.6-terra", modelWorker: "gpt-6-luna" });
