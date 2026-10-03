@@ -50,6 +50,7 @@ dropped, not guessed.
 | **190** | valid postings from one run of the request above |
 | **49** | candidate sources for a junior backend request that used to find 17 |
 | **26 s** | to read a page behind a Cloudflare check that used to stop RUVO cold |
+| **33 → 97** | good leads when a run went back for two more rounds on its own |
 | **0** | AI calls to read a list page RUVO has seen before |
 | **500+** | tests, run by CI on every push |
 
@@ -66,6 +67,11 @@ cheapest method first: a plain request that looks like Chrome, then a real brows
 is an empty JavaScript shell, then a stealth browser when a bot check stands in the way. If even
 that fails and you have a Firecrawl key, Firecrawl gets one try. Every receipt says which of these
 read its page.
+
+**It keeps going until it has enough.** If the planned sources leave a run short of the rows you
+asked for, it searches again with new queries and reads what it finds: up to two more rounds,
+while the run's time and budgets last. It all happens inside the same run, and the activity log
+says how many leads each round added.
 
 **It learns a site once.** The first time RUVO meets a list page, an LLM proposes CSS selectors.
 RUVO runs them, keeps them only if they pass acceptance checks, and replays them on every later
@@ -121,6 +127,10 @@ dashboard's Settings page and pay nothing per call.
    │ JUDGE                           │  rules → Jev → LLM judge; missing details filled
    │ filter, enrich, merge           │  from the posting itself; duplicates merged
    └────────────────┬────────────────┘
+                    ▼
+        short of leads? ── yes ──▶  back to SEARCH with new queries
+                    │               (up to two more rounds, while time lasts)
+                    │ no
                     ▼
    ┌─────────────────────────────────┐
    │ LEADS                           │  the table · a receipt per value · spreadsheet

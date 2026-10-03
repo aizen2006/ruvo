@@ -22,6 +22,7 @@ prompt ─ compile (planner model) ─▶ DatasetContract ─ user edits while r
        ─ start ─▶ worker claims the run ─▶ one branch per source (3 at a time):
             collect → [triage → extract_text] → prefilter → [enrich] → match → validate → store
             (triage and extract_text only for free-text sources, enrich only for columns the source lacks)
+       ─ short of good leads, with time left ─▶ up to 2 more rounds: new searches → new sources → their branches
        ─ dedupe across sources ─▶ quality report, run diff, recipe repairs, memory ─▶ dataset
 ```
 
@@ -36,7 +37,7 @@ queued → compiling → awaiting_approval ─start─▶ queued_run → running
 - **Worker process** (`worker.ts`): it claims runs with `FOR UPDATE SKIP LOCKED`. It sends a heartbeat every few seconds and checks for cancellation on each one.
 - **Stale runs**: a run whose heartbeat stops is requeued, up to 2 attempts. A requeued run replays from the caches, and records are written with upserts keyed on `(run_id, item_key)`, so replaying never duplicates them.
 - **Preparation** (`runs/prepare.ts`): compile, discover, plan, save. The status stays `compiling` throughout; the separate `stage` column shows understanding, planning and discovering.
-- **Execution** (`runs/pipeline.ts` → `execute/executor.ts`): execute the workflow, then record repairs and remember the plan.
+- **Execution** (`runs/pipeline.ts` → `execute/executor.ts`): execute the workflow, with extra rounds when it is short of good leads, then record repairs and remember the plan.
 
 ### Contract (`compile/`)
 
@@ -92,6 +93,16 @@ The planner writes a **PlanDraft**: which candidates to include, why, how many i
 - It raises the LLM budget to at least what the steps need (for example, recipe discovery on a list page).
 
 Every change the compiler makes is recorded in `provenance.warnings`.
+
+### More leads within a run (`execute/executor.ts`, `runs/moreLeads.ts`)
+
+When the planned branches are done and the run has fewer valid records than the contract's `maxRecords`, it looks for more sources itself, the way **Find more** does:
+
+1. The worker model writes up to 3 new search queries, given every query tried so far.
+2. They are searched and sorted like planning's searches (`discoverFromSearch`), and sources the workflow already has are skipped.
+3. The new sources are saved as workflow v+1 (`plannedBy: "more_leads"`), so a re-run reads them too, and their branches run with the run's budgets and time limit.
+
+A run takes at most 2 such rounds, each only while a third of its time limit is left: a round takes about a minute, searching and then a first read of each new page. The rounds stop at the first one that finds no new source, when the AI-call or search budget is used up, or on cancellation. A failure while looking ends them with a warning, not the run. They need web search (SearXNG or Firecrawl). Valid records are counted before duplicates are merged; dedupe, the quality report, the diff and the summary run once, at the end, over every source read.
 
 ### Fetching (`fetch/`)
 
