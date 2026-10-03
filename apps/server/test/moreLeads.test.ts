@@ -5,6 +5,7 @@ import { db } from "../src/db/client";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { runEvents } from "../src/db/schema";
 import { createDecider } from "../src/decide/decider";
+import { recordBoards } from "../src/plan/atsDetect";
 import { foundCandidate } from "../src/plan/discovery";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { compileIr } from "../src/plan/irCompiler";
@@ -37,24 +38,24 @@ const hit = (url: string, title: string): SearchResultItem => ({ url, title, des
 const PLANNED = "https://podlist.example/best-climate-podcasts";
 const NEW = "https://greenshows.example/directory/climate";
 
-/** A run that read one list page found by searching "best climate tech podcasts". */
-async function plannedRun(maxLlmCalls = 10) {
+/** A run that read one list page found by searching "best climate tech podcasts"; the model then thinks of `more`. */
+async function plannedRun({ contract = PODCASTS, more = ["Best climate tech podcasts", "climate podcast interviews"], maxLlmCalls = 10 } = {}) {
   const run = await insertRun({ status: "running" });
-  const contractRow = await saveContract({ requestId: run.requestId, contract: PODCASTS, editedBy: "llm" });
+  const contractRow = await saveContract({ requestId: run.requestId, contract, editedBy: "llm" });
   const found = [listPage(PLANNED)];
   const candidates = found.map(foundCandidate);
   const draft = templateDraft(candidates, 40);
   const caps = { maxPages: 50, maxBrowserPages: 0, maxLlmCalls, maxSearches: 5, maxDurationMs: 60_000, maxRecords: 200 };
-  const ir = compileIr(PODCASTS, draft, candidates, { caps, provenance: { plannedBy: "template", model: null, reusedFrom: null, parentVersion: null } });
+  const ir = compileIr(contract, draft, candidates, { caps, provenance: { plannedBy: "template", model: null, reusedFrom: null, parentVersion: null } });
   ir.search = { queries: [{ query: "best climate tech podcasts", hits: 1, cached: false, error: null }], sources: found };
   const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft });
   await attachWorkflow(run.id, workflow.id);
 
-  const llm = fakeLlm({ more_search_queries: { queries: ["Best climate tech podcasts", "climate podcast interviews"] } });
+  const llm = fakeLlm({ more_search_queries: { queries: more } });
   const ctx = await createRunContext({
     runId: run.id,
     signal: new AbortController().signal,
-    contract: PODCASTS,
+    contract,
     ir,
     fetcher: fixtureFetcher({}).fetcher,
     llm,
@@ -96,8 +97,23 @@ describe("moreLeads", () => {
     expect(await messages(run.id)).toContain("Round 2: 1 new search found 1 more source");
   });
 
+  test("a job request also searches the job boards, and the boards found are read through their APIs", async () => {
+    // A board the registry knows, so it needs no probe; the contract's tags leave it out of the plan.
+    await recordBoards([{ name: "Acme", hit: { ats: "greenhouse", slug: "acme", jobCount: 12 } }]);
+    const { run, ctx } = await plannedRun({ contract: DEMO_CONTRACT, more: ["backend engineer climate tech"] });
+    const onBoards = "backend engineer climate tech (site:greenhouse.io OR site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:apply.workable.com)";
+    const added = await moreLeads(web({ [onBoards]: [hit("https://job-boards.greenhouse.io/acme/jobs/1", "Backend Engineer at Acme")] }), "balanced")(ctx, 2);
+    await ctx.dispose();
+
+    expect(added.map((b) => b.ref)).toEqual(["greenhouse:acme"]);
+    expect(added[0]!.reason).toBe(`Job board on Greenhouse with 12 postings, found by searching "${onBoards}"`);
+    expect(added[0]!.steps[0]).toMatchObject({ kind: "collect", adapter: "greenhouse", fetch: "http", params: { slug: "acme", company: "Acme" } });
+    expect((await getRunWorkflow(run.id)).ir.search?.queries.map((q) => q.query)).toEqual(["best climate tech podcasts", onBoards, "backend engineer climate tech"]);
+    expect(await messages(run.id)).toContain("Round 2: 1 new search found 1 more source");
+  });
+
   test("with no AI calls left, it neither asks the model nor searches", async () => {
-    const { run, ctx, llm } = await plannedRun(0);
+    const { run, ctx, llm } = await plannedRun({ maxLlmCalls: 0 });
     const added = await moreLeads(web({}), "balanced")(ctx, 2);
     await ctx.dispose();
 
