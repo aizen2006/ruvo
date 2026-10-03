@@ -99,7 +99,7 @@ Every change the compiler makes is recorded in `provenance.warnings`.
 When the planned branches are done and the run has fewer valid records than the contract's `maxRecords`, it looks for more sources itself, the way **Find more** does:
 
 1. The worker model writes up to 3 new search queries, given every query tried so far.
-2. They are searched and sorted like planning's searches (`discoverFromSearch`), and sources the workflow already has are skipped.
+2. They are searched and sorted like a round of planning's searches (`searchRound` in `plan/boardSearch.ts`). For a job request they also search Greenhouse, Ashby, Lever and Workable, and the boards behind the postings found become sources read through their APIs, up to the mode's number of new companies a round (Quick 5, Balanced 15, Thorough 30); a posting is never read as a page. Sources the workflow already has are skipped.
 3. The new sources are saved as workflow v+1 (`plannedBy: "more_leads"`), so a re-run reads them too, and their branches run with the run's budgets and time limit.
 
 A run takes at most 2 such rounds, each only while a third of its time limit is left: a round takes about a minute, searching and then a first read of each new page. The rounds stop at the first one that finds no new source, when the AI-call or search budget is used up, or on cancellation. A failure while looking ends them with a warning, not the run. They need web search (SearXNG or Firecrawl). Valid records are counted before duplicates are merged; dedupe, the quality report, the diff and the summary run once, at the end, over every source read.
