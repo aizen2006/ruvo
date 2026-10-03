@@ -15,3 +15,19 @@ server:
 outgoing:
   # RUVO makes a few searches per run and can wait for a slow engine (the 3 s default suits people typing).
   request_timeout: 6.0
+
+# RUVO searches every request, in rounds, so it needs more web engines than the defaults
+# (Google CSE, Brave, DuckDuckGo): when one blocks or rate-limits SearXNG, the others still answer.
+engines:
+  - name: bing
+    disabled: false
+  - name: yahoo
+    disabled: false
+  - name: google
+    disabled: false
+  - name: qwant
+    disabled: false
+  - name: mwmbl
+    disabled: false
+  - name: yep
+    disabled: false
