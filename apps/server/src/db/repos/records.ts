@@ -65,10 +65,10 @@ function recordFilters(runId: string, q: Partial<ListRecordsQuery>, fields: Fiel
   return and(...filters);
 }
 
-/** Valid records first, then best matches. */
+/** Valid records first, then the best leads (see leadOf). */
 const ordering = [
   sql`case ${records.status} when 'valid' then 0 when 'incomplete' then 1 else 2 end`,
-  desc(records.matchScore),
+  desc(sql`${records.matchScore} + ${records.confidence}`),
   asc(records.createdAt),
 ];
 

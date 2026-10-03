@@ -157,8 +157,9 @@ count in Doto on top; the step track below it; first rows underneath on paper.
 coloured block), the trust summary as dot-matrix bars (rows of squares, filled in `ink`, the
 "checked against the page" share in signal), then the table.
 
-**Table**: Geist Mono column headers on a 2px ink rule, hairline rows, no zebra. How sure a row
-is reads as a three-cell meter beside the word (Sure, Likely, Check this).
+**Table**: Geist Mono column headers on a 2px ink rule, hairline rows, no zebra, best lead first.
+The Lead column reads "Strong 93"; how sure a row is reads as a three-cell meter beside the word
+(Sure, Likely, Check this).
 
 **Receipt drawer**: frosted, 20px radius. Each value's quote is set in Geist Mono on `sheet`
 with the found words behind signal.
@@ -177,6 +178,7 @@ The default screens use this vocabulary (`packages/contracts/src/plain.ts`, re-e
 | run | a **dataset** (while collecting: a search) |
 | contract, criteria | the **plan**; rules are **must have** and **nice to have** |
 | confidence ≥ 0.9 / ≥ 0.75 / lower | **Sure** / **Likely** / **Check this** |
+| a valid record's lead score (half match score, half confidence) ≥ 80 / ≥ 60 / lower | **Strong** / **Good** / **Possible**, with the score: "Strong 93" |
 | `API` | From the site's data feed |
 | `JSON_LD` | From the page's listing data |
 | `EMBEDDED_JSON` | From data inside the page |

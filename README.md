@@ -166,8 +166,11 @@ Then open **http://localhost:3001/new**:
    it may take. *Choose models* lets you pick the model for each job.
 3. **Check the plan.** Columns (must have or nice to have), rules, how RUVO read vague words, and
    where it will look. Fix anything that's wrong, then press **Start collecting**.
-4. **Open the list.** Click a row for its receipt: each value, how sure RUVO is, how its page was
-   fetched, and the source text with the value highlighted. **Download** gives you a spreadsheet.
+4. **Watch the funnel, then open the list.** The run shows how many were searched, collected,
+   qualified, complete and ready, and where most were lost. Leads come best first, each with a
+   0–100 score rated Strong, Good or Possible, and a **New** mark on what the last run didn't have.
+   Click a row for its receipt: each value, how sure RUVO is, how its page was fetched, and the
+   source text with the value highlighted. **Download** gives you a spreadsheet.
 
 The contract, workflow, recipes, decisions and full activity log stay one click away, behind
 **Show details**. To rehearse a demo with a live self-repair on a bundled careers site, follow

@@ -30,7 +30,7 @@ beforeAll(async () => {
   const [kept, setAside] = await db
     .insert(records)
     .values([
-      { runId, sourceId, itemKey: "a", status: "valid", confidence: 0.95, data: { company: "Acme", title: "Backend engineer", location: "Remote", url: POSTING } },
+      { runId, sourceId, itemKey: "a", status: "valid", matchScore: 0.75, confidence: 0.95, data: { company: "Acme", title: "Backend engineer", location: "Remote", url: POSTING } },
       { runId, sourceId, itemKey: "b", status: "invalid", confidence: 0.5, data: { company: "=HYPERLINK(\"http://evil\")", title: "Sales lead", location: "Paris", url: "javascript:alert(1)" } },
     ])
     .returning();
@@ -63,13 +63,15 @@ describe("Excel export", () => {
   test("Data has the contract's columns under a bold, frozen, filterable header", async () => {
     const workbook = await download("valid");
     const data = workbook.getWorksheet("Data")!;
-    expect(rowValues(workbook, "Data", 1)).toEqual([...DEMO_CONTRACT.fields.map((f) => f.name), "Certainty", "Source"]);
+    expect(rowValues(workbook, "Data", 1)).toEqual([...DEMO_CONTRACT.fields.map((f) => f.name), "Lead", "Lead score", "Certainty", "Source"]);
     expect(data.getRow(1).getCell(1).font?.bold).toBe(true);
     expect(data.views[0]).toMatchObject({ state: "frozen", ySplit: 1 });
     expect(data.autoFilter).toBeDefined();
     expect(data.rowCount).toBe(2);
-    expect(data.getRow(2).getCell("I").value).toBe("Sure");
-    expect(data.getRow(2).getCell("J").value).toBe("Acme");
+    expect(data.getRow(2).getCell("I").value).toBe("Strong");
+    expect(data.getRow(2).getCell("J").value).toBe(85);
+    expect(data.getRow(2).getCell("K").value).toBe("Sure");
+    expect(data.getRow(2).getCell("L").value).toBe("Acme");
   });
 
   test("web addresses become hyperlinks", async () => {

@@ -5,13 +5,16 @@ import type { Certainty, RunStatus } from "@repo/contracts";
  * these terms; pipeline names (contract, workflow, recipe, method codes) stay behind "Show details".
  */
 
-export { certaintyOf, CERTAINTY_LABEL, FETCH_PHRASE, SOURCE_PHRASE, type Certainty } from "@repo/contracts";
+export { certaintyOf, CERTAINTY_LABEL, FETCH_PHRASE, LEAD_TIER_LABEL, leadOf, SOURCE_PHRASE, type Certainty } from "@repo/contracts";
 
 export const CERTAINTY_HINT: Record<Certainty, string> = {
   sure: "Read directly from the source's own data",
   likely: "Read from the page and checked against it",
   check: "Found, but worth a quick look before you rely on it",
 };
+
+/** How a lead score is made (leadOf). */
+export const LEAD_SCORE_HINT = "Half for the nice to haves it meets, half for how sure RUVO is of its values";
 
 /** The three things a dataset page can be doing, in the order a person meets them. */
 export type Phase = "preparing" | "plan" | "collecting" | "list";

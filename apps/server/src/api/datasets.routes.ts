@@ -1,4 +1,4 @@
-import { ExportQuery } from "@repo/contracts";
+import { ExportQuery, LEAD_TIER_LABEL, leadOf } from "@repo/contracts";
 import { Router } from "express";
 import { exportRecords } from "../db/repos/records";
 import { getRunDetail } from "../db/repos/runs";
@@ -19,7 +19,12 @@ datasetsRouter.get("/:runId/export", async (req, res) => {
   res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
 
   if (format === "json") {
-    res.json(rows.map(({ record, evidenceMethods }) => ({ ...record.data, _status: record.status, _evidence: evidenceMethods })));
+    res.json(
+      rows.map(({ record, evidenceMethods }) => {
+        const lead = leadOf(record);
+        return { ...record.data, _status: record.status, _lead_tier: lead && LEAD_TIER_LABEL[lead.tier], _lead_score: lead?.score ?? null, _evidence: evidenceMethods };
+      }),
+    );
     return;
   }
 
@@ -33,14 +38,19 @@ datasetsRouter.get("/:runId/export", async (req, res) => {
     return;
   }
 
-  const headers = [...fieldNames, "status", "match_score", "confidence", "source", "evidence_methods"];
-  const csvRows = rows.map(({ record, evidenceMethods }) => ({
-    ...record.data,
-    status: record.status,
-    match_score: record.matchScore.toFixed(2),
-    confidence: record.confidence.toFixed(2),
-    source: record.sourceId,
-    evidence_methods: evidenceMethods,
-  }));
+  const headers = [...fieldNames, "lead_tier", "lead_score", "status", "match_score", "confidence", "source", "evidence_methods"];
+  const csvRows = rows.map(({ record, evidenceMethods }) => {
+    const lead = leadOf(record);
+    return {
+      ...record.data,
+      lead_tier: lead && LEAD_TIER_LABEL[lead.tier],
+      lead_score: lead?.score,
+      status: record.status,
+      match_score: record.matchScore.toFixed(2),
+      confidence: record.confidence.toFixed(2),
+      source: record.sourceId,
+      evidence_methods: evidenceMethods,
+    };
+  });
   res.type("text/csv").send(toCsv(headers, csvRows));
 });

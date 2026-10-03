@@ -5,7 +5,7 @@ import { Check, ExternalLink, Minus, X } from "lucide-react";
 import { columnTitle } from "@/components/plan/column-chips";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FETCH_PHRASE, SOURCE_PHRASE } from "@/lib/plain";
+import { FETCH_PHRASE, LEAD_SCORE_HINT, LEAD_TIER_LABEL, leadOf, SOURCE_PHRASE } from "@/lib/plain";
 import { useEvidence } from "@/lib/queries";
 import { cn } from "@/lib/utils";
 import { CertaintyMark } from "./certainty-mark";
@@ -45,10 +45,19 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
 const SIGNAL_ICON = { true: Check, false: X, null: Minus } as const;
 const SIGNAL_TONE = { true: "text-stamp", false: "text-brick", null: "text-pencil" } as const;
 
-/** Why this row is in the list: each rule with its outcome, as a checklist. */
+/** Why this row is in the list: its lead score, then each rule with its outcome, as a checklist. */
 function RowVerdict({ record }: { record: RecordDTO }) {
+  const lead = leadOf(record);
   return (
     <section className="space-y-tight border-b border-hairline pb-group">
+      {lead && (
+        <p className="text-small">
+          <span className="font-medium">
+            {LEAD_TIER_LABEL[lead.tier]} lead, <span className="tabular">{lead.score}</span> of 100.
+          </span>{" "}
+          <span className="text-graphite">{LEAD_SCORE_HINT}.</span>
+        </p>
+      )}
       {record.signals.length > 0 && (
         <ul className="grid gap-x-item gap-y-1.5 font-mono text-micro sm:grid-cols-2">
           {record.signals.map((s) => {

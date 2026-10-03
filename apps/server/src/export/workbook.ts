@@ -1,4 +1,4 @@
-import { CERTAINTY_LABEL, certaintyOf, SOURCE_PHRASE, type RecordDTO, type RunDetail } from "@repo/contracts";
+import { CERTAINTY_LABEL, certaintyOf, LEAD_TIER_LABEL, leadOf, SOURCE_PHRASE, type RecordDTO, type RunDetail } from "@repo/contracts";
 import { Workbook, type CellHyperlinkValue, type CellValue, type Worksheet } from "exceljs";
 import type { ExportRow } from "../db/repos/records";
 import { spreadsheetText } from "../libs/spreadsheetText";
@@ -32,13 +32,18 @@ export function buildWorkbook({ run, fieldNames, rows, sourceLabels, scope }: Wo
   const withStatus = scope === "all";
   addTable(
     workbook.addWorksheet("Data"),
-    [...fieldNames, "Certainty", ...(withStatus ? ["Status"] : []), "Source"],
-    rows.map(({ record }) => [
-      ...fieldNames.map((name) => cellValue(record.data[name])),
-      CERTAINTY_LABEL[certaintyOf(record.confidence)],
-      ...(withStatus ? [STATUS_PHRASE[record.status]] : []),
-      spreadsheetText(sourceLabels.get(record.sourceId) ?? record.sourceId),
-    ]),
+    [...fieldNames, "Lead", "Lead score", "Certainty", ...(withStatus ? ["Status"] : []), "Source"],
+    rows.map(({ record }) => {
+      const lead = leadOf(record);
+      return [
+        ...fieldNames.map((name) => cellValue(record.data[name])),
+        lead && LEAD_TIER_LABEL[lead.tier],
+        lead?.score ?? null,
+        CERTAINTY_LABEL[certaintyOf(record.confidence)],
+        ...(withStatus ? [STATUS_PHRASE[record.status]] : []),
+        spreadsheetText(sourceLabels.get(record.sourceId) ?? record.sourceId),
+      ];
+    }),
   );
 
   const primaryField = run.contract?.fields.find((f) => f.catalogKey === "title")?.name ?? fieldNames[0];

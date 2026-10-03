@@ -1,4 +1,4 @@
-import type { EvidenceMethod, PageVia } from "./record";
+import type { EvidenceMethod, PageVia, RecordDTO } from "./record";
 
 /**
  * Plain words shared by the dashboard and exported files (docs/design.md, "Words"),
@@ -15,6 +15,21 @@ export function certaintyOf(confidence: number): Certainty {
 }
 
 export const CERTAINTY_LABEL: Record<Certainty, string> = { sure: "Sure", likely: "Likely", check: "Check this" };
+
+export type LeadTier = "strong" | "good" | "possible";
+
+/**
+ * A valid record's lead score, 0–100: half for fit (matchScore, the share of nice-to-have weight it
+ * earns) and half for how sure RUVO is of its values (confidence). Strong from 80, Good from 60, else
+ * Possible. Lists sort by matchScore + confidence, the same order. Other records aren't leads.
+ */
+export function leadOf(record: Pick<RecordDTO, "status" | "matchScore" | "confidence">): { score: number; tier: LeadTier } | null {
+  if (record.status !== "valid") return null;
+  const score = Math.round(50 * (record.matchScore + record.confidence));
+  return { score, tier: score >= 80 ? "strong" : score >= 60 ? "good" : "possible" };
+}
+
+export const LEAD_TIER_LABEL: Record<LeadTier, string> = { strong: "Strong", good: "Good", possible: "Possible" };
 
 /** Where a value came from, said the way a person would say it. */
 export const SOURCE_PHRASE: Record<EvidenceMethod, string> = {

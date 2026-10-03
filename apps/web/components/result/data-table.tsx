@@ -15,6 +15,7 @@ import { useRecords, useWorkflow } from "@/lib/queries";
 import { useDebounced } from "@/lib/use-debounced";
 import { cn } from "@/lib/utils";
 import { CertaintyMark } from "./certainty-mark";
+import { LeadMark } from "./lead-mark";
 import { ReceiptDrawer } from "./receipt-drawer";
 
 const PAGE_SIZE = 50;
@@ -178,6 +179,7 @@ export function DataTable({ run }: { run: RunDetail }) {
                     {columnTitle(f)}
                   </TableHead>
                 ))}
+                <TableHead className={HEAD}>Lead</TableHead>
                 <TableHead className={HEAD}>How sure</TableHead>
                 {link && (
                   <TableHead className={HEAD}>
@@ -215,6 +217,9 @@ export function DataTable({ run }: { run: RunDetail }) {
                     </TableCell>
                   ))}
                   <TableCell>
+                    <LeadMark record={record} />
+                  </TableCell>
+                  <TableCell>
                     <CertaintyMark confidence={record.confidence} />
                   </TableCell>
                   {link && (
@@ -233,7 +238,10 @@ export function DataTable({ run }: { run: RunDetail }) {
               <button type="button" onClick={(e) => open(record.id, e.currentTarget)} className="w-full space-y-1 px-item py-3 text-left active:bg-canvas/70">
                 <span className="flex items-start justify-between gap-tight">
                   <span className="font-medium">{cellText(record.data[primary?.name ?? ""])}</span>
-                  <CertaintyMark confidence={record.confidence} />
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    <LeadMark record={record} />
+                    <CertaintyMark confidence={record.confidence} />
+                  </span>
                 </span>
                 <span className="block text-small text-graphite">
                   {columns

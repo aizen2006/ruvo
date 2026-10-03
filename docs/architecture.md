@@ -187,6 +187,7 @@ Every decision is stored with the tier that made it. The Decisions tab shows how
 - **Dedupe**: records are grouped across sources by the contract's dedupe keys, typically canonical URL and normalized company, title and location. The record with the strongest evidence is kept.
 - **Quality report**: the record funnel, completeness per field, the extraction-method mix, the verification rate, a confidence histogram, reject reasons, and per-source counts.
 - **Diff**: new, removed and changed records compared with the previous completed run of the same request, matched by canonical key.
+- **Lead score** (`leadOf`, `packages/contracts/src/plain.ts`): each valid record scores 0–100, half from its match score and half from its confidence; Strong from 80, Good from 60, else Possible. Lists and exports put the best leads first and exports carry the tier and score.
 
 ### Self-repair (`repair/`)
 
@@ -262,6 +263,6 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 | `GET /api/runs`, `GET /api/runs/:id` | History and run detail |
 | `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet) |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
-| `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows |
+| `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows (records come best lead first) |
 | `GET /api/datasets/:runId/export?format=csv\|json\|xlsx&scope=valid\|all` | Export |
 | `GET /api/recipes?host=`, `POST /api/recipes/:id/simulate-drift` | Recipe lineage and the drift demo |
