@@ -1,8 +1,8 @@
-import { AiAccount, type ModelChoice } from "@repo/contracts";
+import type { AiAccount, ModelChoice } from "@repo/contracts";
 import { z } from "zod";
 
 /** Each AI account's default models; MODEL_PLANNER and MODEL_WORKER override them. */
-const ACCOUNT_MODELS: Record<AiAccount, ModelChoice> = {
+export const ACCOUNT_MODELS: Record<AiAccount, ModelChoice> = {
   api_key: { planner: "gpt-6-sol", worker: "gpt-6-luna" },
   // ChatGPT plans don't offer gpt-6-sol; gpt-5.6-terra passes the golden eval in its place.
   chatgpt: { planner: "gpt-5.6-terra", worker: "gpt-6-luna" },
@@ -36,10 +36,9 @@ const EnvSchema = z.object({
 
   DATABASE_URL: z.string().url(),
 
-  /** api_key: OpenAI's API with OPENAI_API_KEY. chatgpt: your ChatGPT plan, through the openai-oauth sign-in server. */
-  AI_ACCOUNT: AiAccount.default("api_key"),
+  /** When set, RUVO uses OpenAI's API with this key; without it, your ChatGPT plan (see AI_ACCOUNT below). */
   OPENAI_API_KEY: unsetIfBlank,
-  /** The sign-in server `bunx openai-oauth --detach` starts; used only with AI_ACCOUNT=chatgpt. */
+  /** The sign-in server `bunx openai-oauth --detach` starts; used only without OPENAI_API_KEY. */
   OPENAI_OAUTH_URL: z.string().url().default("http://127.0.0.1:10531/v1"),
   /** The folder openai-oauth saves the ChatGPT sign-in in (auth.json), as for the Codex CLI; unset means ~/.codex. */
   CODEX_HOME: unsetIfBlank,
@@ -80,15 +79,23 @@ const EnvSchema = z.object({
   MAX_BROWSER_PAGES: z.coerce.number().int().nonnegative().default(20),
   MAX_LLM_CALLS: z.coerce.number().int().nonnegative().default(150),
   MAX_RUN_MS: z.coerce.number().int().positive().default(480_000),
-  /** Optional: no new runs once the last 24 hours of AI and search spend reach this many dollars. */
-  DAILY_BUDGET_USD: z.coerce.number().positive().optional(),
-}).transform((e) => ({
-  ...e,
-  MODEL_PLANNER: e.MODEL_PLANNER ?? ACCOUNT_MODELS[e.AI_ACCOUNT].planner,
-  MODEL_WORKER: e.MODEL_WORKER ?? ACCOUNT_MODELS[e.AI_ACCOUNT].worker,
-  // A ChatGPT plan has no AI spend to cap, so the daily cap is off there (MAX_SEARCHES still limits search per run).
-  DAILY_BUDGET_USD: e.AI_ACCOUNT === "chatgpt" ? undefined : e.DAILY_BUDGET_USD,
-}));
+  /** Optional: no new runs once the last 24 hours of AI and search spend reach this many dollars; blank means no cap. */
+  DAILY_BUDGET_USD: z.preprocess((v) => v || undefined, z.coerce.number().positive().optional()),
+}).transform((e) => {
+  /**
+   * Whose AI RUVO uses, derived here only: an OpenAI API key, when set, overrides the ChatGPT sign-in.
+   * api_key: OpenAI's API with OPENAI_API_KEY. chatgpt: your ChatGPT plan, through the openai-oauth sign-in server.
+   */
+  const AI_ACCOUNT: AiAccount = e.OPENAI_API_KEY ? "api_key" : "chatgpt";
+  return {
+    ...e,
+    AI_ACCOUNT,
+    MODEL_PLANNER: e.MODEL_PLANNER ?? ACCOUNT_MODELS[AI_ACCOUNT].planner,
+    MODEL_WORKER: e.MODEL_WORKER ?? ACCOUNT_MODELS[AI_ACCOUNT].worker,
+    // A ChatGPT plan has no AI spend to cap, so the daily cap is off there (MAX_SEARCHES still limits search per run).
+    DAILY_BUDGET_USD: AI_ACCOUNT === "chatgpt" ? undefined : e.DAILY_BUDGET_USD,
+  };
+});
 
 export type Env = z.infer<typeof EnvSchema>;
 

@@ -12,7 +12,7 @@ const root = join(import.meta.dir, "..", "..", "..");
 const server = join(root, "apps", "server");
 
 const envFiles = [
-  { template: join(server, ".env.example"), target: join(server, ".env"), note: "set OPENAI_API_KEY in it, or AI_ACCOUNT=chatgpt to sign in with ChatGPT instead (see the README)" },
+  { template: join(server, ".env.example"), target: join(server, ".env"), note: "set OPENAI_API_KEY in it, or sign in with ChatGPT on the dashboard's Settings page instead (see the README)" },
   { template: join(root, "apps", "web", ".env.example"), target: join(root, "apps", "web", ".env.local"), note: "" },
 ];
 for (const { template, target, note } of envFiles) {

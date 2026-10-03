@@ -51,8 +51,8 @@ const usageLimit = () =>
     { status: 429, headers: { "retry-after-ms": "0" } },
   );
 
-const chatgptEnv = (url: string) =>
-  loadEnv({ DATABASE_URL, AI_ACCOUNT: "chatgpt", OPENAI_OAUTH_URL: url, OPENAI_API_KEY: REAL_KEY, LLM_CACHE_MODE: "off" });
+/** Without an API key, RUVO uses the ChatGPT plan through the sign-in server at `url`. */
+const chatgptEnv = (url: string) => loadEnv({ DATABASE_URL, OPENAI_OAUTH_URL: url, LLM_CACHE_MODE: "off" });
 
 /** The LlmError a call fails with; checked field by field because Bun's toMatchObject rewrites an Error's message. */
 async function failure(call: Promise<unknown>): Promise<LlmError> {
@@ -71,32 +71,36 @@ const runScope =(onExhausted?: (key: BudgetKey) => void) => ({
 });
 
 describe("loadEnv per AI account", () => {
-  test("an API-key account defaults to gpt-6-sol and gpt-6-luna", () => {
-    const e = loadEnv({ DATABASE_URL });
+  test("an API key, when set, overrides the ChatGPT sign-in", () => {
+    // AI_ACCOUNT is no longer a setting: an old .env line is ignored.
+    const e = loadEnv({ DATABASE_URL, OPENAI_API_KEY: REAL_KEY, AI_ACCOUNT: "chatgpt" });
     expect(e.AI_ACCOUNT).toBe("api_key");
+    expect(openaiFor(e)?.baseURL).toBe("https://api.openai.com/v1");
+    expect(loadEnv({ DATABASE_URL, OPENAI_API_KEY: "" }).AI_ACCOUNT).toBe("chatgpt");
+  });
+
+  test("an API-key account defaults to gpt-6-sol and gpt-6-luna", () => {
+    const e = loadEnv({ DATABASE_URL, OPENAI_API_KEY: REAL_KEY });
     expect([e.MODEL_PLANNER, e.MODEL_WORKER]).toEqual(["gpt-6-sol", "gpt-6-luna"]);
   });
 
-  test("a ChatGPT plan defaults to gpt-5.6-terra and gpt-6-luna and the local sign-in server", () => {
-    const e = loadEnv({ DATABASE_URL, AI_ACCOUNT: "chatgpt" });
+  test("without a key, the ChatGPT plan defaults to gpt-5.6-terra and gpt-6-luna and the local sign-in server", () => {
+    const e = loadEnv({ DATABASE_URL });
     expect([e.MODEL_PLANNER, e.MODEL_WORKER]).toEqual(["gpt-5.6-terra", "gpt-6-luna"]);
     expect(e.OPENAI_OAUTH_URL).toBe("http://127.0.0.1:10531/v1");
   });
 
   test("explicit MODEL_PLANNER and MODEL_WORKER win on either account", () => {
-    for (const account of ["api_key", "chatgpt"]) {
-      const e = loadEnv({ DATABASE_URL, AI_ACCOUNT: account, MODEL_PLANNER: "gpt-6-astra", MODEL_WORKER: "gpt-5.6-luna" });
+    for (const key of [REAL_KEY, ""]) {
+      const e = loadEnv({ DATABASE_URL, OPENAI_API_KEY: key, MODEL_PLANNER: "gpt-6-astra", MODEL_WORKER: "gpt-5.6-luna" });
       expect([e.MODEL_PLANNER, e.MODEL_WORKER]).toEqual(["gpt-6-astra", "gpt-5.6-luna"]);
     }
   });
 
   test("DAILY_BUDGET_USD applies on an API-key account and is dropped on a ChatGPT plan", () => {
-    expect(loadEnv({ DATABASE_URL, DAILY_BUDGET_USD: "5" }).DAILY_BUDGET_USD).toBe(5);
-    expect(loadEnv({ DATABASE_URL, AI_ACCOUNT: "chatgpt", DAILY_BUDGET_USD: "5" }).DAILY_BUDGET_USD).toBeUndefined();
-  });
-
-  test("rejects an unknown account", () => {
-    expect(() => loadEnv({ DATABASE_URL, AI_ACCOUNT: "claude" })).toThrow(/AI_ACCOUNT/);
+    expect(loadEnv({ DATABASE_URL, OPENAI_API_KEY: REAL_KEY, DAILY_BUDGET_USD: "5" }).DAILY_BUDGET_USD).toBe(5);
+    expect(loadEnv({ DATABASE_URL, OPENAI_API_KEY: REAL_KEY, DAILY_BUDGET_USD: "" }).DAILY_BUDGET_USD).toBeUndefined();
+    expect(loadEnv({ DATABASE_URL, DAILY_BUDGET_USD: "5" }).DAILY_BUDGET_USD).toBeUndefined();
   });
 });
 
@@ -106,7 +110,7 @@ describe("llm client on a ChatGPT plan", () => {
   test("calls the sign-in server without OPENAI_API_KEY, at no cost", async () => {
     const signIn = fakeSignIn(() => answered({ city: "Paris" }));
     try {
-      const llm = createLlmClient({ env: { ...chatgptEnv(signIn.url), OPENAI_API_KEY: undefined } });
+      const llm = createLlmClient({ env: chatgptEnv(signIn.url) });
       const run = runScope();
       const result = await llm.parse({ ...request, run });
 
@@ -115,18 +119,6 @@ describe("llm client on a ChatGPT plan", () => {
       expect(run.metrics.snapshot().llmCostUsd).toBe(0);
       const [row] = await db.select().from(llmCalls);
       expect(row).toMatchObject({ model: "gpt-6-luna", costUsd: 0, error: null });
-    } finally {
-      signIn.stop();
-    }
-  });
-
-  test("never sends a real OPENAI_API_KEY that happens to be set", async () => {
-    const signIn = fakeSignIn(() => answered({ city: "Paris" }));
-    try {
-      await createLlmClient({ env: chatgptEnv(signIn.url) }).parse({ ...request, role: "planner" });
-      expect(signIn.hits).toHaveLength(1);
-      expect(signIn.hits[0]!.authorization).not.toContain(REAL_KEY);
-      expect(signIn.hits[0]!.model).toBe("gpt-5.6-terra");
     } finally {
       signIn.stop();
     }
@@ -157,24 +149,18 @@ describe("llm client on a ChatGPT plan", () => {
     }
   });
 
-  test("an unreachable sign-in server says how to start it", async () => {
+  test("with no key and no sign-in server, says to add a key or sign in with ChatGPT in Settings", async () => {
     const closed = fakeSignIn(() => new Response());
     closed.stop();
     const error = await failure(createLlmClient({ env: chatgptEnv(closed.url) }).parse(request));
     expect(error.kind).toBe("api");
-    expect(error.message).toContain(`Can't reach the ChatGPT sign-in server at ${closed.url}`);
-    expect(error.message).toContain('"bunx openai-oauth --detach"');
+    expect(error.message).toContain("Add an OpenAI API key or sign in with ChatGPT in Settings");
+    expect(error.message).toContain(`can't reach the ChatGPT sign-in server at ${closed.url}`);
   }, 10_000); // the SDK retries a refused connection twice, with backoff
 });
 
 describe("llm client on an API-key account", () => {
   beforeEach(resetDb);
-
-  test("a missing key still fails as before", async () => {
-    const e = loadEnv({ DATABASE_URL, LLM_CACHE_MODE: "off" });
-    expect(openaiFor(e)).toBeNull();
-    await expect(createLlmClient({ env: e }).parse(request)).rejects.toMatchObject({ kind: "api", message: "OPENAI_API_KEY is not set" });
-  });
 
   test("a key reaches OpenAI's API", () => {
     const openai = openaiFor(loadEnv({ DATABASE_URL, OPENAI_API_KEY: REAL_KEY }));
@@ -219,9 +205,9 @@ describe("model catalog and options per AI account", () => {
   afterAll(api.close);
   afterEach(() => Object.assign(env, original));
 
-  /** Switches the process configuration to `account` with that account's default models. */
+  /** Switches the process configuration to `account` (with an API key or without one) and that account's default models. */
   const useAccount = (account: AiAccount) =>
-    Object.assign(env, loadEnv({ ...process.env, AI_ACCOUNT: account, MODEL_PLANNER: "", MODEL_WORKER: "" }));
+    Object.assign(env, loadEnv({ ...process.env, OPENAI_API_KEY: account === "api_key" ? REAL_KEY : "", MODEL_PLANNER: "", MODEL_WORKER: "" }));
 
   test("a ChatGPT plan lists only its models, all at $0", async () => {
     useAccount("chatgpt");

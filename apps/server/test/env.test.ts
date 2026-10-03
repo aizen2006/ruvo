@@ -7,7 +7,8 @@ describe("loadEnv", () => {
   test("applies defaults for everything but DATABASE_URL", () => {
     const env = loadEnv(minimal);
     expect(env.PORT).toBe(3000);
-    expect(env.MODEL_PLANNER).toBe("gpt-6-sol");
+    // No API key: the ChatGPT plan's default.
+    expect(env.MODEL_PLANNER).toBe("gpt-5.6-terra");
     expect(env.DECIDER_PROVIDER).toBe("jev");
     expect(env.WORKER_INLINE).toBe(false);
     expect(env.OPENAI_API_KEY).toBeUndefined();

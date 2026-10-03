@@ -76,7 +76,7 @@ export function openaiFor(env: AccountEnv, timeoutMs = 90_000): OpenAI | null {
 
 /**
  * What a failed call means on a ChatGPT plan: a usage or rate limit counts as a spent AI budget,
- * and an unreachable sign-in server says how to start it. Null for any other failure.
+ * and an unreachable sign-in server (no API key and no ChatGPT sign-in) says what to set up. Null for any other failure.
  */
 export function chatgptFailure(err: unknown, env: AccountEnv): LlmError | null {
   if (env.AI_ACCOUNT !== "chatgpt") return null;
@@ -84,7 +84,7 @@ export function chatgptFailure(err: unknown, env: AccountEnv): LlmError | null {
   if (err instanceof OpenAI.APIConnectionError && !(err instanceof OpenAI.APIConnectionTimeoutError)) {
     return new LlmError(
       "api",
-      `Can't reach the ChatGPT sign-in server at ${env.OPENAI_OAUTH_URL}. Start it with "bunx openai-oauth --detach" (and sign in once with "bunx openai-oauth login").`,
+      `Add an OpenAI API key or sign in with ChatGPT in Settings: RUVO has no API key and can't reach the ChatGPT sign-in server at ${env.OPENAI_OAUTH_URL}.`,
     );
   }
   return null;
