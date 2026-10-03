@@ -184,10 +184,12 @@ bunx openai-oauth login      # once: sign in with your ChatGPT account
 bunx openai-oauth --detach   # the sign-in server, on http://127.0.0.1:10531
 ```
 
-Then set `AI_ACCOUNT=chatgpt` in `apps/server/.env` (`OPENAI_API_KEY` can stay empty) and run
-`bun run doctor`. RUVO uses the plan's own models, and the dashboard says "Included in your ChatGPT
-plan" instead of showing dollar estimates. If your `.env` came from an older template and has a
-`MODEL_PLANNER=gpt-6-sol` line, remove it: ChatGPT plans don't offer that model.
+An OpenAI API key, when set, overrides the sign-in: RUVO uses your ChatGPT plan only while
+`OPENAI_API_KEY` is empty, so leave it empty (or press **Remove** next to the key in Settings) and
+run `bun run doctor`. RUVO uses the plan's own models, and the dashboard says "Included in your
+ChatGPT plan" instead of showing dollar estimates. If your `.env` came from an older template,
+delete its `AI_ACCOUNT` line, which RUVO no longer reads, and any `MODEL_PLANNER=gpt-6-sol` line:
+ChatGPT plans don't offer that model.
 
 openai-oauth is not an official OpenAI tool. It reuses the Codex CLI's sign-in, so it could stop
 working at any time, and using it could put your ChatGPT account at risk.
@@ -210,15 +212,20 @@ runs. On a ChatGPT plan, AI calls are included and count as $0.
 
 ## Settings
 
-Everything lives in `apps/server/.env`; the template lists every variable with its default. These
-are the ones worth knowing:
+Everything lives in `apps/server/.env`; the template lists every variable with its default. The
+dashboard's **Settings** page edits the API keys, models, web search, decision model, limits and
+caching there: saving writes the changed lines to that file and restarts RUVO (under
+`bun run dev`). Saved keys are never shown, only their last 4 characters. A list being collected
+starts over about 30 seconds after the restart, reusing the pages and AI answers it already has;
+one caught by two restarts stops with an error. Base URLs, ports and the database are changed in
+the file, and in production, where the page can't save, so is everything else. These are the
+settings worth knowing:
 
 | Setting | Default | Change it when |
 |---|---|---|
-| `AI_ACCOUNT` | `api_key` | You use your ChatGPT plan instead of an API key: `chatgpt` (see above). |
-| `OPENAI_API_KEY` | — | Always, with `api_key`. Understanding, planning, recipe discovery and the judge use it. |
-| `OPENAI_OAUTH_URL` | `http://127.0.0.1:10531/v1` | With `chatgpt`, the sign-in server listens somewhere else. |
-| `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna`; with `chatgpt`, `gpt-5.6-terra`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
+| `OPENAI_API_KEY` | — | You use an API key. When set, it overrides the ChatGPT sign-in; empty, RUVO uses your ChatGPT plan (see above). Understanding, planning, recipe discovery and the judge use it. |
+| `OPENAI_OAUTH_URL` | `http://127.0.0.1:10531/v1` | On a ChatGPT plan, the sign-in server listens somewhere else. |
+| `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna`; on a ChatGPT plan, `gpt-5.6-terra`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
 | `TYPESAFE_API_KEY`, `DECIDER_PROVIDER` | unset, `jev` | You have Jev access. `off` uses rules and the LLM judge only. For a self-hosted Laya, run `docker compose --profile laya up -d` and set `laya` with `DECIDER_BASE_URL=http://localhost:8000`. |
 | `SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG runs somewhere else. Blank turns it off; web search then needs a Firecrawl key. |
 | `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want a backup for when SearXNG finds nothing, and a last way to read pages Scrapling can't. Its credits count in each run's cost. `MAX_SEARCHES` caps searches per run. |
@@ -227,7 +234,7 @@ are the ones worth knowing:
 | `FETCH_CACHE_MODE` | `ttl` | You want repeatable demos (`prefer_cache`) or no network at all (`cache_only`). |
 | `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. `cache_only` replays offline. |
 | `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 300, 20, 150, 8 min | These are ceilings no mode goes above. Lower them to cap what anyone can spend. |
-| `DAILY_BUDGET_USD` | unset | You want a hard daily cap: new runs are refused once the last 24 hours of AI and Firecrawl spend reach it. API keys only. |
+| `DAILY_BUDGET_USD` | unset | You want a hard daily cap: new runs are refused once the last 24 hours of AI and Firecrawl spend reach it. With an API key only. |
 | `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
 
 ## Commands
