@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { hnPermalink, hnWhoIsHiring } from "../src/adapters/hn";
+import { hnPermalink, hnWhoIsHiring } from "../src/domains/jobs/adapters/hn";
 import { fixtureFetcher, loadFixture, testScope } from "./helpers/fixtures";
 
 const threadId = String(loadFixture<{ id: number }>("hn-thread").data.id);

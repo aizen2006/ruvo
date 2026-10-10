@@ -1,10 +1,10 @@
 import { z } from "zod";
-import type { Item } from "../core/items";
-import { parseHnHeader } from "../extract/parsers/hnHeader";
-import { formatSalary } from "../extract/parsers/salary";
-import { htmlToText, truncate } from "../libs/text";
-import { compactFields, derived, fromText } from "./fields";
-import type { SourceAdapter } from "./types";
+import { compactFields, derived, fromText } from "../../../adapters/fields";
+import type { SourceAdapter } from "../../../adapters/types";
+import type { Item } from "../../../core/items";
+import { parseHnHeader } from "../../../extract/parsers/hnHeader";
+import { formatSalary } from "../../../extract/parsers/salary";
+import { htmlToText, truncate } from "../../../libs/text";
 
 const HnParams = z.object({
   /** "latest" or a specific thread's item id. */
@@ -32,6 +32,7 @@ export const hnPermalink = (id: number | string) => `https://news.ycombinator.co
 export const hnWhoIsHiring: SourceAdapter<HnParams> = {
   id: "hn_whoishiring",
   kind: "text",
+  parser: "hn_header",
   params: HnParams,
   provides: {
     company: "REGEX",

@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, spyOn, test } from "bun:test";
-import { ATS_BOARD_URL, type Ats } from "../src/adapters/ats";
-import { autoDetectCompanies, detectBoard, slugVariants } from "../src/plan/atsDetect";
-import { probeBoard } from "../src/plan/atsProbe";
-import { listRegistry } from "../src/plan/registry";
+import { ATS_BOARD_URL, type Ats } from "../src/domains/jobs/adapters/ats";
+import { autoDetectCompanies, detectBoard, slugVariants } from "../src/domains/jobs/atsDetect";
+import { probeBoard } from "../src/domains/jobs/atsProbe";
+import { listRegistry } from "../src/domains/jobs/registry";
 import { resetDb } from "./helpers/db";
 
 beforeEach(resetDb);

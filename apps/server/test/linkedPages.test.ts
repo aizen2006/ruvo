@@ -9,7 +9,6 @@ import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { discoverSources } from "../src/plan/discovery";
 import { compileIr } from "../src/plan/irCompiler";
 import { planForContract } from "../src/plan/planner";
-import type { RegistryCompany } from "../src/plan/registry";
 import { insertRun, resetDb } from "./helpers/db";
 import { fakeLlm } from "./helpers/fakeLlm";
 import { startTestServer } from "./helpers/http";
@@ -37,16 +36,13 @@ const STORIES: DatasetContract = {
   dedupKeys: [["link"]],
   sourceHints: { companies: [], excludeCompanies: [], companyTags: ["ai_lab"], urls: [PAGE], searchQueries: [], includeCommunityBoards: true },
 };
-const registry: RegistryCompany[] = [
-  { id: crypto.randomUUID(), name: "Anthropic", ats: "greenhouse", slug: "anthropic", tags: ["ai_lab"], boardUrl: null, origin: "curated", jobCount: 10, verifiedAt: null },
-];
 const caps = { maxPages: 10, maxBrowserPages: 2, maxLlmCalls: 20, maxDurationMs: 60_000, maxRecords: 100 };
 
 describe("sources for non-job data", () => {
-  test("only linked pages; never the job registry or community boards", () => {
-    expect(discoverSources(STORIES, registry).candidates.map((c) => c.ref)).toEqual([`html_list:${PAGE}`]);
+  test("only linked pages; never the job registry or community boards", async () => {
+    expect((await discoverSources(STORIES)).map((c) => c.ref)).toEqual([`html_list:${PAGE}`]);
     const unlinked = { ...STORIES, sourceHints: { ...STORIES.sourceHints, urls: [] } };
-    expect(discoverSources(unlinked, registry).candidates).toEqual([]);
+    expect(await discoverSources(unlinked)).toEqual([]);
   });
 
   test("linked URLs are cleaned up", () => {
@@ -60,8 +56,8 @@ describe("sources for non-job data", () => {
 });
 
 describe("planning linked pages", () => {
-  test("the LLM budget covers recipe discovery even if the planner set none", () => {
-    const [candidate] = discoverSources(STORIES, registry).candidates;
+  test("the LLM budget covers recipe discovery even if the planner set none", async () => {
+    const [candidate] = await discoverSources(STORIES);
     const draft: PlanDraft = {
       sources: [{ ref: candidate!.ref, include: true, reason: "linked", titleKeywords: [], fetchDetails: false, maxItems: 30 }],
       llmBudget: 0,

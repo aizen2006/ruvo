@@ -1,14 +1,14 @@
 import type { Criterion, DatasetContract, FoundSource } from "@repo/contracts";
-import { ATS_LIST, type Ats } from "../../adapters/ats";
 import type { SearchHit } from "../../adapters/searchHits";
 import { itemKeyFor } from "../../core/items";
 import { compileKeywords, firstKeywordMatch } from "../../libs/keywords";
 import { mapLimit } from "../../libs/limit";
-import { recordBoards, type Probe } from "../../plan/atsDetect";
-import { probeBoard, type ProbeHit } from "../../plan/atsProbe";
-import { isExcluded, normalize, registryCandidate } from "../../plan/discovery";
-import { listRegistry, type RegistryCompany } from "../../plan/registry";
 import type { PackSearch } from "../types";
+import { ATS_LIST, type Ats } from "./adapters/ats";
+import { recordBoards, type Probe } from "./atsDetect";
+import { probeBoard, type ProbeHit } from "./atsProbe";
+import { listRegistry, type RegistryCompany } from "./registry";
+import { isExcluded, normalize, registryCandidate } from "./sources";
 
 /**
  * Job boards found on the web: a posting on an ATS platform RUVO reads (Greenhouse, Ashby,

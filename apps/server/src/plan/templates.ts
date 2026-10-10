@@ -1,7 +1,8 @@
 import type { Budgets, DatasetContract, PlanDraft, WorkflowIR } from "@repo/contracts";
-import { registryCandidate, type SourceCandidate } from "./discovery";
+import type { RegistryCompany } from "../domains/jobs/registry";
+import { registryCandidate } from "../domains/jobs/sources";
+import type { SourceCandidate } from "../domains/types";
 import { compileIr, defaultSourcePlan } from "./irCompiler";
-import type { RegistryCompany } from "./registry";
 
 /** A plan that includes every candidate with default settings; no LLM involved. */
 export function templateDraft(candidates: SourceCandidate[], maxItemsPerSource: number): PlanDraft {

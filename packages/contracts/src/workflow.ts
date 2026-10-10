@@ -20,7 +20,8 @@ export const Step = z.discriminatedUnion("kind", [
   z.object({ ...base, kind: z.literal("collect"), adapter: AdapterId, params: z.unknown(), fetch: FetchMode, maxItems: z.number() }),
   z.object({ ...base, kind: z.literal("prefilter"), keywordsAny: z.array(z.string()), keywordsNone: z.array(z.string()), fields: z.array(z.string()) }),
   z.object({ ...base, kind: z.literal("triage"), task: z.enum(["RELEVANCE", "CRITERION"]), criterionId: z.string().nullable(), llmBudget: z.number() }),
-  z.object({ ...base, kind: z.literal("extract_text"), parser: z.literal("hn_header"), llmFallback: z.boolean(), llmBudget: z.number() }),
+  /** `parser` is the one the text source reads each post's structured part with (e.g. hn_header), if it has one. */
+  z.object({ ...base, kind: z.literal("extract_text"), parser: z.string().nullable(), llmFallback: z.boolean(), llmBudget: z.number() }),
   z.object({ ...base, kind: z.literal("enrich"), fields: z.array(z.string()), rungs: z.array(Rung), fetch: FetchMode, maxFetches: z.number() }),
   z.object({ ...base, kind: z.literal("match"), criteria: z.array(z.string()) }),
   z.object({ ...base, kind: z.literal("validate"), required: z.array(z.string()), requireEvidence: z.literal(true) }),

@@ -1,8 +1,12 @@
-import { describe, expect, test } from "bun:test";
+import { beforeEach, describe, expect, test } from "bun:test";
 import type { DatasetContract } from "@repo/contracts";
-import { discoverSources } from "../src/plan/discovery";
+import { db } from "../src/db/client";
+import { registryCompanies } from "../src/db/schema";
+import type { RegistryCompany } from "../src/domains/jobs/registry";
+import { registrySources } from "../src/domains/jobs/sources";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import type { RegistryCompany } from "../src/plan/registry";
+import { discoverSources } from "../src/plan/discovery";
+import { resetDb } from "./helpers/db";
 
 const company = (name: string, ats: RegistryCompany["ats"], slug: string, tags: string[]): RegistryCompany => ({
   id: crypto.randomUUID(),
@@ -27,13 +31,13 @@ const contractWith = (hints: Partial<DatasetContract["sourceHints"]>, criteria =
   sourceHints: { companies: [], excludeCompanies: [], companyTags: [], urls: [], searchQueries: [], includeCommunityBoards: false, ...hints },
 });
 
-const refs = (contract: DatasetContract) => discoverSources(contract, registry).candidates.map((c) => c.ref);
+const refs = (contract: DatasetContract) => registrySources(contract, registry).candidates.map((c) => c.ref);
 
-describe("discoverSources", () => {
+describe("registrySources", () => {
   test("named companies take priority; unknown names are reported", () => {
-    const result = discoverSources(contractWith({ companies: ["anthropic", "Acme AI"] }), registry);
+    const result = registrySources(contractWith({ companies: ["anthropic", "Acme AI"] }), registry);
     expect(result.candidates.map((c) => c.ref)).toEqual(["greenhouse:anthropic"]);
-    expect(result.unmatchedCompanies).toEqual(["Acme AI"]);
+    expect(result.unmatched).toEqual(["Acme AI"]);
   });
 
   test("otherwise selects companies carrying the requested tags", () => {
@@ -47,7 +51,7 @@ describe("discoverSources", () => {
   });
 
   test("candidates carry adapter params and a reason", () => {
-    const [first] = discoverSources(contractWith({ companyTags: ["ai_lab"] }, []), registry).candidates;
+    const [first] = registrySources(contractWith({ companyTags: ["ai_lab"] }, []), registry).candidates;
     expect(first).toMatchObject({
       adapter: "greenhouse",
       params: { slug: "anthropic", company: "Anthropic", tags: ["ai_lab"] },
@@ -55,24 +59,30 @@ describe("discoverSources", () => {
     });
   });
 
-  test("offers the Hacker News board when community boards are requested", () => {
-    const refs = discoverSources(contractWith({ includeCommunityBoards: true }, []), registry).candidates.map((c) => c.ref);
-    expect(refs).toContain("hn_whoishiring:latest");
-    expect(discoverSources(contractWith({}, []), registry).candidates.map((c) => c.ref)).not.toContain("hn_whoishiring:latest");
-  });
-
-  test("user-supplied URLs become list-page sources, and the only ones unless companies are named", () => {
-    const result = discoverSources(contractWith({ urls: ["https://example.com/jobs"], companyTags: ["ai_lab"] }, []), registry);
-    expect(result.candidates).toHaveLength(1);
-    expect(result.candidates[0]).toMatchObject({ label: "example.com", params: { url: "https://example.com/jobs" }, origin: "user_url" });
-
-    const named = discoverSources(contractWith({ urls: ["https://example.com/jobs"], companies: ["Anthropic"] }, []), registry);
-    expect(named.candidates.map((c) => c.origin)).toEqual(["user_url", "registry"]);
-  });
-
   test("registry companies with a board page are collected from it", () => {
     const withBoard = [{ ...registry[0]!, boardUrl: "https://apply.workable.com/acme/" }];
-    const [candidate] = discoverSources(contractWith({ companyTags: ["ai_lab"] }, []), withBoard).candidates;
+    const [candidate] = registrySources(contractWith({ companyTags: ["ai_lab"] }, []), withBoard).candidates;
     expect(candidate).toMatchObject({ adapter: "html_list", params: { url: "https://apply.workable.com/acme/", company: "Anthropic" } });
+  });
+});
+
+describe("discoverSources for a job request", () => {
+  beforeEach(async () => {
+    await resetDb();
+    await db.insert(registryCompanies).values(registry.map(({ id: _id, ...c }) => c));
+  });
+
+  test("offers the Hacker News board when community boards are requested", async () => {
+    expect((await discoverSources(contractWith({ includeCommunityBoards: true }, []))).map((c) => c.ref)).toContain("hn_whoishiring:latest");
+    expect((await discoverSources(contractWith({}, []))).map((c) => c.ref)).not.toContain("hn_whoishiring:latest");
+  });
+
+  test("user-supplied URLs come first as list-page sources, and are the only ones unless companies are named", async () => {
+    const linked = await discoverSources(contractWith({ urls: ["https://example.com/jobs"], companyTags: ["ai_lab"] }, []));
+    expect(linked).toHaveLength(1);
+    expect(linked[0]).toMatchObject({ label: "example.com", params: { url: "https://example.com/jobs" }, origin: "user_url" });
+
+    const named = await discoverSources(contractWith({ urls: ["https://example.com/jobs"], companies: ["Anthropic"] }, []));
+    expect(named.map((c) => c.origin)).toEqual(["user_url", "registry"]);
   });
 });

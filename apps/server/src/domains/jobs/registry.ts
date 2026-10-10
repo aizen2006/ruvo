@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { z } from "zod";
-import { db } from "../db/client";
-import { registryCompanies } from "../db/schema";
+import { db } from "../../db/client";
+import { registryCompanies } from "../../db/schema";
 import curated from "./data/companies.json";
 
 /**

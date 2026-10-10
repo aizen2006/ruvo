@@ -8,7 +8,7 @@ import { executeWorkflow, type FindMore } from "../src/execute/executor";
 import { describeMatch, match } from "../src/execute/steps/match";
 import { validate } from "../src/execute/steps/validate";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import type { RegistryCompany } from "../src/plan/registry";
+import type { RegistryCompany } from "../src/domains/jobs/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";

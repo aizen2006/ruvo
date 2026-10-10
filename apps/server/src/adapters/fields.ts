@@ -1,6 +1,5 @@
 import type { FieldValue } from "../core/items";
 import type { FetchResult } from "../fetch/fetcher";
-import { formatSalary, type SalaryPeriod } from "../extract/parsers/salary";
 import { truncate } from "../libs/text";
 
 /**
@@ -58,19 +57,6 @@ export function derived(value: Scalar, basis: string, rule: string, sourceUrl: s
       verified: true,
     },
   };
-}
-
-/** Structured salary from an API, stored in the same display format the regex parser produces. */
-export function salaryFromApi(
-  s: { min: number | null; max: number | null; currency: string | null; period: SalaryPeriod },
-  page: FetchResult,
-  sourceUrl: string,
-  jsonPath: string,
-): FieldValue | undefined {
-  if (s.min === null && s.max === null) return undefined;
-  const min = s.min ?? s.max!;
-  const max = s.max ?? s.min!;
-  return fromApi(formatSalary({ min, max, currency: s.currency, period: s.period }), page, sourceUrl, jsonPath);
 }
 
 /** Drops undefined entries so items only carry fields that have values. */

@@ -9,7 +9,6 @@ import { runs } from "../db/schema";
 import { conflict } from "../libs/errors";
 import { discoverSources, foundCandidate } from "../plan/discovery";
 import { compileIr, defaultSourcePlan } from "../plan/irCompiler";
-import { listRegistry } from "../plan/registry";
 import { appendEvent } from "./eventBus";
 import { budgetsForMode } from "./modes";
 
@@ -49,7 +48,7 @@ export async function editRunContract(runId: string, edited: DatasetContract, re
 
 /**
  * Recompiles a run's workflow from its existing plan (no LLM call) as a new version and moves the
- * run onto it. Candidates are the registry's sources for the contract plus those web search found
+ * run onto it. Candidates are the sources the contract's domain knows plus those web search found
  * (`search`); the planner's choices are kept for sources that are still candidates.
  */
 export async function recompileWorkflow(
@@ -66,7 +65,7 @@ export async function recompileWorkflow(
   },
 ) {
   const { current, contract, search, removed = new Set() } = input;
-  const discovered = discoverSources(contract, await listRegistry()).candidates;
+  const discovered = await discoverSources(contract);
   const known = new Set(discovered.map((c) => c.ref));
   const candidates = [...discovered, ...(search?.sources ?? []).filter((s) => !known.has(s.ref)).map(foundCandidate)].filter(
     (c) => !removed.has(c.ref),

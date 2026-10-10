@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { FieldSpec } from "@repo/contracts";
-import { hnWhoIsHiring } from "../src/adapters/hn";
+import { hnWhoIsHiring } from "../src/domains/jobs/adapters/hn";
 import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate } from "../src/execute/candidate";
 import { extractText } from "../src/execute/steps/extractText";

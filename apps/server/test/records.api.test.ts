@@ -3,7 +3,7 @@ import { attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/work
 import { executeWorkflow } from "../src/execute/executor";
 import { toCsv } from "../src/libs/csv";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import type { RegistryCompany } from "../src/plan/registry";
+import type { RegistryCompany } from "../src/domains/jobs/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";

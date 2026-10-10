@@ -1,13 +1,13 @@
 /**
  * Verifies the curated company candidates against the live ATS APIs and writes the
- * ones with a working board to src/plan/data/companies.json: `bun run probe:registry`.
+ * ones with a working board to src/domains/jobs/data/companies.json: `bun run probe:registry`.
  * A candidate whose preferred ATS fails is also tried on the other ATSs.
  */
 import { writeFile } from "node:fs/promises";
-import type { Ats } from "../src/adapters/ats";
+import type { Ats } from "../src/domains/jobs/adapters/ats";
 import { env } from "../src/config/env";
-import { findBoard } from "../src/plan/atsProbe";
-import type { COMPANY_TAGS, CuratedCompany } from "../src/plan/registry";
+import { findBoard } from "../src/domains/jobs/atsProbe";
+import type { COMPANY_TAGS, CuratedCompany } from "../src/domains/jobs/registry";
 
 type Candidate = { name: string; ats: Ats; slug: string; boardUrl?: string; tags: Array<(typeof COMPANY_TAGS)[number]> };
 
@@ -51,6 +51,6 @@ for (const candidate of CANDIDATES) {
   verified.push({ ...candidate, ats: hit.ats, jobCount: hit.jobCount, verifiedAt: new Date().toISOString() });
 }
 
-const out = new URL("../src/plan/data/companies.json", import.meta.url);
+const out = new URL("../src/domains/jobs/data/companies.json", import.meta.url);
 await writeFile(out, `${JSON.stringify(verified, null, 2)}\n`);
-console.log(`\n${verified.length}/${CANDIDATES.length} verified → src/plan/data/companies.json`);
+console.log(`\n${verified.length}/${CANDIDATES.length} verified → src/domains/jobs/data/companies.json`);

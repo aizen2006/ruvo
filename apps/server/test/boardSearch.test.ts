@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import type { Ats } from "../src/adapters/ats";
+import type { Ats } from "../src/domains/jobs/adapters/ats";
 import type { SearchHit } from "../src/adapters/searchHits";
 import { createBudget, createMetrics, type EmitInput } from "../src/core/run";
 import { searchRounds } from "../src/discover/rounds";
 import { boardsFromHits } from "../src/domains/jobs/boards";
-import { recordBoards } from "../src/plan/atsDetect";
+import { recordBoards } from "../src/domains/jobs/atsDetect";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { listRegistry } from "../src/plan/registry";
+import { listRegistry } from "../src/domains/jobs/registry";
 import { createSearchRunner } from "../src/search/cache";
 import type { SearchResultItem } from "../src/search/firecrawl";
 import { resetDb } from "./helpers/db";

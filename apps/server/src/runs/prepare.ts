@@ -6,12 +6,11 @@ import type { ClaimedRun } from "../db/queue";
 import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
 import { emitSearches, searchMore, searchRounds } from "../discover/rounds";
-import { autoDetectCompanies } from "../plan/atsDetect";
-import { discoverSources, foundCandidate } from "../plan/discovery";
+import { packOf } from "../domains";
 import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
+import { discoverSources, foundCandidate } from "../plan/discovery";
 import { planForContract } from "../plan/planner";
-import { listRegistry } from "../plan/registry";
 import type { WebDiscovery, WebSearch } from "../plan/webDiscovery";
 import { recompileWorkflow } from "./editContract";
 import { createEventBus, nextEventSeq, type EventBus } from "./eventBus";
@@ -48,22 +47,10 @@ export const createPreparer = ({ llm: baseLlm, memory, webSearch: web = null }: 
     });
 
     await stage("planning", { type: "discovery.started", message: "Finding sources" });
-    let discovery = discoverSources(contract, await listRegistry());
+    const candidates = await discoverSources(contract, { userAgent: env.USER_AGENT, emit: (event) => bus.emit({ ...event, stage: "planning" }) });
     const caps = budgetsForMode(run.mode, env, contract.maxRecords);
 
-    // Companies the user named that the registry doesn't know: look for their public boards.
-    if (discovery.unmatchedCompanies.length) {
-      const { found, missing } = await autoDetectCompanies(discovery.unmatchedCompanies, { userAgent: env.USER_AGENT });
-      for (const { name, hit } of found) {
-        bus.emit({ stage: "planning", type: "discovery.detected", message: `Found a ${hit.ats} job board for ${name} (${hit.jobCount} postings)` });
-      }
-      if (missing.length) {
-        bus.emit({ stage: "planning", type: "discovery.not_found", level: "warn", message: `No public job board found for ${missing.join(", ")}` });
-      }
-      if (found.length) discovery = discoverSources(contract, await listRegistry());
-    }
-
-    // Every request searches the web when it can: linked pages and registry companies are read too.
+    // Every request searches the web when it can: linked pages and the sources its domain knows are read too.
     let search: WebDiscovery | null = null;
     if (web) {
       await stage("discovering", { type: "discovery.search_started", message: `Searching the web (up to ${caps.maxSearches} searches)` });
@@ -76,12 +63,12 @@ export const createPreparer = ({ llm: baseLlm, memory, webSearch: web = null }: 
         scope,
         resultsPerQuery: searchResultsPerQuery(run.mode),
         userAgent: env.USER_AGENT,
-        planned: discovery.candidates,
+        planned: candidates,
         emit: bus.emit,
       });
-      const known = new Set(discovery.candidates.map((c) => c.ref));
+      const known = new Set(candidates.map((c) => c.ref));
       const added = search.sources.filter((s) => !known.has(s.ref)).map(foundCandidate);
-      discovery.candidates.push(...added);
+      candidates.push(...added);
       await stage("planning", {
         type: "discovery.search_completed",
         message: `Web search found ${added.length} source${added.length === 1 ? "" : "s"} RUVO may read`,
@@ -91,13 +78,13 @@ export const createPreparer = ({ llm: baseLlm, memory, webSearch: web = null }: 
     bus.emit({
       stage: "planning",
       type: "discovery.completed",
-      level: discovery.candidates.length ? "info" : "warn",
-      message: discovery.candidates.length ? `${discovery.candidates.length} candidate sources` : noSourcesMessage(contract, search),
-      data: { candidates: discovery.candidates.map((c) => c.ref), unmatchedCompanies: discovery.unmatchedCompanies },
+      level: candidates.length ? "info" : "warn",
+      message: candidates.length ? `${candidates.length} candidate sources` : noSourcesMessage(contract, search),
+      data: { candidates: candidates.map((c) => c.ref) },
     });
 
     const remembered = (await memory?.recall(contract)) ?? null;
-    const { ir, draft, reused } = await planForContract(llm, contract, discovery.candidates, caps, signal, remembered);
+    const { ir, draft, reused } = await planForContract(llm, contract, candidates, caps, signal, remembered);
     if (search) ir.search = { queries: search.searches, sources: search.sources };
     const workflow = await saveWorkflow({ contractId: contractRow.id, ir, planDraft: draft, reusedFromWorkflowId: reused?.workflowId ?? null });
     if (reused) {
@@ -175,7 +162,8 @@ function noSourcesMessage(contract: DatasetContract, search: WebDiscovery | null
     const queries = search.searches.map((s) => `"${s.query}"`).join(", ");
     return `No sources found: searched the web for ${queries || "nothing"} and found no page RUVO may read. Add the address of a page that lists these records`;
   }
-  return contract.domain === "jobs"
+  // A domain with sources of its own found none that fit; any other needs a page to read.
+  return packOf(contract).knownSources
     ? "No supported sources match this request"
     : "No page to read yet: add the address of a page that lists these records to the contract";
 }

@@ -1,8 +1,15 @@
+import type { SourceAdapter } from "../../adapters/types";
 import { bulletList } from "../../libs/text";
 import type { DomainPack } from "../types";
+import { ashby } from "./adapters/ashby";
+import { greenhouse } from "./adapters/greenhouse";
+import { hnWhoIsHiring } from "./adapters/hn";
+import { lever } from "./adapters/lever";
+import { workable } from "./adapters/workable";
 import { boardSearch } from "./boards";
 import { COMPANY_TAG_GUIDE, JOB_FIELD_GUIDE } from "./fields";
 import { normalizeJobs } from "./normalize";
+import { knownJobSources } from "./sources";
 
 /** Job postings: the deep domain, read from job boards RUVO knows, boards found by search, and job pages. */
 export const jobsPack: DomainPack = {
@@ -18,5 +25,7 @@ company_tag registry tags:
 ${bulletList(COMPANY_TAG_GUIDE)}
 searchQueries: leave empty (RUVO uses its job-board registry).`,
   normalize: normalizeJobs,
+  adapters: [greenhouse, ashby, lever, workable, hnWhoIsHiring] as SourceAdapter<unknown>[],
+  knownSources: knownJobSources,
   search: boardSearch,
 };

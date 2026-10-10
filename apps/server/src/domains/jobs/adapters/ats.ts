@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { SalaryPeriod } from "../extract/parsers/salary";
+import { fromApi } from "../../../adapters/fields";
+import type { FieldValue } from "../../../core/items";
+import { formatSalary, type SalaryPeriod } from "../../../extract/parsers/salary";
+import type { FetchResult } from "../../../fetch/fetcher";
 
 /** Parameters shared by all ATS job-board adapters. */
 export const AtsParams = z.object({
@@ -41,6 +44,19 @@ export function periodFromInterval(interval: string | null | undefined): SalaryP
   if (v.includes("hour")) return "hour";
   if (v.includes("month")) return "month";
   return "year";
+}
+
+/** Structured salary from an API, stored in the same display format the regex parser produces. */
+export function salaryFromApi(
+  s: { min: number | null; max: number | null; currency: string | null; period: SalaryPeriod },
+  page: FetchResult,
+  sourceUrl: string,
+  jsonPath: string,
+): FieldValue | undefined {
+  if (s.min === null && s.max === null) return undefined;
+  const min = s.min ?? s.max!;
+  const max = s.max ?? s.min!;
+  return fromApi(formatSalary({ min, max, currency: s.currency, period: s.period }), page, sourceUrl, jsonPath);
 }
 
 /** "FullTime" / "full_time" / "Full-time" → "Full-time". */

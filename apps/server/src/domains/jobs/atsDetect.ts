@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
-import { ATS_LIST } from "../adapters/ats";
-import { db } from "../db/client";
-import { registryCompanies } from "../db/schema";
+import { ATS_LIST } from "./adapters/ats";
+import { db } from "../../db/client";
+import { registryCompanies } from "../../db/schema";
 import { probeBoard, type ProbeHit } from "./atsProbe";
 import type { RegistryCompany } from "./registry";
 import { slugVariants } from "./slugs";

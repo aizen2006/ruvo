@@ -18,6 +18,8 @@ export interface AdapterContext {
 export interface SourceAdapter<P> {
   id: AdapterId;
   kind: "api" | "html" | "text";
+  /** For a text source: the parser that reads each post's structured part, named in its plan's extract_text step. */
+  parser?: string;
   params: z.ZodType<P>;
   /** Catalog fields this adapter fills directly, and by which method (used by the IR compiler); "*" stands for every field. */
   provides: Partial<Record<string, EvidenceMethod>>;

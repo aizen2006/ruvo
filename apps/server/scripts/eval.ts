@@ -9,9 +9,9 @@ import { createServices } from "../src/app/services";
 import { compileRequirement } from "../src/compile/requirementCompiler";
 import { env } from "../src/config/env";
 import { sql } from "../src/db/client";
+import { curatedCompanies, type RegistryCompany } from "../src/domains/jobs/registry";
+import { registrySources } from "../src/domains/jobs/sources";
 import { DEMO_PROMPT } from "../src/plan/demoContract";
-import { discoverSources } from "../src/plan/discovery";
-import { curatedCompanies, type RegistryCompany } from "../src/plan/registry";
 
 const { llm } = createServices(env);
 
@@ -24,7 +24,7 @@ const remoteCriterion = (c: DatasetContract) => criteria(c, "equals").find((k) =
 const hasValue = (list: string[], pattern: RegExp) => list.some((v) => pattern.test(v));
 
 const registry: RegistryCompany[] = curatedCompanies().map((c) => ({ ...c, boardUrl: c.boardUrl ?? null, id: c.slug, origin: "curated", verifiedAt: new Date(c.verifiedAt) }));
-const discovered = (c: DatasetContract) => discoverSources(c, registry).candidates.map((s) => s.label);
+const discovered = (c: DatasetContract) => registrySources(c, registry).candidates.map((s) => s.label);
 
 const CASES: EvalCase[] = [
   {

@@ -4,7 +4,7 @@ import { db } from "../src/db/client";
 import { evidence, records } from "../src/db/schema";
 import { attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import type { RegistryCompany } from "../src/plan/registry";
+import type { RegistryCompany } from "../src/domains/jobs/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { insertRun, resetDb } from "./helpers/db";
 import { startTestServer } from "./helpers/http";

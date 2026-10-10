@@ -5,7 +5,7 @@ import { loadEnv } from "../src/config/envSchema";
 import { attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { syncCuratedRegistry } from "../src/plan/registry";
+import { syncCuratedRegistry } from "../src/domains/jobs/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createPreparer } from "../src/runs/prepare";
 import { startWorker, type RunExecutor } from "../src/runs/worker";

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { certaintyOf, type DatasetContract } from "@repo/contracts";
-import { hnWhoIsHiring } from "../src/adapters/hn";
+import { hnWhoIsHiring } from "../src/domains/jobs/adapters/hn";
 import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate, type Candidate } from "../src/execute/candidate";
 import { match } from "../src/execute/steps/match";

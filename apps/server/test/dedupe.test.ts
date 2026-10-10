@@ -7,7 +7,7 @@ import { clusterDuplicates, normalizeText, recordKeys, type DedupeCandidate } fr
 import { executeWorkflow } from "../src/execute/executor";
 import { dedupeRun } from "../src/execute/steps/dedupe";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import type { RegistryCompany } from "../src/plan/registry";
+import type { RegistryCompany } from "../src/domains/jobs/registry";
 import { buildTemplateIr } from "../src/plan/templates";
 import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";

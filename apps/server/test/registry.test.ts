@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { curatedCompanies, listRegistry, syncCuratedRegistry } from "../src/plan/registry";
+import { curatedCompanies, listRegistry, syncCuratedRegistry } from "../src/domains/jobs/registry";
 import { resetDb } from "./helpers/db";
 
 beforeEach(resetDb);

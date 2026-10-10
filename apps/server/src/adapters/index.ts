@@ -1,17 +1,13 @@
 import type { AdapterId } from "@repo/contracts";
-import { ashby } from "./ashby";
-import { greenhouse } from "./greenhouse";
-import { hnWhoIsHiring } from "./hn";
+import { PACKS } from "../domains";
 import { htmlList } from "./htmlList";
 import { htmlRecord } from "./htmlRecord";
-import { lever } from "./lever";
 import { searchHits } from "./searchHits";
 import type { SourceAdapter } from "./types";
-import { workable } from "./workable";
 
-/** Every source adapter RUVO can run, keyed by the id used in the Workflow IR. */
+/** Every source adapter RUVO can run, keyed by the id used in the Workflow IR: the core ones, which read any page, and each domain pack's own. */
 const ADAPTERS = new Map(
-  [greenhouse, ashby, lever, workable, hnWhoIsHiring, htmlList, htmlRecord, searchHits].map((a) => [a.id, a as SourceAdapter<unknown>] as const),
+  [htmlList, htmlRecord, searchHits, ...PACKS.flatMap((p) => p.adapters ?? [])].map((a) => [a.id, a as SourceAdapter<unknown>] as const),
 );
 
 export function getAdapter(id: AdapterId): SourceAdapter<unknown> {

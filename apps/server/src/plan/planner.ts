@@ -3,7 +3,7 @@ import { getAdapter } from "../adapters";
 import type { LlmClient } from "../llm/client";
 import { logger } from "../libs/logger";
 import type { Recalled } from "../memory/workflowMemory";
-import type { SourceCandidate } from "./discovery";
+import type { SourceCandidate } from "../domains/types";
 import { compileIr } from "./irCompiler";
 import { templateDraft } from "./templates";
 

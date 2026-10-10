@@ -1,5 +1,5 @@
-import { ATS_BOARD_URL, ATS_LIST, countPostings, type Ats } from "../adapters/ats";
-import { directGet } from "../fetch/transports/direct";
+import { ATS_BOARD_URL, ATS_LIST, countPostings, type Ats } from "./adapters/ats";
+import { directGet } from "../../fetch/transports/direct";
 
 export interface ProbeHit {
   ats: Ats;

@@ -5,7 +5,7 @@ import { db } from "../src/db/client";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { runEvents } from "../src/db/schema";
 import { createDecider } from "../src/decide/decider";
-import { recordBoards } from "../src/plan/atsDetect";
+import { recordBoards } from "../src/domains/jobs/atsDetect";
 import { foundCandidate } from "../src/plan/discovery";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { compileIr } from "../src/plan/irCompiler";

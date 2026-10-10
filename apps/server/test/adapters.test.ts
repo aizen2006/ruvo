@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { ashby } from "../src/adapters/ashby";
-import { greenhouse } from "../src/adapters/greenhouse";
-import { lever } from "../src/adapters/lever";
-import type { AtsParams } from "../src/adapters/ats";
+import { ashby } from "../src/domains/jobs/adapters/ashby";
+import { greenhouse } from "../src/domains/jobs/adapters/greenhouse";
+import { lever } from "../src/domains/jobs/adapters/lever";
+import type { AtsParams } from "../src/domains/jobs/adapters/ats";
 import type { SourceAdapter } from "../src/adapters/types";
-import { workable } from "../src/adapters/workable";
+import { workable } from "../src/domains/jobs/adapters/workable";
 import type { Item } from "../src/core/items";
 import { fixtureFetcher, testScope } from "./helpers/fixtures";
 

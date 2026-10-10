@@ -2,10 +2,10 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import type { PlanDraft } from "@repo/contracts";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { registryCandidate } from "../src/plan/discovery";
+import { registryCandidate } from "../src/domains/jobs/sources";
 import { compileIr } from "../src/plan/irCompiler";
 import { planForContract } from "../src/plan/planner";
-import type { RegistryCompany } from "../src/plan/registry";
+import type { RegistryCompany } from "../src/domains/jobs/registry";
 import { resetDb } from "./helpers/db";
 import { fakeLlm, fakeResponses } from "./helpers/fakeLlm";
 
@@ -39,6 +39,12 @@ describe("compileIr", () => {
     expect(ir.sources[1]!.steps.map((s) => s.kind)).toEqual(["collect", "prefilter", "match", "validate", "store"]);
     expect(ir.sources[0]!.reason).toBe("Use Anthropic");
     expect(ir.provenance.warnings).toEqual([]);
+  });
+
+  test("a free-text source's extract step names the parser its adapter reads posts with", () => {
+    const hn = { ref: "hn_whoishiring:latest", adapter: "hn_whoishiring", label: "HN", params: { thread: "latest" }, tags: [], jobCount: null, reason: "test", origin: "community" as const };
+    const ir = compileIr(DEMO_CONTRACT, draft({ sources: [{ ...draft().sources[0]!, ref: hn.ref }] }), [hn], { caps, provenance });
+    expect(ir.sources[0]!.steps.find((s) => s.kind === "extract_text")).toMatchObject({ parser: "hn_header" });
   });
 
   test("drops unknown and duplicate refs, falling back to all candidates if nothing is left", () => {

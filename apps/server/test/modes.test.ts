@@ -7,7 +7,7 @@ import { llmCalls, workflows } from "../src/db/schema";
 import { createLlmClient, scopeLlm } from "../src/llm/client";
 import { modelCatalog } from "../src/llm/models";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { syncCuratedRegistry } from "../src/plan/registry";
+import { syncCuratedRegistry } from "../src/domains/jobs/registry";
 import { branchConcurrencyForMode, budgetsForMode, modelsForMode, modeOptions } from "../src/runs/modes";
 import { createPreparer } from "../src/runs/prepare";
 import { startWorker } from "../src/runs/worker";

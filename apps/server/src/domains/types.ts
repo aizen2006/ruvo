@@ -1,5 +1,7 @@
-import type { DatasetContract, FoundSource, RunMode } from "@repo/contracts";
+import type { AdapterId, DatasetContract, FoundSource, RunMode } from "@repo/contracts";
 import type { SearchHit } from "../adapters/searchHits";
+import type { SourceAdapter } from "../adapters/types";
+import type { EmitInput } from "../core/run";
 
 /**
  * What RUVO knows about one kind of record, e.g. job postings. The requirement compiler is told
@@ -18,8 +20,34 @@ export interface DomainPack {
   prompt: string;
   /** Its deterministic defaults for a contract the compiler wrote or a user edited, after the shared clean-up. */
   normalize?(contract: DatasetContract, context: NormalizeContext): DatasetContract;
+  /** Source adapters of its own, beside the core ones that read any page (for jobs, the ATS boards and Hacker News). */
+  adapters?: SourceAdapter<unknown>[];
+  /**
+   * Sources it knows for a contract without searching (for jobs, the registry's companies). With
+   * `lookUp`, while a run is prepared, it may first look for ones it doesn't know yet.
+   */
+  knownSources?(contract: DatasetContract, lookUp?: SourceLookUp): Promise<SourceCandidate[]>;
   /** What it adds to searching the web for sources (for jobs, the job-board platforms). */
   search?: PackSearch;
+}
+
+/** A source the planner may choose. `ref` is the stable id plans refer to. */
+export interface SourceCandidate {
+  ref: string;
+  adapter: AdapterId;
+  label: string;
+  params: Record<string, unknown>;
+  tags: string[];
+  /** Postings at last verification; null when unknown. */
+  jobCount: number | null;
+  reason: string;
+  origin: "registry" | "community" | "user_url" | "search";
+}
+
+/** How a pack looks up sources it doesn't know yet while a run is prepared, and tells the run what it found. */
+export interface SourceLookUp {
+  userAgent: string;
+  emit(event: Omit<EmitInput, "stage">): void;
 }
 
 /** A pack's part in a run's search rounds: searches of its own, and sources of its own among the hits. */

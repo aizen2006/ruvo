@@ -2,7 +2,7 @@ import { EVIDENCE_METHODS, type Budgets, type DatasetContract, type PlanDraft, t
 import { getAdapter } from "../adapters";
 import { fills } from "../adapters/types";
 import { itemKeyFor } from "../core/items";
-import type { SourceCandidate } from "./discovery";
+import type { SourceCandidate } from "../domains/types";
 
 /** Fields RUVO produces itself rather than reading from a source. */
 const GENERATED_FIELDS: ReadonlySet<string> = new Set(["match_reason"]);
@@ -121,7 +121,7 @@ function buildBranch(
   if (adapter.kind === "text") {
     steps.push(
       { id: `${id}.triage`, kind: "triage", task: "RELEVANCE", criterionId: null, llmBudget: TEXT_SOURCE_LLM_ITEMS },
-      { id: `${id}.extract_text`, kind: "extract_text", parser: "hn_header", llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS },
+      { id: `${id}.extract_text`, kind: "extract_text", parser: adapter.parser ?? null, llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS },
     );
   }
   // Always present: it applies the source's item cap, and the keyword gate when the contract has keyword criteria.

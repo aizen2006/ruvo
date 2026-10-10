@@ -1,9 +1,9 @@
-import { joinLocations } from "../extract/parsers/location";
-import { arrangementFromWorkplaceType, detectArrangement } from "../extract/parsers/remote";
-import { decodeEntities, htmlToText, truncate } from "../libs/text";
+import { compactFields, derived, fromApi } from "../../../adapters/fields";
+import type { SourceAdapter } from "../../../adapters/types";
+import { joinLocations } from "../../../extract/parsers/location";
+import { arrangementFromWorkplaceType, detectArrangement } from "../../../extract/parsers/remote";
+import { decodeEntities, htmlToText, truncate } from "../../../libs/text";
 import { ATS_BOARD_URL, ATS_MAX_BYTES, AtsParams } from "./ats";
-import { compactFields, derived, fromApi } from "./fields";
-import type { SourceAdapter } from "./types";
 
 interface GreenhouseJob {
   id: number;
