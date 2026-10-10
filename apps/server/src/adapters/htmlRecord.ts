@@ -8,7 +8,7 @@ import { llmRung } from "../extract/rungs/llm";
 import { readSchemaField, schemaListItems } from "../extract/schemaOrg";
 import { LlmError } from "../llm/client";
 import { htmlToText } from "../libs/text";
-import { canonicalUrl } from "../libs/url";
+import { canonicalUrl, sameSiteCanonical } from "../libs/url";
 import { extractJsonLd } from "../page/structured";
 import { derived } from "./fields";
 import { everyField, type SourceAdapter } from "./types";
@@ -48,18 +48,21 @@ export const htmlRecord: SourceAdapter<HtmlRecordParams> = {
       });
     }
 
+    // The record's address is the canonical one its page declares on its own site (never fetched), so the same page
+    // reached by another address is the same record; else the address it was read at.
+    const own = sameSiteCanonical($('link[rel="canonical"]').attr("href"), page.finalUrl) ?? page.finalUrl;
     $(CHROME).remove();
     const text = htmlToText($.html());
     const input = { text, html: page.body, ...source };
     const filled = await runLadder(run, input, fields, [jsonLdRung]);
     const urlField = fields.find((f) => f.catalogKey === "url");
-    if (urlField && !filled[urlField.name]) filled[urlField.name] = derived(page.finalUrl, page.finalUrl, "the record's own page", page.finalUrl, page.pageId)!;
+    if (urlField && !filled[urlField.name]) filled[urlField.name] = derived(own, own, "the record's own page", page.finalUrl, page.pageId)!;
     try {
       Object.assign(filled, await runLadder(run, input, fields.filter((f) => !filled[f.name]), [llmRung]));
     } catch (err) {
       if (!(err instanceof LlmError)) throw err;
     }
-    return [toItem(run, canonicalUrl(page.finalUrl) ?? page.finalUrl, filled, { plain: text, ...source })];
+    return [toItem(run, canonicalUrl(own) ?? own, filled, { plain: text, ...source })];
   },
 };
 

@@ -185,7 +185,7 @@ Every decision is stored with the tier that made it. The Decisions tab shows how
 ### Validation, dedupe, quality, diff (`execute/`)
 
 - **Validate**: a required field counts only if its value is verified. Records are `valid`, `incomplete` (a required value is missing) or `invalid` (a hard criterion failed).
-- **Dedupe**: records are grouped across sources by the contract's dedupe keys, typically canonical URL and normalized company, title and location. The record with the strongest evidence is kept.
+- **Dedupe**: records are grouped across sources by the contract's dedupe keys, typically canonical URL and normalized company, title and location. A canonical URL drops tracking parameters (`libs/url.ts`), and a single-record page that declares a canonical link on its own site is known by that address, which is never fetched. The record with the strongest evidence is kept.
 - **Quality report**: the record funnel, completeness per field, the extraction-method mix, the verification rate, a confidence histogram, reject reasons, and per-source counts.
 - **Diff**: new, removed and changed records compared with the previous completed run of the same request, matched by canonical key. Once the diff names that run, a records list marks the kept records it didn't have (`isNew`) and can show only those.
 - **Lead score** (`leadOf`, `packages/contracts/src/plain.ts`): each valid record scores 0–100, half from its match score and half from its confidence; Strong from 80, Good from 60, else Possible. Lists and exports put the best leads first and exports carry the tier and score.
@@ -244,7 +244,7 @@ Each account has its own default models (`ACCOUNT_MODELS` in `config/envSchema.t
 | `workflows` | IR versions with parent and reused-from links and the PlanDraft |
 | `runs` | Status, stage, mode and models, attempt, heartbeat, metrics, quality report, diff, error |
 | `run_events` | The run's activity feed, numbered per run |
-| `pages` | Fetched pages and how each was fetched (`via`): the fetch cache and the evidence snapshots |
+| `pages` | Fetched pages and how each was fetched (`via`): the fetch cache and the evidence snapshots. A page fetched again with the same body keeps its newest row, marked fetched again |
 | `records` | One row per item, with status, scores, signals, dedupe keys |
 | `evidence` | One row per field value, with method, locator, snippet, confidence |
 | `recipes` | Versioned page recipes with parent, origin and usage stats |

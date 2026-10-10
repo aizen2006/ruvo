@@ -83,6 +83,35 @@ describe("html_record adapter", () => {
     expect(sent.text).not.toContain("Home | Episodes");
   });
 
+  test("the canonical address a page declares on its own site is its record's address, and is not fetched", async () => {
+    const page = (canonical: string) => `<html><head><link rel="canonical" href="${canonical}"></head><body><p>Hosted by James Lawler.</p></body></html>`;
+    const mirror = "https://climatenow.example/shows/1?utm_source=feed";
+    const read = async (body: string) => {
+      const ctx = run(fakeLlm({ field_extraction: { fields: [] } }));
+      const fetched: string[] = [];
+      const fetcher = pageFetcher(body);
+      const recording: Fetcher = {
+        ...fetcher,
+        fetch: async (scope, req) => {
+          fetched.push(req.url);
+          return fetcher.fetch(scope, req);
+        },
+      };
+      const [item] = await htmlRecord.collect({ fetcher: recording, scope: ctx, run: ctx }, { url: mirror });
+      return { item: item!, fetched };
+    };
+
+    // The same page reached by another address is the same record.
+    const own = await read(page("/about"));
+    expect(own.item.externalId).toBe(PAGE);
+    expect(own.item.fields.url).toMatchObject({ value: PAGE, evidence: { method: "DERIVED", sourceUrl: mirror } });
+    expect(own.fetched).toEqual([mirror]);
+    // Another site's address does not identify this page.
+    const syndicated = await read(page("https://radio.example/climate-now"));
+    expect(syndicated.item.externalId).toBe("https://climatenow.example/shows/1");
+    expect(syndicated.item.fields.url?.value).toBe(mirror);
+  });
+
   test("a page whose JSON-LD is an ItemList yields each listed record", async () => {
     const list = {
       "@type": "ItemList",

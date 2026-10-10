@@ -1,8 +1,11 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { eq } from "drizzle-orm";
 import { createBudget, createMetrics } from "../src/core/run";
+import { db } from "../src/db/client";
+import { pages } from "../src/db/schema";
 import type { FetchError } from "../src/fetch/errors";
 import { createFetcher, type FetchRequest, type FetchScope } from "../src/fetch/fetcher";
-import { getPage, type CacheMode } from "../src/fetch/pageCache";
+import { getPage, savePage, type CacheMode } from "../src/fetch/pageCache";
 import { resetDb } from "./helpers/db";
 
 let flakyCalls = 0;
@@ -127,5 +130,29 @@ describe("fetcher", () => {
   test("the SSRF guard blocks local targets by default", async () => {
     const fetcher = createFetcher({ userAgent: "RUVO-test", cacheMode: "off" });
     expect(await failureKind(fetcher.fetch(scope(), page("/ok")))).toBe("ssrf_blocked");
+  });
+});
+
+describe("stored pages", () => {
+  const jobs = { url: "https://shop.example/jobs", finalUrl: "https://shop.example/jobs", via: "http" as const, status: 200, contentType: "text/html", body: "<p>jobs</p>" };
+
+  test("the same body as the newest copy is the same page: that copy is marked fetched again", async () => {
+    const first = await savePage(jobs);
+    const hourAgo = new Date(Date.now() - 3_600_000);
+    await db.update(pages).set({ fetchedAt: hourAgo }).where(eq(pages.id, first.id));
+    const again = await savePage(jobs);
+    expect(again.id).toBe(first.id);
+    expect(again.fetchedAt.getTime()).toBeGreaterThan(hourAgo.getTime());
+    expect(await db.select({ id: pages.id }).from(pages)).toHaveLength(1);
+  });
+
+  test("a changed body, another fetch method or another final address is a new copy", async () => {
+    const first = await savePage(jobs);
+    const changed = await savePage({ ...jobs, body: "<p>more jobs</p>" });
+    const rendered = await savePage({ ...jobs, body: "<p>more jobs</p>", via: "browser" });
+    const moved = await savePage({ ...jobs, body: "<p>more jobs</p>", finalUrl: "https://shop.example/careers" });
+    expect(new Set([first.id, changed.id, rendered.id, moved.id]).size).toBe(4);
+    // Only the newest copy counts: the first body again is stored again.
+    expect((await savePage(jobs)).id).not.toBe(first.id);
   });
 });

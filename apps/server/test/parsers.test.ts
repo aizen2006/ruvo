@@ -5,7 +5,7 @@ import { arrangementFromWorkplaceType, detectArrangement } from "../src/extract/
 import { formatSalary, parseSalary } from "../src/extract/parsers/salary";
 import { verifyQuote } from "../src/extract/verifyQuote";
 import { decodeEntities, htmlToText, truncate } from "../src/libs/text";
-import { canonicalUrl } from "../src/libs/url";
+import { canonicalUrl, sameSiteCanonical } from "../src/libs/url";
 
 describe("parseSalary", () => {
   test.each([
@@ -98,11 +98,25 @@ describe("canonicalUrl", () => {
     ["https://boards.greenhouse.io/anthropic/jobs/123?gh_src=abc", "https://job-boards.greenhouse.io/anthropic/jobs/123"],
     ["https://jobs.lever.co/palantir/6ed7/apply?lever-source=LinkedIn", "https://jobs.lever.co/palantir/6ed7"],
     ["http://WWW.Example.com/Jobs/?utm_source=x&b=2&a=1#top", "https://example.com/Jobs?a=1&b=2"],
+    ["https://example.com/jobs/9?msclkid=a&_hsenc=b&_hsmi=c&si=d&igshid=e&yclid=f&srsltid=g&mc_eid=h&id=9", "https://example.com/jobs/9?id=9"],
+    ["https://example.com/jobs?MSCLKID=a&UTM_Campaign=b&_GL=1*x", "https://example.com/jobs"],
     ["https://example.com/", "https://example.com"],
     ["mailto:jobs@example.com", null],
     ["not a url", null],
   ])("%s", (raw, expected) => {
     expect(canonicalUrl(raw)).toBe(expected);
+  });
+});
+
+describe("sameSiteCanonical", () => {
+  test.each([
+    ["/jobs/9", "https://www.example.com/jobs/9"],
+    ["https://example.com/careers/9", "https://example.com/careers/9"],
+    ["https://jobs.example.org/9", null],
+    ["mailto:jobs@example.com", null],
+    [undefined, null],
+  ])("%p on https://www.example.com/jobs/9?utm_source=x", (href, expected) => {
+    expect(sameSiteCanonical(href, "https://www.example.com/jobs/9?utm_source=x")).toBe(expected);
   });
 });
 

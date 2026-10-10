@@ -1,4 +1,4 @@
-import { and, desc, eq, gt } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import type { Env } from "../config/env";
 import { db } from "../db/client";
 import { pages } from "../db/schema";
@@ -26,6 +26,10 @@ export async function findCachedPage<V extends Via>(url: string, via: V, mode: C
   return (page as (PageRow & { via: V }) | undefined) ?? null;
 }
 
+/**
+ * Stores a page as fetched. The same body as the newest stored copy of the page (same address, fetch method and
+ * final URL) is the same page: that copy is marked fetched again rather than stored twice.
+ */
 export async function savePage<V extends PageRow["via"]>(input: {
   url: string;
   finalUrl: string;
@@ -36,8 +40,18 @@ export async function savePage<V extends PageRow["via"]>(input: {
 }): Promise<PageRow & { via: V }> {
   const body = withoutNul(input.body);
   const row = { ...input, body, host: new URL(input.finalUrl).host, contentHash: sha256(body), bytes: Buffer.byteLength(body) };
+  const [newest] = await db
+    .select({ id: pages.id, contentHash: pages.contentHash, finalUrl: pages.finalUrl })
+    .from(pages)
+    .where(and(eq(pages.url, input.url), eq(pages.via, input.via)))
+    .orderBy(desc(pages.fetchedAt))
+    .limit(1);
   // Only the generated columns come back: the body can be megabytes.
-  const [saved] = await db.insert(pages).values(row).returning({ id: pages.id, fetchedAt: pages.fetchedAt });
+  const generated = { id: pages.id, fetchedAt: pages.fetchedAt };
+  const [saved] =
+    newest?.contentHash === row.contentHash && newest.finalUrl === row.finalUrl
+      ? await db.update(pages).set({ fetchedAt: sql`now()` }).where(eq(pages.id, newest.id)).returning(generated)
+      : await db.insert(pages).values(row).returning(generated);
   return { ...row, ...saved! };
 }
 
