@@ -1,20 +1,22 @@
 import type { RunContext } from "../core/run";
 import { createCircuitBreaker, type CircuitBreaker } from "../libs/circuitBreaker";
-import { parseRetryAfter, withRetry } from "../libs/retry";
-import { recordScrape } from "../search/cache";
+import { withRetry } from "../libs/retry";
 import type { FirecrawlClient } from "../search/firecrawl";
 import { FetchError } from "./errors";
 import { createHostLimiter, type HostLimiter } from "./hostLimiter";
 import { findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
-import { readCapped } from "./readCapped";
 import { createRobots, type Robots } from "./robots";
-import { STEALTH_TIMEOUT_MS, type ScraplingClient, type ScraplingEngine } from "./scrapling";
+import type { ScraplingClient } from "./scrapling";
 import { assertPublicUrl } from "./ssrf";
-import { assessHtml, hasChallengeMarkers, isBotChallenge } from "./sufficiency";
+import { assessHtml } from "./sufficiency";
+import { createDirectTransport } from "./transports/direct";
+import { createFirecrawlTransport } from "./transports/firecrawl";
+import { createScraplingTransport } from "./transports/scrapling";
+import type { Expect, Fetched } from "./transports/types";
 
 export interface FetchRequest {
   url: string;
-  expect: "json" | "html" | "text";
+  expect: Expect;
   /** Short reason shown in logs/events, e.g. "greenhouse board". */
   purpose: string;
   /**
@@ -67,12 +69,7 @@ export interface FetcherOptions {
   firecrawl?: { client: FirecrawlClient; usdPerCredit: number };
 }
 
-const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
-const MAX_REDIRECTS = 5;
-
 type BudgetKey = "pages" | "browserPages";
-/** A response as fetched; `challenge` marks a bot check, which is never stored. */
-type Fetched = { finalUrl: string; status: number; contentType: string | null; body: string; challenge?: boolean };
 
 /**
  * Polite, cached fetching through RUVO's Scrapling service, moving to a stronger method only when a
@@ -87,16 +84,18 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   const breaker = opts.breaker ?? createCircuitBreaker({ threshold: 5, cooldownMs: 60_000 });
   const cacheTtlMs = opts.cacheTtlMs ?? 6 * 60 * 60 * 1000;
   const timeoutMs = opts.timeoutMs ?? 20_000;
-  const engineTimeoutMs: Record<ScraplingEngine, number> = { http: timeoutMs, browser: timeoutMs + 10_000, stealth: STEALTH_TIMEOUT_MS };
 
   const trusted = new Set(opts.trustedOrigins ?? []);
   const guard = async (url: string) => {
     if (opts.allowPrivateNetwork || trusted.has(new URL(url).origin)) return;
     await assertPublicUrl(url);
   };
+  const direct = createDirectTransport({ userAgent: opts.userAgent, timeoutMs, guard });
+  const scrapling = opts.scrapling && createScraplingTransport(opts.scrapling, timeoutMs);
+  const firecrawl = opts.firecrawl && createFirecrawlTransport(opts.firecrawl);
   // JSON APIs (no browser needed, bodies up to 40 MB) and trusted origins (the service's guard refuses
   // local addresses) are fetched in-process, as is everything without a service.
-  const serviceFor = (req: FetchRequest) => (req.expect === "json" || trusted.has(new URL(req.url).origin) ? undefined : opts.scrapling);
+  const serviceFor = (req: FetchRequest) => (req.expect === "json" || trusted.has(new URL(req.url).origin) ? undefined : scrapling);
 
   /** Stored copy of a page for this transport, honouring the cache mode. */
   async function fromCache(scope: FetchScope, url: string, via: Via): Promise<FetchResult | null> {
@@ -137,12 +136,12 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   async function fetchVia(scope: FetchScope, req: FetchRequest, via: Via): Promise<FetchResult> {
     const service = serviceFor(req);
     if ((via === "browser" || via === "stealth") && !service) throw new FetchError("unsupported_content", "Browser rendering is not configured", { url: req.url });
-    if (via === "firecrawl" && !opts.firecrawl) throw new FetchError("unsupported_content", "Firecrawl is not configured", { url: req.url });
+    if (via === "firecrawl" && !firecrawl) throw new FetchError("unsupported_content", "Firecrawl is not configured", { url: req.url });
     // A plain or rendered read also takes a stored copy from past a bot check, rather than meet the check again.
     const cached = req.fresh ? null : ((await fromCache(scope, req.url, via)) ?? (via === "http" || via === "browser" ? await fromCache(scope, req.url, "stealth") : null));
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, via === "http" ? ["pages"] : ["pages", "browserPages"]);
-    const transport = () => (via === "firecrawl" ? firecrawlGet(scope, req) : service ? scraplingGet(service, scope, req, via) : httpGet(scope, req));
+    const transport = () => (via === "firecrawl" ? firecrawl!(scope, req) : service ? service(scope, req, via) : direct(scope, req));
     let response: Fetched;
     try {
       response = await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
@@ -208,107 +207,6 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     return { ...rendered, escalation: rendered.escalation ?? { reason: verdict.reason!, textLength: verdict.textLength } };
   }
 
-  /**
-   * One fetch through the Scrapling service. An error status fails as a FetchError, so error pages are
-   * never stored; a bot check met over plain HTTP or in the browser comes back marked for the stealth browser.
-   */
-  async function scraplingGet(service: ScraplingClient, scope: FetchScope, req: FetchRequest, via: ScraplingEngine): Promise<Fetched> {
-    if (via === "http") scope.metrics.inc("httpRequests");
-    const res = await service.fetch(
-      {
-        url: req.url,
-        engine: via,
-        timeoutMs: engineTimeoutMs[via],
-        maxBytes: req.maxBytes ?? DEFAULT_MAX_BYTES,
-        accept: via === "http" ? ACCEPT[req.expect] : undefined,
-      },
-      scope.signal,
-    );
-    const fetched = {
-      finalUrl: res.url,
-      status: res.status,
-      // A rendered page is HTML, whatever the response's content-type said.
-      contentType: via === "http" ? (res.headers["content-type"] ?? null) : "text/html",
-      body: res.body,
-    };
-    if (via !== "stealth" && isBotChallenge(res.status, res.headers, res.body)) return { ...fetched, challenge: true };
-    const challenge = via === "stealth" && hasChallengeMarkers(res.body);
-    if (res.status >= 400 || challenge) {
-      throw new FetchError("http_status", challenge ? `${res.url} still shows a bot check (HTTP ${res.status})` : `HTTP ${res.status} from ${res.url}`, {
-        url: res.url,
-        status: res.status,
-        retryAfterMs: parseRetryAfter(res.headers["retry-after"] ?? null),
-        challenge,
-      });
-    }
-    if (!acceptsContentType(req.expect, fetched.contentType)) {
-      throw new FetchError("unsupported_content", `Unexpected content-type "${fetched.contentType}" from ${res.url}`, { url: res.url });
-    }
-    return fetched;
-  }
-
-  /** One page read through Firecrawl's scrape, as rendered HTML. Its credits are recorded with the searches, so the run's cost counts them. */
-  async function firecrawlGet(scope: FetchScope, req: FetchRequest): Promise<Fetched> {
-    const { client, usdPerCredit } = opts.firecrawl!;
-    const { document, creditsUsed } = await client.scrape(req.url, { formats: ["rawHtml"], onlyMainContent: false, signal: scope.signal });
-    await recordScrape(scope.runId, req.url, creditsUsed, creditsUsed * usdPerCredit);
-    const finalUrl = document.metadata?.url ?? req.url;
-    const status = document.metadata?.statusCode ?? 200;
-    const body = document.rawHtml ?? "";
-    const challenge = hasChallengeMarkers(body);
-    if (status >= 400 || challenge) {
-      throw new FetchError("http_status", `Firecrawl could not read ${finalUrl} (HTTP ${status}${challenge ? ", a bot check" : ""})`, { url: finalUrl, status, challenge });
-    }
-    const maxBytes = req.maxBytes ?? DEFAULT_MAX_BYTES;
-    if (Buffer.byteLength(body) > maxBytes) throw new FetchError("too_large", `Response from ${finalUrl} exceeds ${maxBytes} bytes`, { url: finalUrl });
-    return { finalUrl, status, contentType: "text/html", body };
-  }
-
-  async function httpGet(scope: FetchScope, req: FetchRequest): Promise<Fetched> {
-    const signal = AbortSignal.any([scope.signal, AbortSignal.timeout(timeoutMs)]);
-    let url = req.url;
-
-    // Follow redirects by hand so every hop passes the SSRF guard.
-    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      scope.metrics.inc("httpRequests");
-      let res: Response;
-      try {
-        res = await fetch(url, {
-          redirect: "manual",
-          signal,
-          headers: { "user-agent": opts.userAgent, accept: ACCEPT[req.expect] },
-        });
-      } catch (err) {
-        if (scope.signal.aborted) throw err;
-        throw new FetchError("network", `Request to ${url} failed: ${(err as Error).message}`, { url });
-      }
-
-      const location = res.headers.get("location");
-      if (res.status >= 300 && res.status < 400 && location) {
-        const next = URL.parse(location, url);
-        if (!next) throw new FetchError("ssrf_blocked", `Invalid redirect from ${url}: ${location}`, { url });
-        url = next.href;
-        await guard(url);
-        continue;
-      }
-      if (res.status >= 400) {
-        throw new FetchError("http_status", `HTTP ${res.status} from ${url}`, {
-          url,
-          status: res.status,
-          retryAfterMs: parseRetryAfter(res.headers.get("retry-after")),
-        });
-      }
-
-      const contentType = res.headers.get("content-type");
-      if (!acceptsContentType(req.expect, contentType)) {
-        throw new FetchError("unsupported_content", `Unexpected content-type "${contentType}" from ${url}`, { url });
-      }
-      const body = await readCapped(res, req.maxBytes ?? DEFAULT_MAX_BYTES, url);
-      return { finalUrl: url, status: res.status, contentType, body };
-    }
-    throw new FetchError("network", `Too many redirects from ${req.url}`, { url: req.url });
-  }
-
   return {
     fetch: fetchPage,
     async json<T>(scope: FetchScope, url: string, purpose: string, o: { maxBytes?: number } = {}) {
@@ -320,19 +218,6 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
       }
     },
   };
-}
-
-const ACCEPT: Record<FetchRequest["expect"], string> = {
-  json: "application/json",
-  html: "text/html,application/xhtml+xml",
-  text: "text/*",
-};
-
-function acceptsContentType(expect: FetchRequest["expect"], contentType: string | null): boolean {
-  const type = (contentType ?? "").toLowerCase();
-  if (expect === "json") return type.includes("json") || type.startsWith("text/");
-  if (expect === "html") return type.includes("html") || type === "";
-  return type.startsWith("text/") || type.includes("json") || type.includes("xml");
 }
 
 function toResult(page: PageRow & { via: Via }, fromCache: boolean): FetchResult {
