@@ -132,7 +132,7 @@ const checks: Check[] = [
   {
     name: `searxng ${env.SEARXNG_URL ? new URL(env.SEARXNG_URL).host : ""}`,
     run: async () => {
-      if (!env.SEARXNG_URL) return skip("off (SEARXNG_URL is blank): web search needs a Firecrawl key");
+      if (!env.SEARXNG_URL) return skip("off (SEARXNG_URL is blank): web search reads the engines' result pages through the fetch service");
       const base = env.SEARXNG_URL.replace(/\/$/, "");
       const health = await fetch(`${base}/healthz`).catch(() => null);
       if (!health) return skip("not running; start it with docker compose up -d");

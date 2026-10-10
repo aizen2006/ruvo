@@ -1,4 +1,5 @@
 import type { Env } from "../config/env";
+import { createMetrics } from "../core/run";
 import { createDecider, type Decider } from "../decide/decider";
 import { createSystemOneClient } from "../decide/systemOneClient";
 import { createDocparse, type Docparse } from "../documents/sandbox";
@@ -6,11 +7,13 @@ import { ATS_HOST_LIMITS } from "../domains/jobs/adapters/ats";
 import { createFetcher, type Fetcher } from "../fetch/fetcher";
 import { createRobots } from "../fetch/robots";
 import { createScraplingClient, type ScraplingClient } from "../fetch/scrapling";
+import { createScraplingTransport } from "../fetch/transports/scrapling";
 import { logger } from "../libs/logger";
 import { createLlmClient, type LlmClient } from "../llm/client";
 import { createWorkflowMemory, type WorkflowMemory } from "../memory/workflowMemory";
 import type { WebSearch } from "../plan/webDiscovery";
 import { createSearchRunner } from "../search/cache";
+import { createEngineSearch } from "../search/engines";
 import { createFirecrawl } from "../search/firecrawl";
 import { createSearxng } from "../search/searxng";
 
@@ -23,7 +26,10 @@ export interface Services {
   scrapling?: ScraplingClient;
   fetcher: Fetcher;
   llm: LlmClient;
-  /** Web search for finding sources (SearXNG, then Firecrawl); null with neither, so RUVO plans only known and linked sources. */
+  /**
+   * Web search for finding sources (SearXNG, then the engines' result pages, then Firecrawl); null with none of them,
+   * so RUVO plans only known and linked sources.
+   */
   webSearch: WebSearch | null;
   decider: Decider;
   /** Plans that worked, kept in Postgres, so paraphrased requests can reuse them. */
@@ -39,6 +45,10 @@ export function createServices(env: Env): Services {
   const scrapling = env.SCRAPLING_URL ? createScraplingClient(env.SCRAPLING_URL) : undefined;
   // SearXNG, the free local web search; off when SEARXNG_URL is blank.
   const searxng = env.SEARXNG_URL ? createSearxng(env.SEARXNG_URL) : undefined;
+  // Without SearXNG (or when it fails or finds nothing), the engines' result pages, read through the fetch service;
+  // like SearXNG's, these reads are searches, not a run's page requests, so their counts go nowhere.
+  const resultsPages = scrapling && createScraplingTransport(scrapling, 20_000);
+  const engines = resultsPages && createEngineSearch((url, via, signal) => resultsPages({ signal, metrics: createMetrics() }, { url, expect: "html" }, via));
   // Firecrawl (with a key): the backup web search, and the last way to read a page.
   const firecrawl = env.FIRECRAWL_API_KEY ? createFirecrawl({ apiKey: env.FIRECRAWL_API_KEY, baseUrl: env.FIRECRAWL_BASE_URL }) : undefined;
   // Shared with web discovery, so it never plans a page the fetcher would refuse.
@@ -62,8 +72,8 @@ export function createServices(env: Env): Services {
     }),
     llm: createLlmClient({ env }),
     webSearch:
-      searxng || firecrawl
-        ? { searcher: createSearchRunner({ searxng, firecrawl, usdPerCredit: env.FIRECRAWL_USD_PER_CREDIT, cacheMode: env.FETCH_CACHE_MODE }), robots }
+      searxng || engines || firecrawl
+        ? { searcher: createSearchRunner({ searxng, engines, firecrawl, usdPerCredit: env.FIRECRAWL_USD_PER_CREDIT, cacheMode: env.FETCH_CACHE_MODE }), robots }
         : null,
     decider: createDecider({ provider, mode: env.DECIDER_MODE }),
     memory: createWorkflowMemory({ log: logger.child({ component: "memory" }) }),

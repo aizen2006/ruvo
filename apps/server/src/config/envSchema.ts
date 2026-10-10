@@ -91,7 +91,10 @@ const EnvSchema = z.object({
     .transform((v) => v || "docker")
     .pipe(z.union([z.literal("docker"), z.url({ protocol: /^https?$/ })])),
 
-  /** SearXNG, the local web search for finding sources (docker compose runs it); blank turns it off. */
+  /**
+   * SearXNG, the local web search for finding sources (docker compose runs it); blank turns it off, and the engines'
+   * result pages are read through the fetch service instead (search/engines.ts).
+   */
   SEARXNG_URL: serviceUrl("http://127.0.0.1:8888"),
   /** Firecrawl (optional): the backup when SearXNG fails or finds nothing, and the last way to read a page Scrapling could not. */
   FIRECRAWL_API_KEY: unsetIfBlank,

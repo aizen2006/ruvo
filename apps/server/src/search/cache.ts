@@ -7,9 +7,9 @@ import { sha256, stableStringify } from "../libs/hash";
 import type { SearchResultItem } from "./firecrawl";
 
 /**
- * Runs a web search through SearXNG, then Firecrawl when SearXNG fails or finds nothing, caching
- * results in `search_calls` so re-runs are free and reproducible (mirroring the LLM cache). Also
- * records which provider answered and what each live search cost.
+ * Runs a web search through SearXNG, then the search engines' result pages, then Firecrawl, each asked when the ones
+ * before it fail or find nothing, caching results in `search_calls` so re-runs are free and reproducible (mirroring the
+ * LLM cache). Also records which provider answered and what each live search cost.
  */
 
 export interface CachedSearch {
@@ -31,7 +31,9 @@ export interface SearchProvider {
 export interface SearchRunnerDeps {
   /** Asked first: free, on this machine. */
   searxng?: SearchProvider;
-  /** The backup when SearXNG fails or finds nothing; it costs credits. */
+  /** Free too: the engines' result pages, read through the fetch service (engines.ts); without SearXNG, asked first. */
+  engines?: SearchProvider;
+  /** The backup when the free ones fail or find nothing; it costs credits. */
   firecrawl?: SearchProvider;
   usdPerCredit: number;
   /**
@@ -43,7 +45,7 @@ export interface SearchRunnerDeps {
 
 export function createSearchRunner(deps: SearchRunnerDeps): SearchRunner {
   const { usdPerCredit, cacheMode } = deps;
-  const providers = (["searxng", "firecrawl"] as const).flatMap((name) => {
+  const providers = (["searxng", "engines", "firecrawl"] as const).flatMap((name) => {
     const provider = deps[name];
     return provider ? [{ name, provider }] : [];
   });
