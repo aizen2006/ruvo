@@ -58,7 +58,8 @@ dropped, not guessed.
 
 **It always goes and looks.** Every request searches the web, in rounds, while its search budget
 lasts and each round still finds something new. The search engine is [SearXNG](https://github.com/searxng/searxng), running in Docker on
-your machine, so it costs nothing, and a round's searches run three at a time. Job requests also turn up more companies hiring on Greenhouse,
+your machine, so it costs nothing, and a round's searches run three at a time. Without SearXNG,
+Scrapling reads DuckDuckGo's, Bing's and Brave's result pages instead. Job requests also turn up more companies hiring on Greenhouse,
 Lever, Ashby and Workable, and RUVO reads those boards through their official APIs. A built-in list
 of companies is one source among many, never the only one.
 
@@ -253,7 +254,7 @@ settings worth knowing:
 | `OPENAI_OAUTH_URL` | `http://127.0.0.1:10531/v1` | On a ChatGPT plan, the sign-in server listens somewhere else. |
 | `MODEL_PLANNER`, `MODEL_WORKER` | `gpt-6-sol`, `gpt-6-luna`; on a ChatGPT plan, `gpt-5.6-terra`, `gpt-6-luna` | You want different default models. The modes are built from this pair. |
 | `TYPESAFE_API_KEY`, `DECIDER_PROVIDER` | unset, `jev` | You have Jev access. `off` uses rules and the LLM judge only. For a self-hosted Laya, run `docker compose --profile laya up -d` and set `laya` with `DECIDER_BASE_URL=http://localhost:8000`. |
-| `SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG runs somewhere else. Blank turns it off; web search then needs a Firecrawl key. |
+| `SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG runs somewhere else, or not at all. Blank (or SearXNG down) means RUVO reads DuckDuckGo's, Bing's and Brave's result pages itself, through the fetch service; Firecrawl, with a key, is the last backup. |
 | `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want a backup for when SearXNG finds nothing, and a last way to read pages Scrapling can't. Its credits count in each run's cost. `MAX_SEARCHES` caps searches per run. |
 | `SCRAPLING_URL` | `http://127.0.0.1:<SCRAPLING_PORT>` | The fetch service runs elsewhere. Blank turns Scrapling off: pages are read with plain requests only (no browser, no stealth). If the service is down, plain pages are still read directly and the run says so. |
 | `SCRAPLING_PYTHON` | setup's `.venv`, else `python` on Windows, `python3` elsewhere | The Python that has Scrapling is another one. |
