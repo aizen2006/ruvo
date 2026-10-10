@@ -104,6 +104,63 @@ formula.
 **Bring your own AI.** Use an OpenAI API key, or sign in with your ChatGPT plan from the
 dashboard's Settings page and pay nothing per call.
 
+## How RUVO compares
+
+RUVO's numbers are measured on 40 completed runs on the author's machine (27 Sep – 3 Oct 2026,
+mostly job searches). The other tools' numbers come from their own pricing pages and published
+benchmarks, checked on 11 Oct 2026. Prices change, and most benchmarks are run by the vendor that
+publishes them.
+
+| Tool | Runs on your machine | About 100 records | Each value cites its source |
+|---|---|---|---|
+| **RUVO** | Yes, MIT | **$0.03** of AI calls, measured ($1.75 for 5,457 leads); search is free | **Yes:** all 35,669 values |
+| [Firecrawl][fc] | AGPL-3.0, but self-hosting leaves out its anti-bot engine and `/agent` | 500 credits (5 a page with JSON output); Hobby is $19 for 5,000 | Not documented |
+| [Crawl4AI][c4] | Yes, Apache-2.0 | Free self-hosted, plus your LLM; cloud $0.05–$0.20 plus LLM tokens | Not documented |
+| [ScrapeGraphAI][sg] | Library yes (MIT); the API is paid | 500 credits: $2.50 at its top-up rate | Not documented |
+| [Apify][ap] | Hosted | $0.02 (plain HTTP) to $0.50 (browser) per 100 pages, before extraction | Not documented |
+| [Bright Data][bd] | Hosted | $0.15 ($1.50 per 1,000 records) | Not documented |
+| [Exa Websets][ex] | Hosted | 1,000 credits plus 200 per extra column; needs the $49 plan (8,000 credits) | Yes: link, snippet and reasoning |
+| [Parallel FindAll][pa] | Hosted | $3.25 (Base) to $110 (Pro) for 100 matches | Yes: citations and excerpts |
+
+Every RUVO value has a receipt: the source link plus the quoted text it came from, checked on the
+page. Exa and Parallel cite sources too, but they are hosted services; the open-source tools above
+don't document a source for each value. RUVO's cost is low partly because most of these runs read
+job boards through their free APIs, and 25 of its 473 AI calls ran on a ChatGPT plan, so they
+count as $0.
+
+What published benchmarks say:
+
+- **Agents that browse freely miss most rows.** On [WideSearch][ws] (ByteDance Seed, 200
+  table-building tasks), "most systems achieve overall success rates near 0%, with the best
+  performer reaching just 5%." RUVO never asks a model to remember rows: each value is read from a
+  page and kept only with its receipt. RUVO hasn't been scored on WideSearch yet.
+- **Browser agents pay per page they drive.** On [Browser Use Bench v2.1][bu] (vendor-run, 180
+  tasks), the model alone costs $1.30 a task with GPT-6.1 Sol and $2.35 with Claude Opus 5.5, with
+  median times of 8 and 12 minutes. RUVO read 641 of 674 pages (95%) with a plain request, opened 22
+  (3%) in a browser, and spent $0.044 on AI per run on average. The tasks differ, so read this as
+  the shape of the cost, not a race.
+- **Most judgments don't need an LLM.** In [TypeSafe's evals][ts] (vendor-run), Jev scores 67.8%
+  at $0.0004 and 0.4 s a case; the terra LLM scores 67.9% at $0.0304 and 10.1 s. That's the same
+  accuracy at 1/76 of the cost, 25× faster. In RUVO's runs Jev made 74% of 10,493 decisions and an
+  LLM judge 23%.
+
+[fc]: https://www.firecrawl.dev/pricing
+[c4]: https://github.com/unclecode/crawl4ai
+[sg]: https://scrapegraphai.com/pricing
+[ap]: https://apify.com/apify/website-content-crawler
+[bd]: https://brightdata.com/pricing/web-scraper
+[ex]: https://websets.exa.ai/websets/billing
+[pa]: https://parallel.ai/pricing
+[ws]: https://arxiv.org/abs/2508.07999
+[bu]: https://browser-use.com/benchmarks/agents
+[ts]: https://evals.typesafe.ai/
+
+Other sources: Firecrawl's [self-hosting guide](https://docs.firecrawl.dev/contributing/self-host),
+Crawl4AI's [price list](https://api.crawl4ai.com/v1/prices), ScrapeGraphAI's
+[license](https://github.com/ScrapeGraphAI/Scrapegraph-ai), Exa's
+[item format](https://exa.ai/docs/websets/api/websets/items/get-an-item.md) and Parallel's
+[research basis](https://docs.parallel.ai/task-api/guides/access-research-basis).
+
 ## The pipeline
 
 ```
