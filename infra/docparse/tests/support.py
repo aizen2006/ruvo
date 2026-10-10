@@ -1,10 +1,16 @@
 """Sample documents, built in memory at test time, and docparse run on them as RUVO runs it: a fresh process each."""
 
+import atexit
 import io
 import json
+import os
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 import zipfile
+from functools import cache
 
 from openpyxl import Workbook
 
@@ -12,9 +18,46 @@ DOCPARSE = "/app/docparse.py"
 
 
 def run(document: bytes, parse: bool = False) -> dict:
+    """docparse's result for a document, as the worker gets it with Docker, or from docparse serve (the all-Docker
+    setup) when the suite runs with DOCPARSE_VIA=service."""
+    if os.environ.get("DOCPARSE_VIA") == "service":
+        status, result = post(service(), document, parse)
+        assert status == 200, result
+        return result
     args = [sys.executable, DOCPARSE, *(["--parse"] if parse else [])]
     done = subprocess.run(args, input=document, capture_output=True, timeout=120, check=True)
     return json.loads(done.stdout)
+
+
+def start_service(port: int, **env: str) -> subprocess.Popen:
+    """docparse serve on `port`, with `env` added to its environment, once it answers."""
+    process = subprocess.Popen([sys.executable, DOCPARSE, "serve"], env={**os.environ, "DOCPARSE_PORT": str(port), **env},
+                               stderr=subprocess.DEVNULL)
+    for _ in range(100):
+        try:
+            urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1).close()
+            return process
+        except OSError:
+            time.sleep(0.1)
+    process.kill()
+    raise RuntimeError(f"docparse serve didn't start on port {port}")
+
+
+@cache
+def service() -> int:
+    """The port of the suite's service, started on first use and stopped when the suite ends."""
+    atexit.register(start_service(8100).kill)
+    return 8100
+
+
+def post(port: int, document: bytes, parse: bool = False) -> tuple[int, dict]:
+    request = urllib.request.Request(f"http://127.0.0.1:{port}/{'?parse=1' if parse else ''}", data=document, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=120) as reply:
+            return reply.status, json.load(reply)
+    except urllib.error.HTTPError as error:
+        with error:
+            return error.code, json.load(error)
 
 
 def pdf(*objects: bytes, trailer: bytes = b"") -> bytes:

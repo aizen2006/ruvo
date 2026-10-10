@@ -5,12 +5,15 @@ RUN pip install --no-cache-dir pypdf==6.20.0 openpyxl==3.1.5 et-xmlfile==2.0.0 c
 COPY docparse.py /app/docparse.py
 # nobody: a document gets no user of its own, and no root.
 USER 65534:65534
+# docparse serve, for the all-Docker setup
+EXPOSE 8100
 ENTRYPOINT ["python", "/app/docparse.py"]
 
 # The sandbox suite, run inside the same image: docker build --target tests. Samples are made as the tests run.
+# It runs twice: as the worker runs docparse with Docker, then through docparse serve.
 FROM docparse AS tests
 COPY tests /tests
-ENTRYPOINT ["python", "-m", "unittest", "discover", "-s", "/tests", "-v"]
+ENTRYPOINT ["sh", "-c", "python -m unittest discover -s /tests -v && DOCPARSE_VIA=service python -m unittest discover -s /tests -v"]
 
 # The default target is the sandbox itself.
 FROM docparse

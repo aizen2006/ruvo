@@ -3,9 +3,12 @@ it is clean, parses it.
 
 Documents are hostile input (active content, parser exploits, decompression bombs), so RUVO's API and worker never
 parse them: each one is read here, in a container per document with no network, a read-only filesystem, and memory,
-CPU and process limits.
+CPU and process limits. Every run limits its own process too, before it reads the document.
 
 Run: docparse [--parse] < document    the document on stdin, one JSON object on stdout
+     docparse serve                   the same over HTTP, for the all-Docker setup, where the worker can't start
+                                      containers: POST a document to port 8100 (DOCPARSE_PORT), with ?parse=1 to
+                                      parse. Each runs in a fresh process, killed after 30 s (DOCPARSE_TIMEOUT).
 
 The result always has these keys:
   verdict     "clean" (may be parsed), "risky" (active content: metadata only, never parsed) or "rejected" (dropped)
@@ -35,12 +38,18 @@ import html
 import io
 import json
 import math
+import os
 import re
+import resource
+import subprocess
 import sys
 import unicodedata
 import zipfile
 from datetime import date, datetime, time, timedelta
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from itertools import accumulate, chain, islice
+from time import sleep
+from urllib.parse import parse_qs, urlsplit
 
 import charset_normalizer
 from defusedxml.ElementTree import fromstring
@@ -51,6 +60,10 @@ from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, NameObj
 
 MB = 1 << 20
 MAX_BYTES = 64 * MB  # RUVO caps downloads well below this
+TOO_LARGE = f"larger than {MAX_BYTES // MB} MB"
+MAX_MEMORY = 512 * MB  # address space, as the container's own memory limit
+TIMEOUT = float(os.environ.get("DOCPARSE_TIMEOUT", "30"))  # seconds a document may take
+PORT = int(os.environ.get("DOCPARSE_PORT", "8100"))
 MAX_PAGES = 200
 MAX_ROWS = 5_000
 MAX_TEXT = 2_000  # characters in one value
@@ -183,7 +196,7 @@ def scan(data: bytes, doc: dict):
     if not data:
         raise Rejected("an empty file")
     if len(data) > MAX_BYTES:
-        raise Rejected(f"larger than {MAX_BYTES // MB} MB")
+        raise Rejected(TOO_LARGE)
     if data.startswith(b"%PDF-"):
         doc["type"] = "pdf"
         return scan_pdf(data, doc)
@@ -539,12 +552,67 @@ def attempt(get):
         return None
 
 
+def dump(value) -> bytes:
+    """JSON as UTF-8; a lone surrogate, which UTF-8 can't hold, goes out as "?"."""
+    return json.dumps(value, ensure_ascii=False).encode("utf-8", "replace")
+
+
+def limit_resources() -> None:
+    """Limits this process before it reads a document: its memory, CPU time and open files, and no files written."""
+    for limit, value in ((resource.RLIMIT_AS, MAX_MEMORY), (resource.RLIMIT_CPU, math.ceil(TIMEOUT)),
+                         (resource.RLIMIT_FSIZE, 0), (resource.RLIMIT_NOFILE, 32)):
+        resource.setrlimit(limit, (value, value))
+
+
+class Service(BaseHTTPRequestHandler):
+    """docparse over HTTP: each document POSTed is read by a fresh docparse process, killed at the timeout."""
+
+    timeout = 60  # a client that stops sending mid-document is dropped
+
+    def do_GET(self) -> None:
+        if self.path == "/health":
+            self.reply(200, dump({"status": "ok"}))
+        else:
+            self.reply(404, dump({"error": "not_found", "message": "POST a document to /"}))
+
+    def do_POST(self) -> None:
+        size = int(self.headers.get("Content-Length") or -1)
+        if size < 0:
+            return self.reply(411, dump({"error": "bad_request", "message": "send the document with a Content-Length"}))
+        if size > MAX_BYTES:
+            self.close_connection = True  # the document is left unread
+            return self.reply(200, dump(rejected(TOO_LARGE, None)))
+        document = self.rfile.read(size)
+        parse = parse_qs(urlsplit(self.path).query).get("parse") == ["1"]
+        args = [sys.executable, os.path.abspath(__file__), *(["--parse"] if parse else [])]
+        try:
+            done = subprocess.run(args, input=document, capture_output=True, timeout=TIMEOUT)
+        except subprocess.TimeoutExpired:  # the process is killed by now
+            return self.reply(504, dump({"error": "timeout", "message": f"took longer than {TIMEOUT:g} s, so it was stopped"}))
+        if done.returncode != 0:
+            message = f"exited with {done.returncode}: {done.stderr.decode('utf-8', 'replace')[-300:]}"
+            return self.reply(500, dump({"error": "failed", "message": message}))
+        self.reply(200, done.stdout)
+
+    def reply(self, status: int, body: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+
 def main() -> None:
-    if sys.argv[1:] not in ([], ["--parse"]):
-        sys.exit("usage: docparse [--parse] < document")
-    result = read(sys.stdin.buffer.read(MAX_BYTES + 1), parse=sys.argv[1:] == ["--parse"])
-    # A lone surrogate can't be UTF-8, so it goes out as "?".
-    sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8", "replace"))
+    args = sys.argv[1:]
+    if args == ["serve"]:
+        ThreadingHTTPServer(("0.0.0.0", PORT), Service).serve_forever()
+        return
+    if args not in ([], ["--parse"]):
+        sys.exit("usage: docparse [--parse] < document, or docparse serve")
+    limit_resources()
+    if seconds := os.environ.get("DOCPARSE_TEST_SLEEP"):  # test-only: a parser that hangs, for the suite to kill
+        sleep(float(seconds))
+    sys.stdout.buffer.write(dump(read(sys.stdin.buffer.read(MAX_BYTES + 1), parse=args == ["--parse"])))
 
 
 if __name__ == "__main__":
