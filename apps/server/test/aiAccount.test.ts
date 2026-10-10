@@ -182,6 +182,29 @@ describe("llm client on an API-key account", () => {
       api.stop();
     }
   });
+
+  test("a used-up quota spends the run's AI budget, in each form OpenAI reports it", async () => {
+    const quota = "You exceeded your current quota, please check your plan and billing details.";
+    const replies = [
+      { message: quota, type: "insufficient_quota", param: null, code: "insufficient_quota" },
+      { message: quota, type: "insufficient_quota", param: null, code: null },
+      { message: "The organization has no API credits remaining.", type: "invalid_request_error", param: null, code: "credit_balance_exhausted" },
+    ];
+    for (const reply of replies) {
+      const api = fakeSignIn(() => Response.json({ error: reply }, { status: 429 }));
+      try {
+        const responses = new OpenAI({ apiKey: REAL_KEY, baseURL: api.url, maxRetries: 0 }).responses;
+        const llm = createLlmClient({ env: loadEnv({ DATABASE_URL, OPENAI_API_KEY: REAL_KEY, LLM_CACHE_MODE: "off" }), responses });
+        const run = runScope();
+        const error = await failure(llm.parse({ ...request, run }));
+        expect(error.kind).toBe("budget_exhausted");
+        expect(error.message).toContain("OpenAI API quota used up");
+        expect(run.budget.left("llmCalls")).toBe(0);
+      } finally {
+        api.stop();
+      }
+    }
+  });
 });
 
 describe("chatgptFailure", () => {

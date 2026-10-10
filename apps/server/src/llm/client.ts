@@ -90,6 +90,16 @@ export function chatgptFailure(err: unknown, env: AccountEnv): LlmError | null {
   return null;
 }
 
+/** OpenAI's error codes for an account out of credit or past a usage or billing limit, where retrying cannot help. */
+const QUOTA_CODES = new Set(["insufficient_quota", "credit_balance_exhausted", "usage_limit_exceeded"]);
+
+/** An API key's used-up quota counts as a spent AI budget, as a ChatGPT plan's usage limit does. Null for any other failure. */
+function quotaFailure(err: unknown): LlmError | null {
+  // Older replies name the quota error in `type` only, with a null `code`.
+  if (!(err instanceof OpenAI.APIError) || ![err.code, err.type].some((c) => c && QUOTA_CODES.has(c))) return null;
+  return new LlmError("budget_exhausted", `OpenAI API quota used up (${err.message})`);
+}
+
 export function createLlmClient(opts: {
   env: Pick<Env, "MODEL_PLANNER" | "MODEL_WORKER" | "LLM_CACHE_MODE"> & AccountEnv;
   responses?: ResponsesApi;
@@ -167,7 +177,7 @@ export function createLlmClient(opts: {
         if (err instanceof LlmError || req.signal?.aborted) throw err;
         const message = err instanceof Error ? err.message : String(err);
         await log({ ms: Date.now() - started, error: message }).catch(() => {});
-        const failure = chatgptFailure(err, env);
+        const failure = chatgptFailure(err, env) ?? quotaFailure(err);
         if (failure?.kind === "budget_exhausted" && req.run) spendAll(req.run.budget);
         throw failure ?? new LlmError("api", `${req.name} call failed: ${message}`);
       }
