@@ -129,7 +129,7 @@ function log(row: {
     provider: row.provider,
     query: row.query,
     inputHash: row.inputHash,
-    hits: row.hits?.map((h) => ({ url: h.url, title: h.title, description: h.description, position: h.position })) ?? null,
+    hits: row.hits?.map((h) => ({ url: h.url, title: h.title, description: h.description, position: h.position, publishedDate: h.publishedDate, engines: h.engines })) ?? null,
     credits: row.credits ?? 0,
     costUsd: row.costUsd ?? 0,
     cached: row.cached ?? false,

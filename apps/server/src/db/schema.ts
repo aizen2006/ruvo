@@ -288,7 +288,7 @@ export const searchCalls = pgTable(
     provider: text("provider").notNull(),
     query: text("query").notNull(),
     inputHash: text("input_hash").notNull(),
-    hits: jsonb("hits").$type<Array<{ url: string; title: string; description: string; position?: number }>>(),
+    hits: jsonb("hits").$type<Array<{ url: string; title: string; description: string; position?: number; publishedDate?: string; engines?: string[] }>>(),
     credits: integer("credits").notNull().default(0),
     costUsd: real("cost_usd").notNull().default(0),
     cached: boolean("cached").notNull().default(false),

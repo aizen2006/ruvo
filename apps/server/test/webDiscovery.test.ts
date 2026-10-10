@@ -3,6 +3,7 @@ import type { AdapterId, DatasetContract, FoundSource, PlanDraft } from "@repo/c
 import { createBudget, createMetrics } from "../src/core/run";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
+import { docKindOf } from "../src/documents/kind";
 import { addFoundSources, discoverFromSearch, runSearches, type WebSearch } from "../src/plan/webDiscovery";
 import { createPreparer } from "../src/runs/prepare";
 import { startWorker } from "../src/runs/worker";
@@ -80,7 +81,7 @@ const ALL_ADAPTERS = new Set<AdapterId>(["html_list", "html_record", "search_hit
 beforeEach(resetDb);
 
 describe("discoverFromSearch", () => {
-  test("sorts hits into list pages, record pages and profiles; robots-blocked and non-pages are dropped", async () => {
+  test("sorts hits into list pages, record pages and profiles; robots-blocked pages and documents a domain did not claim are dropped", async () => {
     const llm = fakeLlm({ search_hit_kinds: allRecords });
     const web = { searcher: fakeSearcher(RESULTS), robots: robots(["blocked.example"]) };
     const found = await discoverFromSearch(PODCASTS, web, llm, { runId: crypto.randomUUID(), scope: scope(), resultsPerQuery: 10, available: ALL_ADAPTERS });
@@ -99,9 +100,10 @@ describe("discoverFromSearch", () => {
       "https://instagram.com/climatepod",
       "https://instagram.com/greenmic",
     ]);
-    // Only the uncertain hit went to the model.
+    // Only the uncertain hit went to the model: the PDF is a document by its link, which code decides.
     expect(llm.calls).toHaveLength(1);
     expect(llm.calls[0]!.input.at(-1)!.content).toContain("mycleanpod.example");
+    expect(llm.calls[0]!.input.at(-1)!.content).not.toContain("climate.pdf");
     expect(found.searches).toEqual([
       { query: "best climate tech podcasts", hits: 4, cached: false, error: null },
       { query: "climate podcast creators", hits: 5, cached: false, error: null },
@@ -210,6 +212,25 @@ describe("runSearches", () => {
 
     expect(stats.live).toEqual(["q2", "q3"]);
     expect(searches.map((s) => s.error ?? (s.cached ? "cached" : "live"))).toEqual(["cached", "live", "live", "Search budget used up"]);
+  });
+
+  test("keeps a result's date and engines when the search gave them", async () => {
+    const dated = { ...page("report.pdf", "Report"), publishedDate: "2025-03-04T00:00:00", engines: ["bing", "brave"] };
+    const { hits } = await runSearches(["q1"], timedSearcher({ q1: [dated, page("b", "B")] }, { lookupMs }).searcher, { runId: crypto.randomUUID(), scope: scope(), resultsPerQuery: 10 });
+    expect(hits).toEqual([
+      { url: "https://example.com/report.pdf", title: "Report", description: "", query: "q1", publishedDate: "2025-03-04T00:00:00", engines: ["bing", "brave"] },
+      { url: "https://example.com/b", title: "B", description: "", query: "q1" },
+    ]);
+  });
+});
+
+describe("docKindOf", () => {
+  test("knows a PDF by its content type, else by its link; anything else is no document", () => {
+    expect(docKindOf("https://a.example/files/Guide.PDF?dl=1")).toBe("pdf");
+    expect(docKindOf("https://arxiv.org/pdf/2401.00001", "application/pdf")).toBe("pdf");
+    expect(docKindOf("https://a.example/guide.pdf", "application/octet-stream")).toBe("pdf");
+    expect(docKindOf("https://a.example/guide.pdf", "text/html; charset=utf-8")).toBeNull();
+    for (const url of ["https://a.example/data.xlsx", "https://a.example/pdf-tools", "not a url"]) expect(docKindOf(url)).toBeNull();
   });
 });
 

@@ -45,6 +45,10 @@ export interface SearchResultItem {
   title: string;
   description: string;
   position?: number;
+  /** When the engines say the page was published (SearXNG only, as it gives it). */
+  publishedDate?: string;
+  /** The engines that found it (SearXNG only). */
+  engines?: string[];
   /** Present when scrapeOptions were passed. */
   markdown?: string;
   html?: string;

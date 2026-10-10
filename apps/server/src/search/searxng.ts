@@ -29,12 +29,22 @@ export function createSearxng(baseUrl: string): SearxngClient {
       if (!res.ok) throw new Error(`SearXNG responded ${res.status}${res.status === 403 ? "; its settings.yml must allow the json format" : ""}`);
 
       const { results, unresponsive_engines: failed } = (await res.json()) as {
-        results: Array<{ url: string; title?: string; content?: string }>;
+        results: Array<{ url: string; title?: string; content?: string; publishedDate?: string | null; engines?: string[] }>;
         unresponsive_engines: Array<[engine: string, error: string]>;
       };
       // Nothing found because the engines refused (a CAPTCHA, too many requests) is a failure, not an answer.
       if (!results.length && failed.length) throw new Error(`SearXNG found nothing: ${failed.map(([engine, error]) => `${engine} (${error})`).join(", ")}`);
-      return { web: results.slice(0, limit).map((r) => ({ url: r.url, title: r.title ?? "", description: r.content ?? "" })), creditsUsed: 0 };
+      return {
+        web: results.slice(0, limit).map((r) => ({
+          url: r.url,
+          title: r.title ?? "",
+          description: r.content ?? "",
+          // A document's date, when the engines know it, can be a lead's.
+          ...(r.publishedDate && { publishedDate: r.publishedDate }),
+          ...(r.engines?.length && { engines: r.engines }),
+        })),
+        creditsUsed: 0,
+      };
     },
   };
 }

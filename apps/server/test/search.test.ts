@@ -30,12 +30,12 @@ describe("searxng client", () => {
     requested.length = 0;
   });
 
-  test("maps the first results to url, title and description, for free", async () => {
+  test("maps the first results to url, title and description, with their date and engines when given, for free", async () => {
     reply = {
       body: {
         results: [
-          { url: "https://a.example", title: "A", content: "about a", engine: "duckduckgo" },
-          { url: "https://b.example" },
+          { url: "https://a.example", title: "A", content: "about a", engine: "duckduckgo", engines: ["duckduckgo", "bing"], publishedDate: "2025-03-04T00:00:00" },
+          { url: "https://b.example", publishedDate: null, engines: [] },
           { url: "https://c.example", title: "C", content: "about c" },
         ],
         unresponsive_engines: [],
@@ -45,7 +45,7 @@ describe("searxng client", () => {
 
     expect(res).toEqual({
       web: [
-        { url: "https://a.example", title: "A", description: "about a" },
+        { url: "https://a.example", title: "A", description: "about a", publishedDate: "2025-03-04T00:00:00", engines: ["duckduckgo", "bing"] },
         { url: "https://b.example", title: "", description: "" },
       ],
       creditsUsed: 0,

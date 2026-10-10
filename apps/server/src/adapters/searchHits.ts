@@ -10,8 +10,15 @@ import { canonicalUrl } from "../libs/url";
 import { fromSearch } from "./fields";
 import { everyField, type SourceAdapter } from "./types";
 
-/** One web-search result and the query that found it. */
-export const SearchHit = z.object({ url: z.string(), title: z.string(), description: z.string(), query: z.string() });
+/** One web-search result and the query that found it, with its date and engines when the search gave them. */
+export const SearchHit = z.object({
+  url: z.string(),
+  title: z.string(),
+  description: z.string(),
+  query: z.string(),
+  publishedDate: z.string().optional(),
+  engines: z.array(z.string()).optional(),
+});
 export type SearchHit = z.infer<typeof SearchHit>;
 
 const SearchHitsParams = z.object({ site: z.string(), hits: z.array(SearchHit) });

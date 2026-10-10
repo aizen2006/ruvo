@@ -2,6 +2,7 @@ import type { AdapterId, DatasetContract, FoundSource, SearchLog } from "@repo/c
 import { z } from "zod";
 import { registeredAdapters } from "../adapters";
 import type { SearchHit } from "../adapters/searchHits";
+import { docKindOf } from "../documents/kind";
 import type { FetchScope } from "../fetch/fetcher";
 import type { Robots } from "../fetch/robots";
 import { mapLimit } from "../libs/limit";
@@ -28,7 +29,8 @@ export interface WebDiscovery {
   searches: SearchLog[];
 }
 
-type HitKind = "list" | "record" | "profile" | "skip";
+/** "document": a file such as a PDF, never read as a page; the documents domain reads it from its search result. */
+type HitKind = "list" | "record" | "profile" | "document" | "skip";
 
 /** List and record pages kept per discovery; each becomes a source with its own fetches. */
 const MAX_LIST_PAGES = 8;
@@ -55,7 +57,7 @@ const PROFILE_SITES: Array<{ site: string; hosts: string[]; name: string; profil
 
 const LIST_TITLE = /\b(top|best)\s+\d+\b|\b\d+\s+(best|top|great|leading|popular|most)\b|\blist of\b|\bdirectory\b|\brankings?\b|\broundup\b|\b(best|top)\b[^|]*\b20\d\d\b/i;
 const LIST_PATH = /\/(directory|lists?|rankings?|top-\d+|best-[\w-]+|category|categories)(\/|$)/i;
-const NOT_A_PAGE = /\.(pdf|docx?|xlsx?|pptx?|zip|csv|jpe?g|png|mp[34])$/i;
+const NOT_A_PAGE = /\.(docx?|xlsx?|pptx?|zip|csv|jpe?g|png|mp[34])$/i;
 
 /** Finds sources by searching the web with the contract's queries (see sourcesFromHits). */
 export async function discoverFromSearch(contract: DatasetContract, web: WebSearch, llm: LlmClient, opts: WebDiscoveryOptions): Promise<WebDiscovery> {
@@ -68,7 +70,8 @@ export async function discoverFromSearch(contract: DatasetContract, web: WebSear
  * (html_record), and public profiles on sites that forbid reading them (search_hits: the search
  * results themselves are the source). Hits are sorted by cheap URL and title signals first; only
  * the uncertain ones go to one batched LLM call. Pages robots.txt forbids are dropped, so nothing
- * is planned that the fetcher would refuse.
+ * is planned that the fetcher would refuse. Documents (PDFs) are no pages: a domain that reads them
+ * claims them first (see PackSearch.recognize), and any left here are dropped.
  */
 export async function sourcesFromHits(contract: DatasetContract, hits: SearchHit[], web: WebSearch, llm: LlmClient, opts: WebDiscoveryOptions): Promise<FoundSource[]> {
   const kinds = await classify(contract, hits, llm, opts.scope.signal);
@@ -184,9 +187,11 @@ export async function runSearches(queries: string[], searcher: SearchRunner, opt
     // Queries started after the run was stopped come last and were never searched.
     if (!answer) break;
     searches.push(answer.log);
-    for (const item of answer.items) {
-      const url = item.url && canonicalUrl(item.url);
-      if (url && !hits.has(url)) hits.set(url, { url, title: item.title ?? "", description: item.description ?? "", query: answer.log.query });
+    for (const { url: raw, title, description, publishedDate, engines } of answer.items) {
+      const url = raw && canonicalUrl(raw);
+      if (url && !hits.has(url)) {
+        hits.set(url, { url, title: title ?? "", description: description ?? "", query: answer.log.query, ...(publishedDate && { publishedDate }), ...(engines && { engines }) });
+      }
     }
   }
   return { hits: [...hits.values()], searches };
@@ -235,6 +240,7 @@ function kindByShape(hit: SearchHit): HitKind | null {
   const url = new URL(hit.url);
   const profileSite = profileSiteOf(url.hostname);
   if (profileSite) return profileSite.profilePath.test(url.pathname) ? "profile" : "skip";
+  if (docKindOf(hit.url)) return "document";
   if (NOT_A_PAGE.test(url.pathname)) return "skip";
   if (LIST_TITLE.test(hit.title) || LIST_PATH.test(url.pathname)) return "list";
   return null;
