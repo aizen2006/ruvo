@@ -44,6 +44,7 @@ const WONT = [
   { line: "Open Instagram, X or LinkedIn.", why: "They forbid crawlers, so profiles come from search results only, and say so." },
   { line: "Go where robots.txt says no.", why: "Not even where its stealth browser could get in." },
   { line: "Reach into your own network.", why: "A guard checks every page RUVO opens and refuses private addresses." },
+  { line: "Take orders from a page.", why: "Page text is data to its AI, never instructions, and text a page hides can't plant a value." },
   { line: "Read a page blocked for legal reasons.", why: "An HTTP 451 stops that source." },
   { line: "Guess a value.", why: "Anything it can't find on the page is dropped." },
 ];
@@ -70,7 +71,7 @@ const INSIDE = [
   },
   {
     title: "Its own search engine",
-    body: "SearXNG runs on your machine, so every request searches the web for free, in rounds, until the leads stop coming.",
+    body: "SearXNG runs on your machine, so every request searches the web for free, three searches at a time, in rounds, until the leads stop coming.",
     link: { href: "https://github.com/searxng/searxng", label: "SearXNG on GitHub" },
   },
 ];
@@ -261,16 +262,19 @@ export default function Landing() {
         <div className="min-w-0 space-y-group">
           <h2 className="text-title font-semibold">It runs on your machine</h2>
           <p>
-            RUVO is open source and runs on your computer: Postgres and its own search engine in Docker, Scrapling on your Python, and your OpenAI key or your ChatGPT plan,
-            signed in from Settings. Your requests and lists stay with you. There are no accounts: it is made for one person on one machine.
+            RUVO is open source and runs on your computer, your way: everything in Docker with one command, or with Bun on your machine. Your OpenAI key or your ChatGPT
+            plan runs its AI. Your requests and lists stay with you, and only its own dashboard can talk to it. There are no accounts: it is made for one person on one
+            machine.
           </p>
           <pre className="overflow-x-auto rounded-panel bg-void p-group font-mono text-small leading-relaxed text-sheet">
-            <code>{`pip install "scrapling[all]" && scrapling install
-git clone ${REPO} && cd ruvo
-bun install && bun run setup   # then add your OpenAI key, or sign in with ChatGPT
-bun run dev`}</code>
+            <code>{`git clone ${REPO} && cd ruvo
+cp apps/server/.env.example apps/server/.env
+docker compose --profile all up -d --build
+
+# or, with Bun on your machine:
+bun install && bun run setup && bun run dev`}</code>
           </pre>
-          <p className="text-graphite">Then open localhost:3001 and make your first list.</p>
+          <p className="text-graphite">Then open localhost:3001, add your OpenAI key or sign in with ChatGPT, and make your first list.</p>
         </div>
       </section>
 
