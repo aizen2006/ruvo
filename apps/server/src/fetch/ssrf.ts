@@ -41,14 +41,6 @@ export async function publicAddresses(hostname: string, url = hostname): Promise
   return addresses;
 }
 
-/** True when the host (a name or an IP literal) resolves to an internal address, or cannot be resolved. */
-export async function resolvesInternally(hostname: string): Promise<boolean> {
-  return publicAddresses(hostname).then(
-    () => false,
-    () => true,
-  );
-}
-
 export function isInternalAddress(address: string): boolean {
   if (isIP(address) === 4) return isInternalV4(address);
   const h = ipv6Hextets(address);

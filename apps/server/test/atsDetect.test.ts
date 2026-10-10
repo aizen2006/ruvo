@@ -1,6 +1,7 @@
-import { beforeEach, describe, expect, test } from "bun:test";
-import type { Ats } from "../src/adapters/ats";
+import { beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { ATS_BOARD_URL, type Ats } from "../src/adapters/ats";
 import { autoDetectCompanies, detectBoard, slugVariants } from "../src/plan/atsDetect";
+import { probeBoard } from "../src/plan/atsProbe";
 import { listRegistry } from "../src/plan/registry";
 import { resetDb } from "./helpers/db";
 
@@ -40,5 +41,25 @@ describe("autoDetectCompanies", () => {
     expect(result.missing).toEqual(["Ghost Corp"]);
     const [row] = await listRegistry();
     expect(row).toMatchObject({ name: "Figma", ats: "greenhouse", slug: "figma", origin: "auto_detected", jobCount: 120, tags: [] });
+  });
+});
+
+describe("probeBoard", () => {
+  test("refuses a board on a private address without asking it", async () => {
+    let asked = 0;
+    using board = Bun.serve({
+      port: 0,
+      fetch: () => {
+        asked++;
+        return Response.json({ jobs: [{}, {}] });
+      },
+    });
+    const boardUrl = spyOn(ATS_BOARD_URL, "greenhouse").mockReturnValue(`http://127.0.0.1:${board.port}/v1/boards/acme/jobs`);
+    try {
+      expect(await probeBoard("greenhouse", "acme", { userAgent: "t" })).toBeNull();
+      expect(asked).toBe(0);
+    } finally {
+      boardUrl.mockRestore();
+    }
   });
 });

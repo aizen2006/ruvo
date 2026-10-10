@@ -114,6 +114,16 @@ describe("robots.txt (RFC 9309)", () => {
     expect(asked).toBe(0);
   });
 
+  test("more than five redirects mean no robots.txt, which allows everything", async () => {
+    let asked = 0;
+    using server = Bun.serve({
+      port: 0,
+      fetch: () => new Response(null, { status: 302, headers: { location: `/robots.txt?hop=${++asked}` } }),
+    });
+    expect((await createRobots({ userAgent: "RUVO/0.1", allowPrivateNetwork: true }).check(`http://127.0.0.1:${server.port}/x`)).allowed).toBe(true);
+    expect(asked).toBe(6);
+  });
+
   test("applies disallow rules and crawl-delay", async () => {
     const robots = robotsWith(200, "User-agent: *\nDisallow: /private\nCrawl-delay: 1\n");
     expect(await robots.check("https://example.com/private/a")).toEqual({ allowed: false, crawlDelayMs: 1000 });

@@ -1,8 +1,9 @@
 import robotsParser from "robots-parser";
 import { readCapped } from "./readCapped";
 import { STEALTH_TIMEOUT_MS, type ScraplingClient } from "./scrapling";
-import { publicAddresses, resolvesInternally } from "./ssrf";
+import { assertPublicUrl } from "./ssrf";
 import { hasChallengeMarkers, isBotChallenge } from "./sufficiency";
+import { directGet, isRedirect } from "./transports/direct";
 
 type RobotsRules = { isAllowed(url: string): boolean; crawlDelayMs: number };
 
@@ -31,22 +32,18 @@ export function createRobots(opts: {
   const fetchText =
     opts.fetchText ??
     (async (url: string) => {
-      // A host on this machine or its network is never asked: it throws here, so its robots.txt counts as unreachable.
-      if (!opts.allowPrivateNetwork) await publicAddresses(new URL(url).hostname, url);
-      // Redirects are followed by hand (up to 5, per RFC 9309) so none can lead to an internal address.
-      let target = url;
-      for (let hop = 0; hop <= 5; hop++) {
-        const res = await fetch(target, { headers: { "user-agent": opts.userAgent }, redirect: "manual", signal: AbortSignal.timeout(5000) });
-        const location = res.status >= 300 && res.status < 400 ? res.headers.get("location") : null;
-        // An error's body is not read, so a bot check is known here by its cf-mitigated header.
-        if (!location && opts.scrapling && isBotChallenge(res.status, Object.fromEntries(res.headers), "")) return readPastBotCheck(opts.scrapling, target);
-        if (!location) return { status: res.status, text: res.ok ? await readCapped(res, MAX_ROBOTS_BYTES, target) : "" };
-        const next = new URL(location, target);
-        if (next.origin !== new URL(url).origin && (await resolvesInternally(next.hostname))) break;
-        target = next.href;
-      }
-      // Too many redirects, or one into a private network: treat robots.txt as unavailable.
-      return { status: 404, text: "" };
+      // Every hop passes the SSRF guard, so a host on this machine or its network is never asked: the guard throws,
+      // and its robots.txt counts as unreachable. Up to 5 redirects are followed, per RFC 9309.
+      const { url: target, res } = await directGet(url, {
+        headers: { "user-agent": opts.userAgent },
+        timeoutMs: 5000,
+        guard: opts.allowPrivateNetwork ? async () => {} : assertPublicUrl,
+      });
+      // Too many redirects: treat robots.txt as unavailable.
+      if (isRedirect(res)) return { status: 404, text: "" };
+      // An error's body is not read, so a bot check is known here by its cf-mitigated header.
+      if (opts.scrapling && isBotChallenge(res.status, Object.fromEntries(res.headers), "")) return readPastBotCheck(opts.scrapling, target);
+      return { status: res.status, text: res.ok ? await readCapped(res, MAX_ROBOTS_BYTES, target) : "" };
     });
   const cache = new Map<string, { rules: RobotsRules | Promise<RobotsRules>; expiresAt: number }>();
 

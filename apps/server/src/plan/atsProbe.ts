@@ -1,4 +1,5 @@
 import { ATS_BOARD_URL, ATS_LIST, countPostings, type Ats } from "../adapters/ats";
+import { directGet } from "../fetch/transports/direct";
 
 export interface ProbeHit {
   ats: Ats;
@@ -8,13 +9,13 @@ export interface ProbeHit {
 
 /**
  * Checks whether `slug` has a public board on `ats` and how many postings it lists.
- * Returns null when the board doesn't exist or can't be read in time.
+ * Returns null when the board doesn't exist, can't be read in time, or isn't on a public address.
  */
 export async function probeBoard(ats: Ats, slug: string, opts: { userAgent: string; timeoutMs?: number }): Promise<ProbeHit | null> {
   try {
-    const res = await fetch(ATS_BOARD_URL[ats](slug), {
+    const { res } = await directGet(ATS_BOARD_URL[ats](slug), {
       headers: { "user-agent": opts.userAgent, accept: "application/json" },
-      signal: AbortSignal.timeout(opts.timeoutMs ?? 15_000),
+      timeoutMs: opts.timeoutMs ?? 15_000,
     });
     if (!res.ok) return null;
     return { ats, slug, jobCount: countPostings(await res.json()) };
