@@ -66,6 +66,32 @@ describe("normalizeContract", () => {
     expect(contract.assumptions[0]?.phrase).toBe("good companies");
   });
 
+  test("makes a column custom when its domain's catalog lacks its key, and reads an unknown domain as generic", () => {
+    const seniority = { name: "seniority", catalogKey: "seniority", type: "string" as const, required: false, description: "" };
+    const jobs = normalizeContract({ ...base, fields: [...base.fields, seniority] }, "backend jobs");
+    expect(jobs.contract.fields.find((f) => f.name === "seniority")?.catalogKey).toBe("custom");
+    expect(jobs.warnings).toContain('Made "seniority" a custom column: "seniority" is not a catalog key of the jobs domain');
+
+    const other = normalizeContract({ ...base, domain: "recipes" }, "backend jobs");
+    expect(other.contract.domain).toBe("generic");
+    expect(other.warnings).toContain('Read the unknown domain "recipes" as generic');
+    // Generic records have a name and a link; job keys become custom columns, and no job field is added.
+    expect(other.contract.fields.map((f) => [f.name, f.catalogKey])).toEqual([
+      ["company_name", "custom"],
+      ["title", "title"],
+      ["title_2", "custom"],
+      ["location", "custom"],
+    ]);
+    // One record per link, else per name: this contract has no link column.
+    expect(other.contract.dedupKeys).toEqual([["title"]]);
+  });
+
+  test("a generic request with no searches or pages searches for its own description; a job request leaves that to the boards", () => {
+    const podcasts = { ...base, domain: "generic", entityDescription: "A climate tech podcast" };
+    expect(normalizeContract(podcasts, "climate podcasts").contract.sourceHints.searchQueries).toEqual(["A climate tech podcast"]);
+    expect(normalizeContract({ ...podcasts, domain: "jobs" }, "climate jobs").contract.sourceHints.searchQueries).toEqual([]);
+  });
+
   test("defaults dedup keys and clamps maxRecords", () => {
     const { contract } = normalizeContract({ ...base, maxRecords: 999_999 }, "jobs");
     expect(contract.dedupKeys).toEqual([["url"], ["title", "location"]]);

@@ -1,14 +1,17 @@
 import type { Criterion, DatasetContract, FieldSpec } from "@repo/contracts";
-import { JOB_FIELD_GUIDE } from "../domains/jobs/fields";
+import { packOf } from "../domains";
+import type { DomainPack } from "../domains/types";
 
 /**
  * Deterministic clean-up of a compiled contract, so later stages can rely on its shape
- * regardless of small LLM mistakes. Every repair is reported as a warning.
- * Also used when a user edits a contract before approving a run.
+ * regardless of small LLM mistakes, followed by its domain's own defaults. Every repair is
+ * reported as a warning. Also used when a user edits a contract before approving a run.
  */
 export function normalizeContract(input: DatasetContract, prompt: string): { contract: DatasetContract; warnings: string[] } {
   const warnings: string[] = [];
-  const fields = normalizeFields(input, warnings);
+  const pack = packOf(input);
+  if (pack.id !== input.domain) warnings.push(`Read the unknown domain "${input.domain}" as ${pack.id}`);
+  const fields = normalizeFields(pack, input, warnings);
   const fieldNames = new Set(fields.map((f) => f.name));
   const nameFor = (catalogKey: string) => fields.find((f) => f.catalogKey === catalogKey)?.name;
 
@@ -16,46 +19,24 @@ export function normalizeContract(input: DatasetContract, prompt: string): { con
     .map((c) => repairCriterion(c, fieldNames, nameFor, warnings))
     .filter((c): c is Criterion => c !== null);
 
-  const assumptions = [...input.assumptions];
-  if (input.domain === "jobs" && mentionsCompanyQuality(prompt) && !criteria.some((c) => c.kind === "company_tag")) {
-    criteria.push(DEFAULT_COMPANY_CRITERION);
-    assumptions.push(DEFAULT_COMPANY_ASSUMPTION);
-    warnings.push('Added the default interpretation of "good companies" (registry tags)');
-  }
-
-  const dedupKeys = input.dedupKeys
-    .map((key) => key.filter((f) => fieldNames.has(f)))
-    .filter((key) => key.length > 0);
-
-  const urls = normalizeUrls(input.sourceHints.urls, warnings);
-  const searchQueries = normalizeQueries(input, warnings);
-
-  return {
-    contract: {
-      ...input,
-      sourceHints: { ...input.sourceHints, urls, searchQueries },
-      fields,
-      criteria,
-      assumptions,
-      dedupKeys: dedupKeys.length ? dedupKeys : defaultDedupKeys(fieldNames),
-      maxRecords: clamp(Math.round(input.maxRecords || 200), 1, 1000),
-      sensitive: [...new Set(input.sensitive.map((s) => s.trim().toLowerCase()).filter(Boolean))],
+  const cleaned: DatasetContract = {
+    ...input,
+    domain: pack.id,
+    sourceHints: {
+      ...input.sourceHints,
+      urls: normalizeUrls(input.sourceHints.urls, warnings),
+      searchQueries: [...new Set(input.sourceHints.searchQueries.map((q) => q.trim()).filter(Boolean))].slice(0, 8),
     },
-    warnings,
+    fields,
+    criteria,
+    dedupKeys: usableKeys(input.dedupKeys, fieldNames),
+    maxRecords: clamp(Math.round(input.maxRecords || 200), 1, 1000),
+    sensitive: [...new Set(input.sensitive.map((s) => s.trim().toLowerCase()).filter(Boolean))],
   };
-}
-
-/** Trimmed, unique search queries (max 8). Non-job requests get a fallback query if the LLM wrote none. */
-function normalizeQueries(input: DatasetContract, warnings: string[]): string[] {
-  const queries = [...new Set(input.sourceHints.searchQueries.map((q) => q.trim()).filter(Boolean))].slice(0, 8);
-  if (queries.length === 0 && input.domain !== "jobs" && input.sourceHints.urls.length === 0) {
-    const fallback = input.entityDescription.trim() || input.title.trim();
-    if (fallback) {
-      queries.push(fallback);
-      warnings.push("Added a search query from the dataset description, as none were given");
-    }
-  }
-  return queries;
+  const contract = pack.normalize?.(cleaned, { prompt, warnings }) ?? cleaned;
+  // Records with the same link are one record, as are records with the same name, unless the domain says what makes one.
+  const dedupKeys = usableKeys(contract.dedupKeys.length ? contract.dedupKeys : [["url"], ["title"]], new Set(contract.fields.map((f) => f.name)));
+  return { contract: { ...contract, dedupKeys }, warnings };
 }
 
 /** Linked pages: absolute http(s) URLs only, each once ("example.com/jobs" gets https://). */
@@ -74,13 +55,10 @@ function normalizeUrls(urls: string[], warnings: string[]): string[] {
   return [...kept];
 }
 
-const REQUIRED_JOB_FIELDS: FieldSpec[] = [
-  { name: "company", catalogKey: "company", type: "string", required: true, description: "Hiring company" },
-  { name: "title", catalogKey: "title", type: "string", required: true, description: "Job title" },
-  { name: "url", catalogKey: "url", type: "url", required: true, description: "Link to the posting" },
-];
+/** Catalog keys of the domain, plus "custom" for any other column and "match_reason", which RUVO writes for every domain. */
+const isCatalogKey = (pack: DomainPack, key: string) => key === "custom" || key === "match_reason" || Object.hasOwn(pack.fields, key);
 
-function normalizeFields(input: DatasetContract, warnings: string[]): FieldSpec[] {
+function normalizeFields(pack: DomainPack, input: DatasetContract, warnings: string[]): FieldSpec[] {
   const seen = new Set<string>();
   const fields: FieldSpec[] = [];
   for (const field of input.fields) {
@@ -88,24 +66,23 @@ function normalizeFields(input: DatasetContract, warnings: string[]): FieldSpec[
     while (seen.has(name)) name = `${name}_2`;
     if (name !== field.name) warnings.push(`Renamed field "${field.name}" to "${name}"`);
     seen.add(name);
-    fields.push({ ...field, name });
+    const known = isCatalogKey(pack, field.catalogKey);
+    if (!known) warnings.push(`Made "${name}" a custom column: "${field.catalogKey}" is not a catalog key of the ${pack.id} domain`);
+    fields.push({ ...field, name, catalogKey: known ? field.catalogKey : "custom" });
   }
 
-  if (input.domain === "jobs") {
-    for (const required of REQUIRED_JOB_FIELDS) {
-      if (!fields.some((f) => f.catalogKey === required.catalogKey)) {
-        fields.push(required);
-        warnings.push(`Added missing "${required.name}" field`);
-      }
-    }
-    // An `equals` criterion on a catalog field the model didn't list (e.g. "preferably remote" with no
-    // remote column) would be dropped as unusable; add the field as optional so the preference survives.
-    for (const criterion of input.criteria.filter((c) => c.kind === "equals")) {
-      for (const key of criterion.fields) {
-        if (!Object.hasOwn(JOB_FIELD_GUIDE, key) || fields.some((f) => f.name === key || f.catalogKey === key)) continue;
-        fields.push({ name: key, catalogKey: key, type: "string", required: false, description: JOB_FIELD_GUIDE[key]! });
-        warnings.push(`Added optional "${key}" field for criterion "${criterion.label}"`);
-      }
+  // The domain's catalog field for a key, when the contract lacks it.
+  const add = (key: string, required: boolean, warning: string) => {
+    if (fields.some((f) => f.catalogKey === key) || !Object.hasOwn(pack.fields, key)) return;
+    fields.push({ name: key, catalogKey: key, type: key === "url" ? "url" : "string", required, description: pack.fields[key]! });
+    warnings.push(warning);
+  };
+  for (const key of pack.required) add(key, true, `Added missing "${key}" field`);
+  // An `equals` criterion on a catalog field the model didn't list (e.g. "preferably remote" with no
+  // remote column) would be dropped as unusable; add the field as optional so the preference survives.
+  for (const criterion of input.criteria.filter((c) => c.kind === "equals")) {
+    for (const key of criterion.fields.filter((f) => !fields.some((x) => x.name === f))) {
+      add(key, false, `Added optional "${key}" field for criterion "${criterion.label}"`);
     }
   }
   return fields;
@@ -150,29 +127,8 @@ function uniqueIds(criteria: Criterion[]): Criterion[] {
   });
 }
 
-const DEFAULT_COMPANY_CRITERION: Criterion = {
-  id: "good_company",
-  label: "AI / infra / devtools company",
-  kind: "company_tag",
-  fields: ["company"],
-  values: ["ai_lab", "ai_infra", "devtools"],
-  strength: "soft",
-  weight: 0.3,
-};
-
-const DEFAULT_COMPANY_ASSUMPTION = {
-  phrase: "good companies",
-  interpretation: "Companies in RUVO's curated registry tagged as AI labs, AI infrastructure or developer tools",
-  signals: ["registry tag: ai_lab / ai_infra / devtools"],
-};
-
-const mentionsCompanyQuality = (prompt: string) =>
-  /\b(good|great|top|best|leading|reputable|strong|well[- ]known)\b[^.]{0,40}\b(compan(y|ies)|employers?|startups?|teams?)\b/i.test(prompt);
-
-function defaultDedupKeys(fieldNames: Set<string>): string[][] {
-  const keys = [["url"], ["company", "title", "location"]].map((k) => k.filter((f) => fieldNames.has(f)));
-  return keys.filter((k) => k.length > 0);
-}
+/** Dedup keys made only of fields the contract has. */
+const usableKeys = (keys: string[][], fieldNames: Set<string>) => keys.map((key) => key.filter((f) => fieldNames.has(f))).filter((key) => key.length > 0);
 
 const snakeCase = (s: string) =>
   s

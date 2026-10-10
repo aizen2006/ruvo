@@ -1,6 +1,7 @@
 import { bulletList } from "../../libs/text";
 import type { DomainPack } from "../types";
 import { COMPANY_TAG_GUIDE, JOB_FIELD_GUIDE } from "./fields";
+import { normalizeJobs } from "./normalize";
 
 /** Job postings: the deep domain, read from job boards RUVO knows, boards found by search, and job pages. */
 export const jobsPack: DomainPack = {
@@ -15,4 +16,5 @@ semantic: e.g. "Is this a backend or AI-infrastructure engineering role?". Add o
 company_tag registry tags:
 ${bulletList(COMPANY_TAG_GUIDE)}
 searchQueries: leave empty (RUVO uses its job-board registry).`,
+  normalize: normalizeJobs,
 };
