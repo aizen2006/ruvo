@@ -44,6 +44,8 @@ export function fixtureFetcher(routes: Record<string, string> | string) {
       const page = resolve(url);
       return { data: JSON.parse(page.body) as T, page };
     },
+    // No fetch service here, so no HEAD.
+    head: async () => null,
   };
   return { fetcher, requested };
 }

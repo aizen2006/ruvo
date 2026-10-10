@@ -29,6 +29,7 @@ const boardFetcher: Fetcher = {
     };
   },
   json: () => Promise.reject(new Error("not used")),
+  head: () => Promise.reject(new Error("not used")),
 };
 
 const recipe: RecipeDef = {

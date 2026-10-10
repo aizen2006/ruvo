@@ -12,7 +12,7 @@ import { assessHtml } from "./sufficiency";
 import { createDirectTransport } from "./transports/direct";
 import { createFirecrawlTransport } from "./transports/firecrawl";
 import { createScraplingTransport } from "./transports/scrapling";
-import type { Expect, Fetched } from "./transports/types";
+import type { Expect, Fetched, TransportRequest } from "./transports/types";
 
 export interface FetchRequest {
   url: string;
@@ -44,6 +44,18 @@ export interface FetchResult {
   escalation: { reason: string; textLength: number } | null;
 }
 
+/** What a HEAD request tells of a file without reading it; null where its headers don't say. */
+export interface HeadResult {
+  finalUrl: string;
+  status: number;
+  contentType: string | null;
+  contentLength: number | null;
+  /** From Content-Disposition. */
+  filename: string | null;
+  /** The Last-Modified header, as sent. */
+  lastModified: string | null;
+}
+
 /**
  * The slice of a run a fetch needs: cancellation, time limit, budget and counters, the run a paid fetch (Firecrawl)
  * is charged to, and its activity log.
@@ -53,6 +65,12 @@ export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics"> & Par
 export interface Fetcher {
   fetch(scope: FetchScope, req: FetchRequest): Promise<FetchResult>;
   json<T>(scope: FetchScope, url: string, purpose: string, opts?: { maxBytes?: number }): Promise<{ data: T; page: FetchResult }>;
+  /**
+   * A file's headers from a HEAD request through the fetch service, with a plain fetch's checks and one page of the budget;
+   * nothing is stored. A server that doesn't answer HEAD (405 or 501) comes back as its status. Null when the fetch service
+   * is off (or down), or the URL is a trusted origin, which the service can't reach.
+   */
+  head(scope: FetchScope, url: string): Promise<HeadResult | null>;
 }
 
 export interface FetcherOptions {
@@ -102,7 +120,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   const firecrawl = opts.firecrawl && createFirecrawlTransport(opts.firecrawl);
   // JSON APIs (no browser needed, bodies up to 40 MB) and trusted origins (the service's guard refuses
   // local addresses) are fetched in-process, as is everything without a service.
-  const serviceFor = (req: FetchRequest) => (req.expect === "json" || trusted.has(new URL(req.url).origin) ? undefined : scrapling);
+  const serviceFor = (req: TransportRequest) => (req.expect === "json" || trusted.has(new URL(req.url).origin) ? undefined : scrapling);
   // The activity logs (one a run) already told that the service is down, so each run hears it once.
   const toldServiceDown = new WeakSet<NonNullable<FetchScope["emit"]>>();
 
@@ -157,19 +175,9 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     };
     let response: Fetched;
     try {
-      response = await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
-        // Only plain requests are retried: a render spends a browser page each time.
-        retries: via === "http" ? 2 : 0,
-        baseMs: 500,
-        maxDelayMs: 30_000,
-        shouldRetry: (err) => err instanceof FetchError && err.retryable,
-        retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
-        // In a run, a long Retry-After is waited out if it ends before the time limit, and given up on if not.
-        deadline: scope.endsAt,
-        signal: scope.signal,
-      });
+      // Only plain requests are retried: a render spends a browser page each time.
+      response = await send(scope, host, crawlDelayMs, via === "http" ? 2 : 0, transport);
     } catch (err) {
-      if (err instanceof FetchError && (err.retryable || err.kind === "network")) breaker.recordFailure(host);
       if (!firecrawlMayRead(req, via, err)) throw err;
       // If Firecrawl cannot read the page either, it failed for the reason Scrapling met.
       return fetchVia(scope, req, "firecrawl").catch((failed: unknown) => {
@@ -187,6 +195,57 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     scope.metrics.inc("pagesVisited");
     if (via !== "http") scope.metrics.inc("browserPages");
     return toResult(await savePage({ url: req.url, via, ...fetched }), false);
+  }
+
+  /** One request through the host's rate limit, retried up to `retries` times; a failure that may be the site's counts against its breaker. */
+  async function send(scope: FetchScope, host: string, crawlDelayMs: number, retries: number, transport: () => Promise<Fetched>): Promise<Fetched> {
+    try {
+      return await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
+        retries,
+        baseMs: 500,
+        maxDelayMs: 30_000,
+        shouldRetry: (err) => err instanceof FetchError && err.retryable,
+        retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
+        // In a run, a long Retry-After is waited out if it ends before the time limit, and given up on if not.
+        deadline: scope.endsAt,
+        signal: scope.signal,
+      });
+    } catch (err) {
+      if (err instanceof FetchError && (err.retryable || err.kind === "network")) breaker.recordFailure(host);
+      throw err;
+    }
+  }
+
+  async function head(scope: FetchScope, url: string): Promise<HeadResult | null> {
+    if (!URL.canParse(url)) throw new FetchError("ssrf_blocked", `Invalid URL: ${url}`, { url });
+    const req: TransportRequest = { url, expect: "html", method: "HEAD" };
+    const service = serviceFor(req);
+    if (!service) return null;
+    const { host, crawlDelayMs } = await preflight(scope, url, ["pages"]);
+    let res: Fetched;
+    try {
+      res = await send(scope, host, crawlDelayMs, 2, () => service(scope, req, "http"));
+    } catch (err) {
+      if (!(err instanceof FetchError)) throw err;
+      if (err.kind === "service_down") return null;
+      const { url: finalUrl, status } = err.details;
+      if (status === 405 || status === 501) return { finalUrl, status, contentType: null, contentLength: null, filename: null, lastModified: null };
+      throw err;
+    }
+    if (new URL(res.finalUrl).host !== host) await checkHost(res.finalUrl);
+    // HEAD never goes to a browser, so a bot check ends it.
+    if (res.challenge) throw new FetchError("http_status", `${res.finalUrl} shows a bot check (HTTP ${res.status})`, { url: res.finalUrl, status: res.status, challenge: true });
+    breaker.recordSuccess(host);
+    scope.metrics.inc("pagesVisited");
+    const { "content-length": length, "content-disposition": disposition, "last-modified": lastModified } = res.headers ?? {};
+    return {
+      finalUrl: res.finalUrl,
+      status: res.status,
+      contentType: res.contentType,
+      contentLength: length && /^\d+$/.test(length) ? Number(length) : null,
+      filename: disposition ? filenameOf(disposition) : null,
+      lastModified: lastModified ?? null,
+    };
   }
 
   /**
@@ -250,7 +309,26 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
         throw new FetchError("unsupported_content", `Invalid JSON from ${url}`, { url });
       }
     },
+    head,
   };
+}
+
+/**
+ * The file name in a Content-Disposition header: RFC 5987's `filename*=` (charset'language'percent-encoded bytes,
+ * e.g. UTF-8''r%C3%A9sum%C3%A9.pdf) over a plain `filename=`, quoted or not.
+ */
+export function filenameOf(disposition: string): string | null {
+  const extended = /\bfilename\*\s*=\s*([^']*)'[^']*'([^\s;]+)/i.exec(disposition);
+  if (extended) {
+    try {
+      const bytes = Buffer.from(extended[2]!.replace(/%([0-9a-f]{2})/gi, (_, hex: string) => String.fromCharCode(parseInt(hex, 16))), "latin1");
+      return new TextDecoder(extended[1] as Bun.Encoding, { fatal: true }).decode(bytes);
+    } catch {
+      // An unknown charset, or bytes not in it: the plain name, if there is one.
+    }
+  }
+  const plain = /\bfilename\s*=\s*(?:"((?:\\.|[^"\\])*)"|([^\s;]+))/i.exec(disposition);
+  return plain ? (plain[1]?.replace(/\\(.)/g, "$1") ?? plain[2]!) : null;
 }
 
 function toResult(page: PageRow & { via: Via }, fromCache: boolean): FetchResult {

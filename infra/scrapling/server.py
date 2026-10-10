@@ -9,11 +9,13 @@ import base64
 import os
 import re
 import sys
+from functools import partial
 from itertools import product
 
 import uvicorn
 from cssselect import SelectorError
 from scrapling import Selector, __version__
+from scrapling.engines.static import AsyncFetcherClient
 from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -45,6 +47,8 @@ SOCKS_FAILED = "net::ERR_SOCKS_CONNECTION_FAILED"
 FIELD_SCORE = 30
 
 browser_slots = asyncio.Semaphore(2)
+# AsyncFetcher has no head(), but the client behind it sends a HEAD like any other method.
+head = partial(AsyncFetcherClient()._make_request, "HEAD")
 
 
 async def skip_heavy_resources(page) -> None:
@@ -63,8 +67,9 @@ class TooLarge(Exception):
     """A body over the fetch's maxBytes."""
 
 
-async def fetch_page(url: str, engine: str, timeout_ms: int, max_bytes: int, accept: str | None):
-    """One fetch with a fresh client or browser, so no cookies or storage carry over between pages: the page and its body."""
+async def fetch_page(url: str, engine: str, timeout_ms: int, max_bytes: int, accept: str | None, method: str):
+    """One fetch with a fresh client or browser, so no cookies or storage carry over between pages: the page and its body.
+    A HEAD (http only) has no body."""
     if engine == "http":
         body = bytearray()
 
@@ -74,8 +79,8 @@ async def fetch_page(url: str, engine: str, timeout_ms: int, max_bytes: int, acc
                 raise TooLarge(f"body is over {max_bytes} bytes")  # curl stops the download here
             return len(chunk)
 
-        page = await AsyncFetcher.get(
-            url,
+        page = await (head if method == "HEAD" else AsyncFetcher.get)(
+            url=url,
             proxy=HTTP_PROXY,
             follow_redirects=True,  # never "safe": behind a proxy curl rejects every redirect
             max_redirects=5,
@@ -132,19 +137,19 @@ async def client_disconnected(request: Request) -> None:
 async def fetch(request: Request) -> Response:
     try:
         req = await request.json()
-        url, engine, timeout_ms, max_bytes, accept = (
-            req["url"], req["engine"], req["timeoutMs"], req["maxBytes"], req.get("accept"))
+        url, engine, timeout_ms, max_bytes, accept, method = (
+            req["url"], req["engine"], req["timeoutMs"], req["maxBytes"], req.get("accept"), req.get("method", "GET"))
         valid = (isinstance(url, str) and url.startswith(("http://", "https://")) and engine in ENGINES
                  and type(timeout_ms) is int and timeout_ms > 0 and type(max_bytes) is int and max_bytes > 0
-                 and (accept is None or isinstance(accept, str)))
+                 and (accept is None or isinstance(accept, str)) and (method == "GET" or method == "HEAD" and engine == "http"))
     except (ValueError, KeyError, TypeError, AttributeError):
         valid = False
     if not valid:
-        message = 'expected {"url", "engine": "http" | "browser" | "stealth", "timeoutMs", "maxBytes", "accept"}'
+        message = 'expected {"url", "engine": "http" | "browser" | "stealth", "timeoutMs", "maxBytes", "accept", "method": "GET" | "HEAD" (http only)}'
         return JSONResponse({"error": "bad_request", "message": message}, 400)
 
     # Race the fetch against the client hanging up, and cancel the fetch if nobody is waiting for it.
-    fetching = asyncio.ensure_future(fetch_page(url, engine, timeout_ms, max_bytes, accept))
+    fetching = asyncio.ensure_future(fetch_page(url, engine, timeout_ms, max_bytes, accept, method))
     hangup = asyncio.ensure_future(client_disconnected(request))
     await asyncio.wait({fetching, hangup}, return_when=asyncio.FIRST_COMPLETED)
     hangup.cancel()

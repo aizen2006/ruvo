@@ -19,7 +19,9 @@ export function createScraplingTransport(service: ScraplingClient, timeoutMs: nu
         engine: via,
         timeoutMs: engineTimeoutMs[via],
         maxBytes: req.maxBytes ?? DEFAULT_MAX_BYTES,
-        accept: via === "http" ? ACCEPT[req.expect] : undefined,
+        // A HEAD takes a file of any type, with Chrome's own Accept.
+        accept: via === "http" && req.method !== "HEAD" ? ACCEPT[req.expect] : undefined,
+        method: req.method,
       },
       scope.signal,
     );
@@ -40,6 +42,7 @@ export function createScraplingTransport(service: ScraplingClient, timeoutMs: nu
         challenge,
       });
     }
+    if (req.method === "HEAD") return { ...fetched, headers: res.headers };
     if (!acceptsContentType(req.expect, fetched.contentType)) {
       throw new FetchError("unsupported_content", `Unexpected content-type "${fetched.contentType}" from ${res.url}`, { url: res.url });
     }

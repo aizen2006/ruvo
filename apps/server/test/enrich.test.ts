@@ -21,6 +21,7 @@ const pageFetcher = (requested: string[]): Fetcher => ({
     return { pageId: null as unknown as string, url: req.url, finalUrl: req.url, status: 200, via: "http", fromCache: false, contentType: "text/html", body: leverHtml, escalation: null };
   },
   json: () => Promise.reject(new Error("not used")),
+  head: () => Promise.reject(new Error("not used")),
 });
 
 function context(fetcher: Fetcher) {

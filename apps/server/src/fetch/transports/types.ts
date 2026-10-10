@@ -8,13 +8,15 @@ export interface TransportRequest {
   url: string;
   expect: Expect;
   maxBytes?: number;
+  /** HEAD reads a file's headers, whatever its type; `expect` is not checked. */
+  method?: "GET" | "HEAD";
 }
 
 /** The slice of a run a transport uses: cancellation, request counters, and the run a paid read is charged to. */
 export type TransportScope = Pick<RunContext, "signal" | "metrics"> & Partial<Pick<RunContext, "runId">>;
 
-/** A response as fetched; `challenge` marks a bot check, which is never stored. */
-export type Fetched = { finalUrl: string; status: number; contentType: string | null; body: string; challenge?: boolean };
+/** A response as fetched; `challenge` marks a bot check, which is never stored. A HEAD's has its `headers` (lower-case names). */
+export type Fetched = { finalUrl: string; status: number; contentType: string | null; body: string; challenge?: boolean; headers?: Record<string, string> };
 
 export const DEFAULT_MAX_BYTES = 5 * 1024 * 1024;
 

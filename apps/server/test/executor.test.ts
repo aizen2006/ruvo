@@ -48,7 +48,7 @@ async function runWith(companies: RegistryCompany[], contract: DatasetContract =
 /** A source that never answers until the request is aborted. */
 const hang = (scope: FetchScope): Promise<never> =>
   new Promise((_, reject) => scope.signal.addEventListener("abort", () => reject(scope.signal.reason), { once: true }));
-const neverAnswers: Fetcher = { fetch: (scope) => hang(scope), json: (scope) => hang(scope) };
+const neverAnswers: Fetcher = { fetch: (scope) => hang(scope), json: (scope) => hang(scope), head: (scope) => hang(scope) };
 
 const recordsOf = (runId: string) => db.select().from(records).where(eq(records.runId, runId));
 
@@ -98,6 +98,7 @@ describe("executeWorkflow", () => {
         ends.push(scope.endsAt);
         return fixtures.json(scope, url, purpose, opts);
       },
+      head: fixtures.head,
     };
     const started = Date.now();
     const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider });
@@ -128,6 +129,7 @@ describe("executeWorkflow", () => {
           active--;
           return fixtures.json(scope, url, purpose, opts);
         },
+        head: fixtures.head,
       };
       const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider, branchConcurrency });
       await executeWorkflow(ctx);

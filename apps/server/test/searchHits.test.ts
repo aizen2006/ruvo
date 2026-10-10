@@ -37,6 +37,7 @@ const HIT = {
 const noFetch: Fetcher = {
   fetch: () => Promise.reject(new Error("fetched a page")),
   json: () => Promise.reject(new Error("fetched a page")),
+  head: () => Promise.reject(new Error("fetched a page")),
 };
 
 function run(llm: ReturnType<typeof fakeLlm>) {

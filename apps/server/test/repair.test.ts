@@ -52,6 +52,7 @@ function pages(byVia: { http: string; browser?: string }): Fetcher {
       return { pageId: null as unknown as string, url: req.url, finalUrl: req.url, status: 200, via, fromCache: false, contentType: "text/html", body: byVia[via] ?? byVia.http, escalation: null };
     },
     json: () => Promise.reject(new Error("not used")),
+    head: () => Promise.reject(new Error("not used")),
   };
 }
 

@@ -54,6 +54,7 @@ describe("html_list pagination", () => {
       return { pageId: crypto.randomUUID(), url: req.url, finalUrl: req.url, status: 200, via: "http", fromCache: false, contentType: "text/html", body, escalation: null };
     },
     json: () => Promise.reject(new Error("not used")),
+    head: () => Promise.reject(new Error("not used")),
   });
 
   const CONTRACT = {

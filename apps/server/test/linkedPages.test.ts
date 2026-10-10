@@ -100,6 +100,7 @@ describe("reading a linked page", () => {
   const fetcher: Fetcher = {
     fetch: async (_s, req): Promise<FetchResult> => ({ pageId: null as unknown as string, url: req.url, finalUrl: req.url, status: 200, via: "http", fromCache: false, contentType: "text/html", body: html, escalation: null }),
     json: () => Promise.reject(new Error("not used")),
+    head: () => Promise.reject(new Error("not used")),
   };
 
   test("reads custom fields and normalizes numbers", async () => {

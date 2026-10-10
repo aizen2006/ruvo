@@ -24,8 +24,11 @@ export interface Relocated {
 }
 
 export interface ScraplingClient {
-  /** One fetch with one engine. An HTTP error status comes back as a page; a failed fetch throws a FetchError. */
-  fetch(req: { url: string; engine: ScraplingEngine; timeoutMs: number; maxBytes: number; accept?: string }, signal: AbortSignal): Promise<ScraplingPage>;
+  /** One fetch with one engine. An HTTP error status comes back as a page; a failed fetch throws a FetchError. A HEAD (http only) has no body. */
+  fetch(
+    req: { url: string; engine: ScraplingEngine; timeoutMs: number; maxBytes: number; accept?: string; method?: "GET" | "HEAD" },
+    signal: AbortSignal,
+  ): Promise<ScraplingPage>;
   /** Finds a recipe's item and fields, as read on the old page, on the new one with Scrapling's adaptive parser (no network). */
   relocate(req: RecipeDef & { oldHtml: string; newHtml: string }, signal: AbortSignal): Promise<Relocated>;
 }

@@ -3,7 +3,7 @@ import { createBudget, createMetrics, type EmitInput } from "../src/core/run";
 import { db } from "../src/db/client";
 import { pages } from "../src/db/schema";
 import { FetchError } from "../src/fetch/errors";
-import { createFetcher, type FetchRequest, type FetchScope, type FetcherOptions } from "../src/fetch/fetcher";
+import { createFetcher, filenameOf, type FetchRequest, type FetchScope, type FetcherOptions } from "../src/fetch/fetcher";
 import { createHostLimiter } from "../src/fetch/hostLimiter";
 import { savePage } from "../src/fetch/pageCache";
 import { createRobots } from "../src/fetch/robots";
@@ -239,5 +239,108 @@ describe("in-process fetching", () => {
     expect((await failure(fetcherWith(client).fetch(scope(), req("auto", `http://127.0.0.1:${site.port}/wall`)))).kind).toBe("service_down");
     expect(calls).toEqual(["http", "stealth"]);
     expect(await storedVias()).toEqual([]);
+  });
+});
+
+describe("HEAD", () => {
+  const PDF_URL = "https://files.example/report.pdf";
+  const pdf = {
+    "content-type": "application/pdf",
+    "content-length": "1048576",
+    "content-disposition": "attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf",
+    "last-modified": "Wed, 21 Oct 2025 07:28:00 GMT",
+  };
+  /** A fake service with one reply, and the requests it was sent. */
+  function fakeHead(reply: Omit<ScraplingPage, "url"> & { url?: string }) {
+    const sent: Parameters<ScraplingClient["fetch"]>[0][] = [];
+    const client: ScraplingClient = {
+      async fetch(request) {
+        sent.push(request);
+        return { url: request.url, ...reply };
+      },
+      async relocate() {
+        throw new Error("unexpected relocate");
+      },
+    };
+    return { client, sent };
+  }
+
+  test("reads a file's details through the service with one page of the budget, and stores nothing", async () => {
+    const { client, sent } = fakeHead({ url: `${PDF_URL}?v=2`, status: 200, headers: pdf, body: "" });
+    const s = scope();
+    expect(await fetcherWith(client).head(s, PDF_URL)).toEqual({
+      finalUrl: `${PDF_URL}?v=2`,
+      status: 200,
+      contentType: "application/pdf",
+      contentLength: 1048576,
+      filename: "résumé.pdf",
+      lastModified: "Wed, 21 Oct 2025 07:28:00 GMT",
+    });
+    expect(sent).toEqual([expect.objectContaining({ url: PDF_URL, engine: "http", method: "HEAD", accept: undefined })]);
+    expect(s.budget.left("pages")).toBe(19);
+    expect(s.metrics.snapshot()).toMatchObject({ pagesVisited: 1, cacheHits: 0 });
+    expect(await storedVias()).toEqual([]);
+  });
+
+  test("nulls where the headers say nothing", async () => {
+    const { client } = fakeHead({ status: 200, headers: {}, body: "" });
+    expect(await fetcherWith(client).head(scope(), PDF_URL)).toEqual({
+      finalUrl: PDF_URL,
+      status: 200,
+      contentType: null,
+      contentLength: null,
+      filename: null,
+      lastModified: null,
+    });
+  });
+
+  test("a server that doesn't answer HEAD comes back as its status; other errors fail", async () => {
+    const answer = (status: number) => fetcherWith(fakeHead({ status, headers: {}, body: "" }).client).head(scope(), PDF_URL);
+    expect(await answer(405)).toMatchObject({ status: 405, filename: null });
+    expect(await answer(501)).toMatchObject({ status: 501, contentType: null });
+    expect(await failure(answer(404))).toMatchObject({ kind: "http_status", details: { status: 404 } });
+  });
+
+  test("robots.txt is asked about the requested host and the host a redirect ends on", async () => {
+    const robots = createRobots({
+      userAgent: "RUVO-test",
+      fetchText: async (url) => (new URL(url).host === "files.example" ? { status: 200, text: "User-agent: *\nDisallow: /private" } : { status: 404, text: "" }),
+    });
+    const { client, sent } = fakeHead({ url: "https://files.example/private/report.pdf", status: 200, headers: pdf, body: "" });
+    const fetcher = fetcherWith(client, { robots });
+    expect(await failure(fetcher.head(scope(), "https://files.example/private/x.pdf"))).toMatchObject({ kind: "robots_disallowed" });
+    expect(sent).toEqual([]);
+    expect(await failure(fetcher.head(scope(), "https://mirror.example/report.pdf"))).toMatchObject({
+      kind: "robots_disallowed",
+      details: { url: "https://files.example/private/report.pdf" },
+    });
+  });
+
+  test("a bot check ends a HEAD, with no browser", async () => {
+    const { client, sent } = fakeHead({ status: 403, headers: { "cf-mitigated": "challenge" }, body: "" });
+    expect(await failure(fetcherWith(client).head(scope(), PDF_URL))).toMatchObject({ kind: "http_status", details: { status: 403, challenge: true } });
+    expect(sent.map((r) => r.engine)).toEqual(["http"]);
+  });
+
+  test("null when the fetch service is off or down", async () => {
+    expect(await fetcherWith(undefined).head(scope(), PDF_URL)).toBeNull();
+    const { client } = fakeScrapling({ http: down });
+    expect(await fetcherWith(client).head(scope(), PDF_URL)).toBeNull();
+  });
+});
+
+describe("Content-Disposition file names", () => {
+  test("a quoted, plain or RFC 5987 encoded name; the encoded one wins", () => {
+    expect(filenameOf('attachment; filename="report 2025.pdf"')).toBe("report 2025.pdf");
+    expect(filenameOf('inline; filename="a \\"quoted\\" name.pdf"')).toBe('a "quoted" name.pdf');
+    expect(filenameOf("attachment; filename=plain.pdf")).toBe("plain.pdf");
+    expect(filenameOf(`attachment; filename="resume.pdf"; filename*=UTF-8''r%C3%A9sum%C3%A9.pdf`)).toBe("résumé.pdf");
+    expect(filenameOf("attachment; filename*=iso-8859-1'en'%A3%20rates.pdf")).toBe("£ rates.pdf");
+  });
+
+  test("an encoded name that can't be read falls back to the plain one; no name is null", () => {
+    expect(filenameOf(`attachment; filename*=UTF-8''%E2%28.pdf; filename="ok.pdf"`)).toBe("ok.pdf");
+    expect(filenameOf("attachment; filename*=klingon''x.pdf")).toBeNull();
+    expect(filenameOf("attachment")).toBeNull();
   });
 });

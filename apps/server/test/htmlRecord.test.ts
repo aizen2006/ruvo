@@ -40,6 +40,7 @@ const pageFetcher = (body: string): Fetcher => ({
     escalation: null,
   }),
   json: () => Promise.reject(new Error("not used")),
+  head: () => Promise.reject(new Error("not used")),
 });
 
 function run(llm = fakeLlm()) {
