@@ -45,7 +45,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
   id: "html_list",
   kind: "html",
   params: HtmlListParams,
-  provides: { company: "DOM", title: "DOM", location: "DOM", remote: "DOM", salary: "DOM", url: "DOM", department: "DOM", employment_type: "DOM" },
+  provides: { company: "DOM", title: "DOM", location: "DOM", remote: "DOM", salary: "DOM", url: "DOM", department: "DOM", employment_type: "DOM", custom: "DOM" },
 
   async collect({ fetcher, scope, run }, { url, company, tags }) {
     if (!run) throw new Error("html_list needs the run context for recipe discovery");

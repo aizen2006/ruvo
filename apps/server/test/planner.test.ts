@@ -69,6 +69,19 @@ describe("compileIr", () => {
     expect(ir.provenance.warnings[0]).toContain('"funding" is required but no chosen source provides it');
   });
 
+  test("keeps a required custom column required when a list page can read it", () => {
+    const url = "https://example.com/companies";
+    const page = { ref: `html_list:${url}`, adapter: "html_list" as const, label: "Companies", params: { url }, tags: [], jobCount: null, reason: "test", origin: "user_url" as const };
+    const contract = {
+      ...DEMO_CONTRACT,
+      fields: [...DEMO_CONTRACT.fields, { name: "funding", catalogKey: "custom" as const, type: "string" as const, required: true, description: "" }],
+    };
+    const ir = compileIr(contract, draft({ sources: [{ ...draft().sources[0]!, ref: page.ref }] }), [page], { caps, provenance });
+    const validate = ir.sources[0]!.steps.find((s) => s.kind === "validate");
+    expect(validate?.kind === "validate" && validate.required).toContain("funding");
+    expect(ir.provenance.warnings).toEqual([]);
+  });
+
   test("keeps the prefilter without keyword criteria, so the per-source cap still applies", () => {
     const contract = { ...DEMO_CONTRACT, criteria: DEMO_CONTRACT.criteria.filter((c) => c.kind !== "keyword_any" && c.kind !== "keyword_none") };
     const ir = compileIr(contract, draft(), candidates, { caps, provenance });
