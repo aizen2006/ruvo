@@ -1,7 +1,8 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import type { RunContext } from "../core/run";
 import { db } from "../db/client";
 import { searchCalls } from "../db/schema";
+import { CACHE_TTL_MS } from "../fetch/pageCache";
 import { sha256, stableStringify } from "../libs/hash";
 import type { SearchResultItem } from "./firecrawl";
 
@@ -33,7 +34,10 @@ export interface SearchRunnerDeps {
   /** The backup when SearXNG fails or finds nothing; it costs credits. */
   firecrawl?: SearchProvider;
   usdPerCredit: number;
-  /** off replays cache only; on caches live calls; cache_only never calls out. Follows FETCH_CACHE_MODE. */
+  /**
+   * Follows FETCH_CACHE_MODE: off never replays; ttl replays results as long as a stored page stays fresh;
+   * prefer_cache replays any; cache_only never calls out.
+   */
   cacheMode: "off" | "ttl" | "prefer_cache" | "cache_only";
 }
 
@@ -50,7 +54,7 @@ export function createSearchRunner(deps: SearchRunnerDeps): SearchRunner {
       const inputHash = sha256(stableStringify({ query, limit }));
 
       if (cacheMode !== "off") {
-        const hit = await findCached(inputHash);
+        const hit = await findCached(inputHash, cacheMode === "ttl");
         if (hit) {
           await log({ runId, provider: hit.provider, query, inputHash, hits: hit.hits, cached: true });
           return { hits: hit.hits, cached: true, costUsd: 0 };
@@ -91,11 +95,16 @@ export async function recordScrape(runId: string | undefined, url: string, credi
   await log({ runId, provider: "firecrawl", query: url, inputHash: sha256(url), credits, costUsd });
 }
 
-async function findCached(inputHash: string): Promise<{ hits: SearchResultItem[]; provider: string } | null> {
+/**
+ * The newest stored results of a search. With `freshOnly`, only a live search within the page cache's freshness
+ * window counts (a replay doesn't renew its results), so older results are searched again.
+ */
+async function findCached(inputHash: string, freshOnly: boolean): Promise<{ hits: SearchResultItem[]; provider: string } | null> {
+  const fresh = freshOnly ? and(eq(searchCalls.cached, false), gt(searchCalls.createdAt, new Date(Date.now() - CACHE_TTL_MS))) : undefined;
   const [row] = await db
     .select({ hits: searchCalls.hits, provider: searchCalls.provider })
     .from(searchCalls)
-    .where(and(eq(searchCalls.inputHash, inputHash), isNull(searchCalls.error)))
+    .where(and(eq(searchCalls.inputHash, inputHash), isNull(searchCalls.error), fresh))
     .orderBy(desc(searchCalls.createdAt))
     .limit(1);
   // An empty answer is never replayed (its backup may have failed): the next search asks again.

@@ -42,7 +42,8 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
             // Not an http(s) address, so it is named, not linked.
             <span className="break-all">{item.sourceUrl}</span>
           ))}
-        <span>Checked {new Date(item.capturedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
+        {/* When the page was read; a value with no page, when it was recorded. */}
+        <span>Checked {new Date(item.fetchedAt ?? item.capturedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
       </p>
     </li>
   );

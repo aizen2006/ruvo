@@ -63,7 +63,7 @@ Edits made during review go through the same normalization. They produce a new c
 
 If nothing is found, the run stops for review and says what was searched.
 
-**Web search** (`search/cache.ts`, `search/searxng.ts`, `search/firecrawl.ts`): each query goes to SearXNG first. It is the metasearch engine docker compose runs on this machine (`SEARXNG_URL`, settings in `infra/searxng/settings.yml`), asked for JSON, and it costs nothing. Firecrawl, with a key, is asked only when SearXNG fails or finds nothing; an empty answer because SearXNG's engines refused (a CAPTCHA, too many requests) counts as a failure. A live search takes one unit from the run's `searches` budget, whichever provider answers. Results are cached in `search_calls` by query and limit, so a re-run replays the same hits whichever provider gave them; the cache follows `FETCH_CACHE_MODE`. Each row records the provider and its cost (Firecrawl's credits times `FIRECRAWL_USD_PER_CREDIT`). When every provider fails, the search reports the first one's error.
+**Web search** (`search/cache.ts`, `search/searxng.ts`, `search/firecrawl.ts`): each query goes to SearXNG first. It is the metasearch engine docker compose runs on this machine (`SEARXNG_URL`, settings in `infra/searxng/settings.yml`), asked for JSON, and it costs nothing. Firecrawl, with a key, is asked only when SearXNG fails or finds nothing; an empty answer because SearXNG's engines refused (a CAPTCHA, too many requests) counts as a failure. A live search takes one unit from the run's `searches` budget, whichever provider answers. Results are cached in `search_calls` by query and limit, so a re-run replays the same hits whichever provider gave them; the cache follows `FETCH_CACHE_MODE`, and in `ttl` mode results expire with stored pages (six hours after the live search, however often they were replayed), so old ones are searched again. Each row records the provider and its cost (Firecrawl's credits times `FIRECRAWL_USD_PER_CREDIT`). When every provider fails, the search reports the first one's error.
 
 **Auto-detection:** a named company missing from the registry is looked up by probing slug variants on Greenhouse, Ashby, Lever and Workable. A board with postings is added to the registry.
 
@@ -130,7 +130,7 @@ Page fetches go through the service. The job-board and Hacker News JSON APIs (`f
 
 **robots.txt behind a bot check:** when robots.txt itself answers with a challenge, it is read through the stealth browser, so the challenge is never mistaken for a 4xx that allows everything.
 
-**Receipts:** each page records how it was fetched in `pages.via` (`http`, `browser`, `stealth`, `firecrawl` or `search`), and each value's evidence carries it as `fetchedVia`. The receipt shows it in words, for example "Opened in a stealth browser, past a bot check" or "Read through Firecrawl".
+**Receipts:** each page records how it was fetched in `pages.via` (`http`, `browser`, `stealth`, `firecrawl` or `search`), and each value's evidence carries it as `fetchedVia`, with the page's `fetchedAt`. The receipt shows it in words, for example "Opened in a stealth browser, past a bot check" or "Read through Firecrawl", and dates the value by when its page was fetched (a value with no page, by when it was recorded).
 
 ### Pages and recipes (`page/`, `recipes/`)
 

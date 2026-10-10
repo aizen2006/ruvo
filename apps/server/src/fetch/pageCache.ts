@@ -9,6 +9,9 @@ export type PageRow = typeof pages.$inferSelect;
 /** How a page was fetched. Search-result snippets are stored too (via "search"), but never served as fetches. */
 export type Via = Exclude<PageRow["via"], "search">;
 
+/** How long a stored page stays fresh in `ttl` mode; web search results expire after the same time. */
+export const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+
 /**
  * The `pages` table doubles as the fetch cache and the evidence snapshot store.
  * `ttl` reuses fresh pages; `prefer_cache` / `cache_only` reuse any stored copy, which

@@ -26,6 +26,8 @@ export const Evidence = z.object({
   pageId: z.string().nullable(),
   /** How that page was fetched; absent when there is no page. */
   fetchedVia: PageVia.optional(),
+  /** When that page was fetched; absent when there is no page. */
+  fetchedAt: z.string().optional(),
   snippet: z.string(),
   locator: Locator,
   /** LLM output is only trusted when its quote is found verbatim in the page. */

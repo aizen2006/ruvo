@@ -1,9 +1,10 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { createBudget, createMetrics } from "../src/core/run";
 import { db } from "../src/db/client";
 import { searchCalls } from "../src/db/schema";
 import type { FetchScope } from "../src/fetch/fetcher";
+import { CACHE_TTL_MS } from "../src/fetch/pageCache";
 import { createSearchRunner, type SearchProvider } from "../src/search/cache";
 import type { SearchResultItem } from "../src/search/firecrawl";
 import { createSearxng } from "../src/search/searxng";
@@ -199,6 +200,28 @@ describe("search runner", () => {
     expect([searxng.calls, firecrawl.calls]).toEqual([0, 1]);
     expect(s.budget.left("searches")).toBe(5);
     expect((await logged()).at(-1)).toEqual({ provider: "firecrawl", credits: 0, costUsd: 0, cached: true, error: null, hits: 2, runId: replayRun });
+  });
+
+  test("in ttl mode, results older than a stored page stays fresh are searched again, however recently replayed", async () => {
+    const r = runner({ searxng: provider(hits("searxng")) });
+    await r.run("q", { limit: 10, runId, scope: scope() });
+    expect(await r.run("q", { limit: 10, runId, scope: scope() })).toMatchObject({ cached: true });
+    // The live search is now past the window; its replay is not.
+    await db.update(searchCalls).set({ createdAt: new Date(Date.now() - CACHE_TTL_MS - 60_000) }).where(eq(searchCalls.cached, false));
+
+    const searxng = provider(hits("searxng", 3));
+    expect(await runner({ searxng }).run("q", { limit: 10, runId, scope: scope() })).toEqual({ hits: hits("searxng", 3), cached: false, costUsd: 0 });
+    expect(searxng.calls).toBe(1);
+  });
+
+  test("prefer_cache mode replays results of any age", async () => {
+    await runner({ searxng: provider(hits("searxng")) }).run("q", { limit: 10, runId, scope: scope() });
+    await db.update(searchCalls).set({ createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) });
+
+    const searxng = provider(hits("searxng", 3));
+    const replay = await createSearchRunner({ searxng, usdPerCredit: 0.002, cacheMode: "prefer_cache" }).run("q", { limit: 10, runId, scope: scope() });
+    expect(replay).toEqual({ hits: hits("searxng"), cached: true, costUsd: 0 });
+    expect(searxng.calls).toBe(0);
   });
 
   test("an empty answer is not replayed: the next search asks again", async () => {

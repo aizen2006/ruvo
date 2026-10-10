@@ -30,8 +30,8 @@ export function toRecordDTO(r: RecordRow): RecordDTO {
   };
 }
 
-/** `via` is how the evidence's page was fetched, when there is a page. */
-export function toEvidenceDTO(e: EvidenceRow, via?: PageVia | null): Evidence {
+/** `page` is how and when the evidence's page was fetched, when there is a page. */
+export function toEvidenceDTO(e: EvidenceRow, page?: { via: PageVia; fetchedAt: Date } | null): Evidence {
   return {
     field: e.field,
     value: e.value,
@@ -43,7 +43,7 @@ export function toEvidenceDTO(e: EvidenceRow, via?: PageVia | null): Evidence {
     verified: e.verified,
     confidence: e.confidence,
     capturedAt: e.capturedAt.toISOString(),
-    ...(via && { fetchedVia: via }),
+    ...(page && { fetchedVia: page.via, fetchedAt: page.fetchedAt.toISOString() }),
   };
 }
 
@@ -107,12 +107,12 @@ export async function getRecordWithEvidence(runId: string, recordId: string) {
     .where(and(eq(records.id, recordId), eq(records.runId, runId)));
   if (!record) throw notFound("Record");
   const rows = await db
-    .select({ evidence, via: pages.via })
+    .select({ evidence, page: { via: pages.via, fetchedAt: pages.fetchedAt } })
     .from(evidence)
     .leftJoin(pages, eq(pages.id, evidence.pageId))
     .where(eq(evidence.recordId, recordId))
     .orderBy(evidence.field);
-  return { record: toRecordDTO(record), evidence: rows.map((r) => toEvidenceDTO(r.evidence, r.via)) };
+  return { record: toRecordDTO(record), evidence: rows.map((r) => toEvidenceDTO(r.evidence, r.page)) };
 }
 
 export interface ExportRow {

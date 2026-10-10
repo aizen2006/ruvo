@@ -4,7 +4,7 @@ import { withRetry } from "../libs/retry";
 import type { FirecrawlClient } from "../search/firecrawl";
 import { FetchError } from "./errors";
 import { createHostLimiter, type HostLimiter } from "./hostLimiter";
-import { findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
+import { CACHE_TTL_MS, findCachedPage, savePage, type CacheMode, type PageRow, type Via } from "./pageCache";
 import { createRobots, type Robots } from "./robots";
 import type { ScraplingClient } from "./scrapling";
 import { assertPublicUrl } from "./ssrf";
@@ -87,7 +87,7 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent, allowPrivateNetwork: opts.allowPrivateNetwork });
   const limiter = opts.limiter ?? createHostLimiter({ maxConcurrent: 2, minDelayMs: 200 });
   const breaker = opts.breaker ?? createCircuitBreaker({ threshold: 5, cooldownMs: 60_000 });
-  const cacheTtlMs = opts.cacheTtlMs ?? 6 * 60 * 60 * 1000;
+  const cacheTtlMs = opts.cacheTtlMs ?? CACHE_TTL_MS;
   const timeoutMs = opts.timeoutMs ?? 20_000;
 
   const trusted = new Set(opts.trustedOrigins ?? []);
