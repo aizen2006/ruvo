@@ -2,7 +2,7 @@ import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { Element } from "domhandler";
 import { sha256 } from "../libs/hash";
-import { normalizeWhitespace } from "../libs/text";
+import { normalizeWhitespace, removeHidden } from "../libs/text";
 import { absoluteUrl } from "../libs/url";
 import { elementSelector, elementSignature } from "./selectors";
 import { extractEmbedded, extractJsonLd } from "./structured";
@@ -41,6 +41,8 @@ export function toPageState(html: string, url: string): PageState {
   const jsonLd = extractJsonLd($);
   const embedded = extractEmbedded($);
   $(NOISE).remove();
+  // Group samples go into recipe prompts: hidden text must stay out of them.
+  removeHidden($);
 
   const text = normalizeWhitespace($("body").text());
   const links: PageState["links"] = [];

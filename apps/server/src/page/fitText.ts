@@ -1,6 +1,6 @@
 import * as cheerio from "cheerio";
 import type { Element } from "domhandler";
-import { singleLine } from "../libs/text";
+import { removeHidden, singleLine } from "../libs/text";
 import { findRepeatedGroups } from "./pageState";
 import { selectAll } from "./selectors";
 import { ancestorsOf } from "./similar";
@@ -26,6 +26,7 @@ export function fitText(html: string, query: string, maxChars = 8_000): string {
   const $ = cheerio.load(html);
   $(NOISE).remove();
   $(CHROME).remove();
+  removeHidden($);
   const body = $("body").get(0);
   if (!body) return "";
 

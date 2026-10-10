@@ -14,3 +14,12 @@ describe("LLM-facing schemas are strict-mode compatible", () => {
     expect(JSON.stringify(format.schema)).not.toContain('"additionalProperties":true');
   });
 });
+
+describe("RecipeDef", () => {
+  const recipe = (attr: string) => ({ itemSelector: "li.job", fields: [{ name: "url", selector: "a", attr, transform: null }] });
+
+  test("a field reads text or an attribute that holds a link, a date or a label, never e.g. onclick", () => {
+    for (const attr of ["text", "href", "src", "datetime", "content", "title", "aria-label"]) expect(RecipeDef.safeParse(recipe(attr)).success).toBe(true);
+    for (const attr of ["onclick", "data-url", "style"]) expect(RecipeDef.safeParse(recipe(attr)).success).toBe(false);
+  });
+});

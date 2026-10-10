@@ -10,7 +10,7 @@ afterAll(async () => {
 
 const v1Recipe = {
   itemSelector: "div.job-card",
-  fields: [{ name: "title", selector: "h3.job-title", attr: "text", transform: "trim" as const }],
+  fields: [{ name: "title", selector: "h3.job-title", attr: "text" as const, transform: "trim" as const }],
 };
 
 describe("demo careers site", () => {

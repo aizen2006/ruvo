@@ -1,13 +1,19 @@
 import { z } from "zod";
 
 /**
+ * What a recipe field reads: the element's text, or an attribute that holds a link, a date or a label.
+ * Nothing else (onclick, data-*), so a recipe a page steered can't read values planted out of sight.
+ */
+export const RecipeAttr = z.enum(["text", "href", "src", "datetime", "content", "title", "aria-label"]);
+
+/**
  * A recorded extraction procedure for a list page (record/replay).
  * Discovered once with AI, then replayed deterministically with CSS selectors.
  */
 export const RecipeField = z.object({
   name: z.string(),
   selector: z.string().describe("CSS selector relative to the item element; empty = the item itself"),
-  attr: z.string().describe('"text", "href", "content", or any attribute name'),
+  attr: RecipeAttr.describe('"text" for the visible text, or the attribute to read'),
   transform: z.enum(["trim", "absolute_url"]).nullable(),
 });
 export type RecipeField = z.infer<typeof RecipeField>;

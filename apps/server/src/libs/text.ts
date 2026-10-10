@@ -1,6 +1,20 @@
 import * as cheerio from "cheerio";
+import type { CheerioAPI } from "cheerio";
 
 const BLOCK_TAGS = "p, div, li, br, h1, h2, h3, h4, h5, h6, tr, section, article, ul, ol";
+/** An inline style that hides its element. */
+const HIDING_STYLE = /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden)\b/i;
+
+/**
+ * Removes what a visitor never sees: templates, and elements that are hidden, aria-hidden or
+ * hidden by an inline style. Text planted there must not reach extraction or a prompt.
+ */
+export function removeHidden($: CheerioAPI): void {
+  $('template, [hidden], [aria-hidden="true" i]').remove();
+  $("[style]")
+    .filter((_, el) => HIDING_STYLE.test($(el).attr("style") ?? ""))
+    .remove();
+}
 
 /**
  * Converts an HTML fragment to readable plain text, keeping block boundaries as newlines.
@@ -9,6 +23,7 @@ const BLOCK_TAGS = "p, div, li, br, h1, h2, h3, h4, h5, h6, tr, section, article
 export function htmlToText(html: string): string {
   const $ = cheerio.load(html);
   $("script, style, noscript").remove();
+  removeHidden($);
   $(BLOCK_TAGS).each((_, el) => {
     $(el).prepend("\n").append("\n");
   });

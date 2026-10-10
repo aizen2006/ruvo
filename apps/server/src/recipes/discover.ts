@@ -1,4 +1,5 @@
 import { RecipeDef, type FieldSpec, type Recipe } from "@repo/contracts";
+import { PAGE_CONTENT_GUARD } from "../llm/guard";
 import { fitText } from "../page/fitText";
 import type { PageState } from "../page/pageState";
 import type { RunContext } from "../runs/runContext";
@@ -13,10 +14,11 @@ const VIEW_CHARS = 12_000;
 
 const SYSTEM_PROMPT = `You write extraction recipes for list pages. A recipe has:
 - itemSelector: a CSS selector matching every record on the page (e.g. each job listing) and nothing else
-- fields: for each requested field, a CSS selector RELATIVE to the item ("" means the item itself), the attribute to read ("text" for visible text, "href" for links, or another attribute name), and an optional transform ("absolute_url" for links, "trim", or null)
+- fields: for each requested field, a CSS selector RELATIVE to the item ("" means the item itself), what to read ("text" for visible text, "href" for links, or the src, datetime, content, title or aria-label attribute), and an optional transform ("absolute_url" for links, "trim", or null)
 Prefer stable hooks: data-ui / data-testid / data-qa attributes, itemprop, ids, and meaningful class names.
 Avoid generated class names such as "styles--1vo9F", "css-1x2y3z" or "sc-bdVaJa"; they change whenever the site is rebuilt.
-Only include fields the page actually shows for each item.`;
+Only include fields the page actually shows for each item.
+${PAGE_CONTENT_GUARD}`;
 
 export interface Discovered {
   recipe: Recipe;

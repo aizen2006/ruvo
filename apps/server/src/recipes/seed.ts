@@ -1,4 +1,4 @@
-import type { FieldSpec, RecipeDef, RecipeField } from "@repo/contracts";
+import { RecipeAttr, type FieldSpec, type RecipeDef, type RecipeField } from "@repo/contracts";
 import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { Element } from "domhandler";
@@ -67,7 +67,7 @@ export async function seedRecipe(ctx: SeedContext, page: { url: string; html: st
 /** An element holding a quoted value, and where the value sits ("text" or an attribute name). */
 interface Match {
   el: Element;
-  attr: string;
+  attr: RecipeField["attr"];
 }
 
 /**
@@ -115,15 +115,16 @@ export function recipeFromExample(html: string, pageUrl: string, fields: FieldSp
 
 const identifying = (f: FieldSpec) => (f.catalogKey === "title" || f.catalogKey === "url" ? 1 : 0);
 const wantsLink = (f: FieldSpec) => f.type === "url" || f.catalogKey === "url";
-const IGNORED_ATTRS = new Set(["class", "style"]);
+/** The attributes a recipe may read a value from (see RecipeAttr). */
+const VALUE_ATTRS = RecipeAttr.exclude(["text"]).options;
 
 function locate($: CheerioAPI, body: Element, pageUrl: string, field: FieldSpec, quote: string): Match[] {
-  const byText = deepestContaining($, body, quote).map((el) => ({ el: widest($, el), attr: "text" }));
+  const byText = deepestContaining($, body, quote).map((el): Match => ({ el: widest($, el), attr: "text" }));
   const byAttribute = attributeMatches($, pageUrl, quote);
   if (!wantsLink(field)) return byText.length ? byText : byAttribute;
   // A link field reads the href: of the quoted link, or of the link around (or inside) quoted text.
   const links = [...byAttribute.filter((m) => m.attr === "href").map((m) => m.el), ...byText.map((m) => linkNear($, m.el)).filter((el) => el !== undefined)];
-  return [...new Set(links)].map((el) => ({ el, attr: "href" }));
+  return [...new Set(links)].map((el): Match => ({ el, attr: "href" }));
 }
 
 /** The innermost elements whose text contains `quote`. */
@@ -154,9 +155,9 @@ function attributeMatches($: CheerioAPI, pageUrl: string, quote: string): Match[
   const target = absoluteUrl(quote, pageUrl);
   const out: Match[] = [];
   for (const el of $("body *").toArray() as Element[]) {
-    for (const [attr, raw] of Object.entries(el.attribs)) {
-      const value = raw.trim();
-      if (IGNORED_ATTRS.has(attr) || !value) continue;
+    for (const attr of VALUE_ATTRS) {
+      const value = el.attribs[attr]?.trim();
+      if (!value) continue;
       const same = value === quote || (quote.length >= 8 && value.includes(quote)) || (target !== null && absoluteUrl(value, pageUrl) === target);
       if (same) out.push({ el, attr });
     }
