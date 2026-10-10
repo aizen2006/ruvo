@@ -30,7 +30,8 @@ prompt ─ compile (planner model) ─▶ DatasetContract ─ user edits while r
 
 ```
 queued → compiling → awaiting_approval ─start─▶ queued_run → running → completed | failed | cancelled
-                     (or straight to queued_run when the run was created with autoStart and has sources)
+                     (or straight to queued_run when the run was created with autoStart, has sources
+                      and filters on no sensitive attributes)
 ```
 
 - **API process** (`index.ts`): it only reads and writes rows.
@@ -262,7 +263,7 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 | `GET /api/options` | Modes with their budgets, the AI account, and the models on offer with prices |
 | `POST /api/runs` | Create a run from a prompt (`mode`, optional `models`, `autoStart`, `Idempotency-Key`) |
 | `GET /api/runs`, `GET /api/runs/:id` | History and run detail (with its funnel) |
-| `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet) |
+| `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet). A list that filters on sensitive attributes waits for review every time, re-runs too, and `/start` needs `{ "purposeConfirmed": true }` for it |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
 | `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows (records come best lead first; `?isNew=true` keeps the new ones) |
 | `GET /api/datasets/:runId/export?format=csv\|json\|xlsx&scope=valid\|all` | Export |

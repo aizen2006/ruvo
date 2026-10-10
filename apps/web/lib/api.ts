@@ -19,6 +19,7 @@ import type {
   RunSummary,
   Settings,
   SettingsUpdate,
+  StartRunRequest,
   WorkflowIR,
 } from "@repo/contracts";
 
@@ -108,7 +109,8 @@ export const api = {
     request<Pick<Settings, "startedAt">>("/api/settings", { method: "PUT", body: JSON.stringify(changes) }),
   listRuns: (limit: number) => request<RunSummary[]>(`/api/runs?limit=${limit}`),
   getRun: (id: string) => request<RunDetail>(`/api/runs/${id}`),
-  startRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST" }),
+  startRun: (id: string, input: StartRunRequest) =>
+    request<{ status: RunStatus }>(`/api/runs/${id}/start`, { method: "POST", body: JSON.stringify(input) }),
   cancelRun: (id: string) => request<{ status: RunStatus }>(`/api/runs/${id}/cancel`, { method: "POST" }),
   rerun: (id: string) => request<CreateRunResponse>(`/api/runs/${id}/rerun`, { method: "POST" }),
   /** A follow-up run that searches for sources not read yet. */

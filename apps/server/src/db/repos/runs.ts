@@ -1,5 +1,6 @@
 import {
   emptyMetrics,
+  isSensitive,
   isTerminal,
   type ModelChoice,
   type RunDetail,
@@ -11,12 +12,13 @@ import {
 } from "@repo/contracts";
 import { and, desc, eq, gt, sql } from "drizzle-orm";
 import { env } from "../../config/env";
-import { conflict, HttpError, notFound } from "../../libs/errors";
+import { badRequest, conflict, HttpError, notFound } from "../../libs/errors";
 import { isChatModel } from "../../llm/models";
 import { modelsForMode, runModels } from "../../runs/modes";
 import { db } from "../client";
-import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls, workflows } from "../schema";
+import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls } from "../schema";
 import { getRunFunnel } from "./funnel";
+import { loadRunWorkflow } from "./workflows";
 
 /** Data access for runs and their events. Routes call these; they never write SQL themselves. */
 
@@ -170,16 +172,20 @@ export async function getRunDetail(runId: string): Promise<RunDetail> {
   return { ...toSummary(row), contract: latestContract?.contract ?? null, funnel };
 }
 
-/** Approves a run that is waiting for review, handing it to the worker queue. */
-export async function startRun(runId: string): Promise<RunStatus> {
+/**
+ * Approves a run that is waiting for review, handing it to the worker queue. A list that filters on
+ * sensitive attributes needs `purposeConfirmed`: the user confirmed what it is for.
+ */
+export async function startRun(runId: string, { purposeConfirmed = false } = {}): Promise<RunStatus> {
+  const planned = await loadRunWorkflow(runId);
   // A workflow with no sources would complete with nothing; ask for a source instead.
-  const [planned] = await db
-    .select({ ir: workflows.ir })
-    .from(runs)
-    .innerJoin(workflows, eq(runs.workflowId, workflows.id))
-    .where(eq(runs.id, runId));
   if (planned && planned.ir.sources.length === 0) {
     throw conflict("This workflow has no sources yet. Add the address of a page that lists these records to the contract, then save.");
+  }
+  if (planned && isSensitive(planned.contract) && !purposeConfirmed) {
+    throw badRequest(
+      `This list filters on ${planned.contract.sensitive.join(", ")}, so it starts only once you confirm you'll use it just for outreach these people would reasonably expect (purposeConfirmed: true).`,
+    );
   }
 
   const [updated] = await db
@@ -260,6 +266,10 @@ export async function rerunRun(runId: string, { more = false } = {}) {
   if (!source) throw notFound("Run");
   if (!isTerminal(source.status)) throw conflict(`Run is still ${source.status}`);
   if (!source.workflowId) throw conflict("Run has no workflow to re-run");
+  // A list that filters on sensitive attributes waits for review again, where the user confirms its purpose
+  // (see startRun). Finding more is prepared first, which holds it there too.
+  const planned = await loadRunWorkflow(runId);
+  const review = !more && planned !== null && isSensitive(planned.contract);
 
   // A stored model the AI account doesn't offer (the API key was added or removed since) gives way to the mode's current default.
   const defaults = modelsForMode(source.mode, undefined, env);
@@ -269,8 +279,8 @@ export async function rerunRun(runId: string, { more = false } = {}) {
     .values({
       requestId: source.requestId,
       workflowId: source.workflowId,
-      status: more ? "queued" : "queued_run",
-      stage: more ? "discovering" : "collecting",
+      status: more ? "queued" : review ? "awaiting_approval" : "queued_run",
+      stage: more ? "discovering" : review ? "planning" : "collecting",
       autoStart: true,
       // Same mode and models, so the re-run is comparable with the original.
       mode: source.mode,

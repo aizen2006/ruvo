@@ -59,11 +59,11 @@ export function PlanSheet({ run, edited, onEdit }: { run: RunDetail; edited: Dat
   const dirty = edited !== null;
 
   const save = useRunAction(run.id, () => api.editContract(run.id, draft!));
-  const start = useRunAction(run.id, () => api.startRun(run.id));
+  // Lists that filter on sensitive attributes start only once the purpose is confirmed; the API checks it too.
+  const [purposeConfirmed, setPurposeConfirmed] = useState(false);
+  const start = useRunAction(run.id, () => api.startRun(run.id, { purposeConfirmed }));
   // Removes a searched source from the saved plan; unsaved edits stay as they are.
   const removeSource = useRunAction(run.id, (ref: string) => api.editContract(run.id, run.contract!, [ref]));
-  // Lists that filter on sensitive attributes start only once the purpose is confirmed.
-  const [purposeConfirmed, setPurposeConfirmed] = useState(false);
 
   if (!draft) return null;
   const update = (next: Partial<DatasetContract>) => onEdit({ ...draft, ...next });

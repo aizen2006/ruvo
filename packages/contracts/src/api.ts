@@ -21,6 +21,12 @@ export type CreateRunRequest = z.infer<typeof CreateRunRequest>;
 export const CreateRunResponse = z.object({ runId: z.string(), status: RunStatus });
 export type CreateRunResponse = z.infer<typeof CreateRunResponse>;
 
+export const StartRunRequest = z.object({
+  /** The user confirmed what the list is for; one that filters on sensitive attributes (isSensitive) starts only with it. */
+  purposeConfirmed: z.boolean().default(false),
+});
+export type StartRunRequest = z.infer<typeof StartRunRequest>;
+
 export const RunSummary = z.object({
   id: z.string(),
   prompt: z.string(),

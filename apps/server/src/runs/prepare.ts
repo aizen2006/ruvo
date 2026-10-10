@@ -1,4 +1,4 @@
-import type { DatasetContract, FoundSource, SearchLog, Stage } from "@repo/contracts";
+import { isSensitive, type DatasetContract, type FoundSource, type SearchLog, type Stage, type WorkflowIR } from "@repo/contracts";
 import { ATS_LIST } from "../adapters/ats";
 import { compileRequirement } from "../compile/requirementCompiler";
 import { env } from "../config/env";
@@ -33,7 +33,7 @@ const MAX_SEARCH_ROUNDS = 5;
 
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
- * Ends in review (awaiting_approval) unless the run was created with autoStart.
+ * Ends in review (awaiting_approval) unless the run was created with autoStart (see afterPreparing).
  * With `web` (SearXNG, Firecrawl or both configured), sources are also found by searching the web.
  */
 export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmClient; memory?: WorkflowMemory; web?: WebSearch | null }): RunPreparer => async (run, signal) => {
@@ -119,12 +119,18 @@ export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmC
       data: { plannedBy: ir.provenance.plannedBy, warnings: ir.provenance.warnings },
     });
 
-    // With nothing to collect from, even an auto-started run stops for review so the user can add a page.
-    return run.autoStart && ir.sources.length > 0 ? "queued_run" : "awaiting_approval";
+    return afterPreparing(run, contract, ir);
   } finally {
     await bus.close();
   }
 };
+
+/**
+ * Where a prepared run goes: an auto-started one straight to collecting, unless it has nothing to
+ * collect from (the user adds a page in review) or filters on sensitive attributes (the user confirms its purpose).
+ */
+const afterPreparing = (run: ClaimedRun, contract: DatasetContract, ir: WorkflowIR) =>
+  run.autoStart && ir.sources.length > 0 && !isSensitive(contract) ? "queued_run" : "awaiting_approval";
 
 type StageFn = (s: Stage, event: Omit<EmitInput, "stage">) => Promise<void>;
 
@@ -169,7 +175,7 @@ async function prepareMore(
     level: added > 0 ? "info" : "warn",
     message: added > 0 ? `Found ${added} new source${added === 1 ? "" : "s"}, ${next.sources.length} in all` : "No new sources found; collecting from the earlier ones again",
   });
-  return run.autoStart && next.sources.length > 0 ? "queued_run" : "awaiting_approval";
+  return afterPreparing(run, contract, next);
 }
 
 function emitSearches(bus: EventBus, searches: SearchLog[]) {

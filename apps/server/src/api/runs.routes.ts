@@ -1,4 +1,4 @@
-import { CreateRunRequest, DatasetContract, ListRecordsQuery } from "@repo/contracts";
+import { CreateRunRequest, DatasetContract, ListRecordsQuery, StartRunRequest } from "@repo/contracts";
 import { Router } from "express";
 import { z } from "zod";
 import { env } from "../config/env";
@@ -46,8 +46,10 @@ runsRouter.get("/:id", async (req, res) => {
 });
 
 runsRouter.post("/:id/start", async (req, res) => {
+  // No body is fine: only a list that filters on sensitive attributes needs purposeConfirmed.
+  const input = StartRunRequest.parse(req.body ?? {});
   await assertUnderDailyBudget(env.DAILY_BUDGET_USD);
-  res.json({ status: await startRun(runId(req.params.id)) });
+  res.json({ status: await startRun(runId(req.params.id), input) });
 });
 
 runsRouter.post("/:id/cancel", async (req, res) => {

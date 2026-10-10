@@ -33,9 +33,9 @@ const planAll = ({ input }: { input: Array<{ content: string }> }): PlanDraft =>
   };
 };
 
-/** A worker that prepares with a fake LLM and executes with a no-op (no network). */
-function testWorker(execute: RunExecutor = async () => {}) {
-  const fake = fakeResponses({ dataset_contract: DEMO_CONTRACT, plan_draft: planAll });
+/** A worker that prepares with a fake LLM, which reads every request as `contract`, and executes with a no-op (no network). */
+function testWorker(execute: RunExecutor = async () => {}, contract: DatasetContract = DEMO_CONTRACT) {
+  const fake = fakeResponses({ dataset_contract: contract, plan_draft: planAll });
   const llm = createLlmClient({
     env: { MODEL_PLANNER: "gpt-6-sol", MODEL_WORKER: "gpt-6-luna", LLM_CACHE_MODE: "off", OPENAI_API_KEY: "x" },
     responses: fake.responses,
@@ -117,6 +117,24 @@ describe("run lifecycle", () => {
     const worker = testWorker();
     const { body } = await api.post("/api/runs", { prompt, autoStart: true });
     await waitFor(() => status(body.runId), (s) => s === "completed");
+    await worker.stop();
+  });
+
+  test("a list that filters on sensitive attributes always waits for review, and starts only with its purpose confirmed", async () => {
+    const worker = testWorker(undefined, { ...DEMO_CONTRACT, sensitive: ["sexual orientation"] });
+    const { body } = await api.post("/api/runs", { prompt, autoStart: true });
+    await waitFor(() => status(body.runId), (s) => s === "awaiting_approval");
+
+    const refused = await api.post(`/api/runs/${body.runId}/start`);
+    expect(refused.status).toBe(400);
+    expect(refused.body.error).toContain("sexual orientation");
+    expect(await status(body.runId)).toBe("awaiting_approval");
+
+    expect((await api.post(`/api/runs/${body.runId}/start`, { purposeConfirmed: true })).body.status).toBe("queued_run");
+    await waitFor(() => status(body.runId), (s) => s === "completed");
+
+    // Running it again waits for the confirmation again.
+    expect((await api.post(`/api/runs/${body.runId}/rerun`)).body.status).toBe("awaiting_approval");
     await worker.stop();
   });
 

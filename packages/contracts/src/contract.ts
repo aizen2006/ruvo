@@ -81,3 +81,6 @@ export const DatasetContract = z.object({
   sensitive: z.array(z.string()),
 });
 export type DatasetContract = z.infer<typeof DatasetContract>;
+
+/** A list that filters on sensitive attributes runs only once the user confirms its purpose. Contracts saved before the flags existed have none. */
+export const isSensitive = (contract: DatasetContract) => (contract.sensitive ?? []).length > 0;
