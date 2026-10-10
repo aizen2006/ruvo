@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { certaintyOf, type DatasetContract } from "@repo/contracts";
 import { hnWhoIsHiring } from "../src/adapters/hn";
+import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate, type Candidate } from "../src/execute/candidate";
 import { match } from "../src/execute/steps/match";
 import { triage } from "../src/execute/steps/triage";
@@ -8,9 +9,6 @@ import { validate } from "../src/execute/steps/validate";
 import { createDecider } from "../src/decide/decider";
 import type { SystemOneClient } from "../src/decide/systemOneClient";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
-import type { RunContext } from "../src/runs/runContext";
 import { resetDb } from "./helpers/db";
 import { fakeLlm, judgedIds } from "./helpers/fakeLlm";
 import { fixtureFetcher, loadFixture, testScope } from "./helpers/fixtures";

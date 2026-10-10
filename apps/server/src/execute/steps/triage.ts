@@ -1,6 +1,6 @@
+import { withCap } from "../../core/run";
 import { thresholdsFor } from "../../decide/calibration";
 import { JUDGE_BATCH, noulBand, type DecisionRequest } from "../../decide/decider";
-import { withCap } from "../../runs/budget";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
 import { compileKeywords } from "../keywords";

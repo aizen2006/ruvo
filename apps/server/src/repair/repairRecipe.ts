@@ -1,10 +1,10 @@
 import type { FieldSpec, Recipe } from "@repo/contracts";
+import type { RunContext } from "../core/run";
 import type { Via } from "../fetch/pageCache";
 import { toPageState } from "../page/pageState";
 import { discoverRecipe } from "../recipes/discover";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
 import { saveRecipe } from "../recipes/store";
-import type { RunContext } from "../runs/runContext";
 import { classifyReplay } from "./classify";
 import { chooseRepair } from "./policy";
 import { relaxRecipe } from "./relax";

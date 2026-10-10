@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, test } from "bun:test";
+import { createBudget, createMetrics } from "../src/core/run";
 import { db } from "../src/db/client";
 import { pages, searchCalls } from "../src/db/schema";
 import { FetchError } from "../src/fetch/errors";
@@ -6,8 +7,6 @@ import { createFetcher, type FetchRequest, type FetchScope, type FetcherOptions 
 import { createHostLimiter } from "../src/fetch/hostLimiter";
 import { createRobots } from "../src/fetch/robots";
 import type { ScraplingClient, ScraplingEngine, ScraplingPage } from "../src/fetch/scrapling";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
 import { FirecrawlError, type FirecrawlClient, type ScrapeOptions, type ScrapeResult } from "../src/search/firecrawl";
 import { resetDb } from "./helpers/db";
 

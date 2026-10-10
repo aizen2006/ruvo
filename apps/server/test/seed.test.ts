@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { FieldSpec } from "@repo/contracts";
 import { readFileSync } from "node:fs";
+import { createBudget, createMetrics } from "../src/core/run";
 import { PAGE_CONTENT_GUARD } from "../src/llm/guard";
 import { fitText } from "../src/page/fitText";
 import { toPageState } from "../src/page/pageState";
 import { discoverRecipe } from "../src/recipes/discover";
 import { replayRecipe } from "../src/recipes/replay";
 import { recipeFromExample } from "../src/recipes/seed";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
 import { resetDb } from "./helpers/db";
 import { fakeLlm } from "./helpers/fakeLlm";
 

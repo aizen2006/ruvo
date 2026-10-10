@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { createBudget, createMetrics } from "../src/core/run";
 import { db } from "../src/db/client";
 import { pages } from "../src/db/schema";
 import { FetchError } from "../src/fetch/errors";
@@ -8,8 +9,6 @@ import { savePage } from "../src/fetch/pageCache";
 import { createRobots } from "../src/fetch/robots";
 import type { ScraplingClient, ScraplingEngine, ScraplingPage } from "../src/fetch/scrapling";
 import { createCircuitBreaker } from "../src/libs/circuitBreaker";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
 import { resetDb } from "./helpers/db";
 
 const JOBS_URL = "https://shop.example/jobs";

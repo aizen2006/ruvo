@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
+import { createBudget, createMetrics } from "../../src/core/run";
 import type { Fetcher, FetchResult, FetchScope } from "../../src/fetch/fetcher";
-import { createBudget } from "../../src/runs/budget";
-import { createMetrics } from "../../src/runs/metrics";
 
 /** Loads a response captured by scripts/capture-fixtures.ts. */
 export function loadFixture<T = unknown>(name: string): { url: string; data: T } {

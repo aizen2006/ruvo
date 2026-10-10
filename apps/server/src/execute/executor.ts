@@ -1,6 +1,6 @@
 import type { SourceBranch, Stage, Step } from "@repo/contracts";
+import type { RunContext } from "../core/run";
 import { mapLimit } from "../libs/limit";
-import type { RunContext } from "../runs/runContext";
 import type { Candidate } from "./candidate";
 import { buildRunDiff } from "./diff";
 import { explainFailure } from "../repair/classify";

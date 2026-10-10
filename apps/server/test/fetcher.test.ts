@@ -1,9 +1,8 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import { createBudget, createMetrics } from "../src/core/run";
 import type { FetchError } from "../src/fetch/errors";
 import { createFetcher, type FetchRequest, type FetchScope } from "../src/fetch/fetcher";
 import { getPage, type CacheMode } from "../src/fetch/pageCache";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
 import { resetDb } from "./helpers/db";
 
 let flakyCalls = 0;

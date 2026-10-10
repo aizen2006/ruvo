@@ -3,11 +3,10 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { and, desc, eq, isNotNull, isNull } from "drizzle-orm";
 import type { z } from "zod";
 import type { Env } from "../config/env";
+import type { Budget, Metrics } from "../core/run";
 import { db } from "../db/client";
 import { llmCalls } from "../db/schema";
 import { sha256, stableStringify } from "../libs/hash";
-import type { Budget } from "../runs/budget";
-import type { Metrics } from "../runs/metrics";
 import { costUsd } from "./models";
 
 /**

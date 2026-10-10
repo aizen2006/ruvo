@@ -1,10 +1,10 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
+import type { RunContext } from "../src/core/run";
 import { db } from "../src/db/client";
 import { records, runs } from "../src/db/schema";
 import { eq } from "drizzle-orm";
 import { buildRunDiff, diffRecords, recordLabel, type DiffRecord } from "../src/execute/diff";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import type { RunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { startTestServer } from "./helpers/http";
 

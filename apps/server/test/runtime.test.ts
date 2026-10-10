@@ -1,10 +1,9 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
+import { createBudget, createMetrics, withCap } from "../src/core/run";
 import { db } from "../src/db/client";
 import { runEvents } from "../src/db/schema";
-import { createBudget, withCap } from "../src/runs/budget";
 import { createEventBus, nextEventSeq, type EventRow } from "../src/runs/eventBus";
-import { createMetrics } from "../src/runs/metrics";
 import { insertRun, resetDb } from "./helpers/db";
 
 const limits = { maxPages: 2, maxBrowserPages: 1, maxLlmCalls: 0, maxDurationMs: 1000, maxRecords: 10 };

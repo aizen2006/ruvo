@@ -1,8 +1,8 @@
 import { DIFF_LIST_LIMIT, type DatasetContract, type RunDiff } from "@repo/contracts";
 import { and, desc, eq, isNull, lt, ne } from "drizzle-orm";
+import type { RunContext } from "../core/run";
 import { db } from "../db/client";
 import { records, runs } from "../db/schema";
-import type { RunContext } from "../runs/runContext";
 
 export interface DiffRecord {
   id: string;

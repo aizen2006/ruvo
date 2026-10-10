@@ -1,7 +1,7 @@
 import { CatalogKey, type AdapterId, type EvidenceMethod, type Locator } from "@repo/contracts";
 import type { z } from "zod";
+import type { RunContext } from "../core/run";
 import type { Fetcher, FetchScope } from "../fetch/fetcher";
-import type { RunContext } from "../runs/runContext";
 
 /** Provenance for one field value, before it is scored and stored as an evidence row. */
 export interface EvidenceDraft {

@@ -3,12 +3,12 @@ import * as cheerio from "cheerio";
 import type { CheerioAPI } from "cheerio";
 import type { Element } from "domhandler";
 import { z } from "zod";
+import type { RunContext } from "../core/run";
 import { singleLine } from "../libs/text";
 import { absoluteUrl } from "../libs/url";
 import { LlmError } from "../llm/client";
 import { elementSelector, isGeneratedClass, isPlainClassName, selectAll } from "../page/selectors";
 import { ancestorsOf, findSimilar } from "../page/similar";
-import type { RunContext } from "../runs/runContext";
 
 /**
  * Seed-and-expand recipe discovery (after Scrapling's find_similar and Crawl4AI's schema

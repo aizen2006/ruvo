@@ -1,8 +1,8 @@
 import type { EvidenceMethod } from "@repo/contracts";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
+import type { RunContext } from "../../core/run";
 import { db } from "../../db/client";
 import { evidence, records } from "../../db/schema";
-import type { RunContext } from "../../runs/runContext";
 import { clusterDuplicates, methodRank, recordKeys } from "../dedupe";
 
 /**

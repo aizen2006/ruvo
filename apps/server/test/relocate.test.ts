@@ -3,6 +3,7 @@ import type { EvidenceMethod, RecipeDef } from "@repo/contracts";
 import * as cheerio from "cheerio";
 import { tmpdir } from "node:os";
 import { env } from "../src/config/env";
+import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { db } from "../src/db/client";
 import { evidence, pages, records } from "../src/db/schema";
 import { createDecider } from "../src/decide/decider";
@@ -15,9 +16,6 @@ import { acceptanceFailure, replayRecipe } from "../src/recipes/replay";
 import { listRecipes, saveRecipe, urlPatternOf } from "../src/recipes/store";
 import { relocateRecipe } from "../src/repair/relocate";
 import { repairRecipe, type RepairInput } from "../src/repair/repairRecipe";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
-import type { RunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { fakeLlm } from "./helpers/fakeLlm";
 

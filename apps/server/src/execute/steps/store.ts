@@ -1,8 +1,8 @@
 import { inArray, sql } from "drizzle-orm";
+import type { Metrics } from "../../core/run";
 import { db } from "../../db/client";
 import { evidence, records } from "../../db/schema";
 import { fieldConfidence } from "../../extract/confidence";
-import type { Metrics } from "../../runs/metrics";
 import type { Candidate } from "../candidate";
 import { itemKeyFor } from "../contractFields";
 import type { StepFn } from "./types";

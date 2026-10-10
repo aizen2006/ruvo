@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import type { SourceBranch, Step } from "@repo/contracts";
+import { createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate } from "../src/execute/candidate";
 import { prefilter } from "../src/execute/steps/prefilter";
-import { createMetrics } from "../src/runs/metrics";
-import type { RunContext } from "../src/runs/runContext";
 
 const branch = (maxItems: number): SourceBranch => ({
   id: "src_a",

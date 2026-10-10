@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { FieldSpec } from "@repo/contracts";
 import { hnWhoIsHiring } from "../src/adapters/hn";
+import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate } from "../src/execute/candidate";
 import { extractText } from "../src/execute/steps/extractText";
 import { runLadder } from "../src/extract/ladder";
@@ -8,9 +9,6 @@ import { llmRung, quoteSupports } from "../src/extract/rungs/llm";
 import { regexRung } from "../src/extract/rungs/regex";
 import { verifyQuote } from "../src/extract/verifyQuote";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
-import type { RunContext } from "../src/runs/runContext";
 import { resetDb } from "./helpers/db";
 import { fakeLlm } from "./helpers/fakeLlm";
 import { fixtureFetcher, loadFixture, testScope } from "./helpers/fixtures";

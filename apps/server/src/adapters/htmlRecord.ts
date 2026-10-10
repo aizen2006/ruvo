@@ -1,5 +1,6 @@
 import * as cheerio from "cheerio";
 import { z } from "zod";
+import type { RunContext } from "../core/run";
 import { itemKeyFor } from "../execute/contractFields";
 import { runLadder } from "../extract/ladder";
 import { jsonLdField, jsonLdRung } from "../extract/rungs/jsonLd";
@@ -9,7 +10,6 @@ import { LlmError } from "../llm/client";
 import { htmlToText } from "../libs/text";
 import { canonicalUrl } from "../libs/url";
 import { extractJsonLd } from "../page/structured";
-import type { RunContext } from "../runs/runContext";
 import { derived } from "./fields";
 import { everyField, type FieldValue, type Item, type SourceAdapter } from "./types";
 

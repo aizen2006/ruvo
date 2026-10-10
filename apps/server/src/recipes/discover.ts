@@ -1,8 +1,8 @@
 import { RecipeDef, type FieldSpec, type Recipe } from "@repo/contracts";
+import type { RunContext } from "../core/run";
 import { PAGE_CONTENT_GUARD } from "../llm/guard";
 import { fitText } from "../page/fitText";
 import type { PageState } from "../page/pageState";
-import type { RunContext } from "../runs/runContext";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "./replay";
 import { seedRecipe } from "./seed";
 import { saveRecipe, urlPatternOf } from "./store";

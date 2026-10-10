@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import { emptyMetrics, leadOf, type RecordDTO, type RecordStatus, type Signal } from "@repo/contracts";
+import type { RunContext } from "../src/core/run";
 import { db } from "../src/db/client";
 import { attachWorkflow, saveContract, saveWorkflow } from "../src/db/repos/workflows";
 import { records } from "../src/db/schema";
@@ -7,7 +8,6 @@ import { buildRunDiff } from "../src/execute/diff";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
-import type { RunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { startTestServer } from "./helpers/http";
 

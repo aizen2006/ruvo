@@ -1,13 +1,11 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { DatasetContract } from "@repo/contracts";
 import { htmlRecord } from "../src/adapters/htmlRecord";
+import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import type { Fetcher } from "../src/fetch/fetcher";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { compileIr } from "../src/plan/irCompiler";
 import { templateDraft } from "../src/plan/templates";
-import { createBudget } from "../src/runs/budget";
-import { createMetrics } from "../src/runs/metrics";
-import type { RunContext } from "../src/runs/runContext";
 import { resetDb } from "./helpers/db";
 import { fakeLlm } from "./helpers/fakeLlm";
 

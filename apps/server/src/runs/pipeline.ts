@@ -1,10 +1,11 @@
 import { env } from "../config/env";
+import type { RunContext } from "../core/run";
 import { loadRunWorkflow, saveRepairedWorkflow } from "../db/repos/workflows";
 import { executeWorkflow } from "../execute/executor";
 import { scopeLlm } from "../llm/client";
 import { listPagesForMode, runModels } from "./modes";
 import { moreLeads } from "./moreLeads";
-import { createRunContext, type RunContext } from "./runContext";
+import { createRunContext } from "./runContext";
 import { decider, fetcher, llm, memory, webSearch } from "./services";
 import type { RunExecutor } from "./worker";
 

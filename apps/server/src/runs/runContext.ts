@@ -1,49 +1,13 @@
-import type { Budgets, DatasetContract, Recipe, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
+import type { Budgets, DatasetContract, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
 import { eq } from "drizzle-orm";
+import { createBudget, createMetrics, type BudgetKey, type RunContext } from "../core/run";
 import { db } from "../db/client";
 import type { Decider } from "../decide/decider";
 import type { Fetcher } from "../fetch/fetcher";
 import type { LlmClient } from "../llm/client";
 import { runs } from "../db/schema";
-import { logger, type Logger } from "../libs/logger";
-import { createBudget, type Budget, type BudgetKey } from "./budget";
-import { createEventBus, nextEventSeq, type EmitInput } from "./eventBus";
-import { createMetrics, type Metrics } from "./metrics";
-
-/**
- * Everything a pipeline step needs for one run. Steps depend on this interface,
- * not on globals, so they stay testable with a fake context.
- * Services (fetcher, LLM client, decider, …) are added here as they are built.
- */
-export interface RunContext {
-  runId: string;
-  signal: AbortSignal;
-  contract: DatasetContract;
-  ir: WorkflowIR;
-  budget: Budget;
-  metrics: Metrics;
-  fetcher: Fetcher;
-  llm: LlmClient;
-  decider: Decider;
-  log: Logger;
-  /** Recipe repairs made during the run; they become a new workflow version when it ends. */
-  repairs: RepairNote[];
-  /** Pages a paginated list source may read (the run mode's cap); 1 when unset. */
-  maxListPages?: number;
-  /** When the run's time limit ends (epoch ms), set while its sources are read; a fetch waits out a long Retry-After only if it ends sooner. */
-  endsAt?: number;
-  emit(event: EmitInput): void;
-  /** Moves the run to a new user-facing stage (persisted and announced). */
-  setStage(stage: Stage): Promise<void>;
-}
-
-export interface RepairNote {
-  host: string;
-  fromVersion: number;
-  toVersion: number;
-  origin: Recipe["origin"];
-  failure: string;
-}
+import { logger } from "../libs/logger";
+import { createEventBus, nextEventSeq } from "./eventBus";
 
 export interface OwnedRunContext extends RunContext {
   /** Persists the latest metrics snapshot. Called periodically and on dispose. */

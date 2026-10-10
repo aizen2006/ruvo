@@ -1,5 +1,5 @@
 import type { SourceBranch, Step } from "@repo/contracts";
-import type { RunContext } from "../../runs/runContext";
+import type { RunContext } from "../../core/run";
 import type { Candidate } from "../candidate";
 
 /** A pipeline step: transforms the candidates of one source branch. */

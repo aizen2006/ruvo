@@ -1,17 +1,8 @@
-import type { RunEvent, Stage } from "@repo/contracts";
 import { desc, eq } from "drizzle-orm";
+import type { EmitInput } from "../core/run";
 import { db } from "../db/client";
 import { runEvents } from "../db/schema";
 import { logger } from "../libs/logger";
-
-export type EmitInput = {
-  stage: Stage;
-  type: string;
-  message: string;
-  level?: RunEvent["level"];
-  sourceId?: string | null;
-  data?: unknown;
-};
 
 export type EventRow = typeof runEvents.$inferInsert;
 export type EventWriter = (rows: EventRow[]) => Promise<void>;

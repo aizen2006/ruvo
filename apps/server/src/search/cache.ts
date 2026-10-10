@@ -1,8 +1,8 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
+import type { RunContext } from "../core/run";
 import { db } from "../db/client";
 import { searchCalls } from "../db/schema";
 import { sha256, stableStringify } from "../libs/hash";
-import type { FetchScope } from "../fetch/fetcher";
 import type { SearchResultItem } from "./firecrawl";
 
 /**
@@ -19,7 +19,7 @@ export interface CachedSearch {
 
 export interface SearchRunner {
   /** Searches, drawing one unit from the run's `searches` budget for a live call (never for a cache hit). */
-  run(query: string, opts: { limit: number; runId: string; scope: FetchScope }): Promise<CachedSearch | null>;
+  run(query: string, opts: { limit: number; runId: string; scope: Pick<RunContext, "signal" | "budget"> }): Promise<CachedSearch | null>;
 }
 
 /** A web search provider: results in Firecrawl's shape, and the credits they cost. */

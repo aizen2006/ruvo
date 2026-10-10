@@ -1,8 +1,8 @@
 import { EVIDENCE_METHODS, type EvidenceMethod, type QualityReport } from "@repo/contracts";
 import { eq, inArray } from "drizzle-orm";
+import type { RunContext } from "../core/run";
 import { db } from "../db/client";
 import { evidence, records, runs } from "../db/schema";
-import type { RunContext } from "../runs/runContext";
 
 type RecordRow = Pick<typeof records.$inferSelect, "id" | "sourceId" | "status" | "duplicateOf" | "confidence" | "rejectReasons" | "data">;
 type EvidenceRow = { recordId: string; method: EvidenceMethod; verified: boolean };

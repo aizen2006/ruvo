@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { and, eq, isNull } from "drizzle-orm";
+import { createMetrics, type RunContext } from "../src/core/run";
 import { db } from "../src/db/client";
 import { records } from "../src/db/schema";
 import { clusterDuplicates, normalizeText, recordKeys, type DedupeCandidate } from "../src/execute/dedupe";
@@ -8,8 +9,7 @@ import { dedupeRun } from "../src/execute/steps/dedupe";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
-import { createMetrics } from "../src/runs/metrics";
-import { createRunContext, type RunContext } from "../src/runs/runContext";
+import { createRunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { createDecider } from "../src/decide/decider";
 import { fakeLlm } from "./helpers/fakeLlm";

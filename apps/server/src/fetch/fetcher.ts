@@ -1,4 +1,4 @@
-import type { RunContext } from "../runs/runContext";
+import type { RunContext } from "../core/run";
 import { createCircuitBreaker, type CircuitBreaker } from "../libs/circuitBreaker";
 import { parseRetryAfter, withRetry } from "../libs/retry";
 import { recordScrape } from "../search/cache";

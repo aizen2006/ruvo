@@ -1,5 +1,6 @@
 import type { FieldSpec, Recipe } from "@repo/contracts";
 import { z } from "zod";
+import type { RunContext } from "../core/run";
 import { FetchError } from "../fetch/errors";
 import type { FetchResult } from "../fetch/fetcher";
 import { canonicalUrl } from "../libs/url";
@@ -15,7 +16,6 @@ import { itemKeyFor } from "../execute/contractFields";
 import { detectArrangement } from "../extract/parsers/remote";
 import { formatSalary, parseSalary } from "../extract/parsers/salary";
 import { truncate } from "../libs/text";
-import type { RunContext } from "../runs/runContext";
 import { compactFields, derived } from "./fields";
 import type { FieldValue, Item, SourceAdapter } from "./types";
 
