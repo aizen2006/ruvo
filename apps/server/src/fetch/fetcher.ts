@@ -41,8 +41,8 @@ export interface FetchResult {
   escalation: { reason: string; textLength: number } | null;
 }
 
-/** The slice of a run a fetch needs: cancellation, budget and counters, and the run a paid fetch (Firecrawl) is charged to. */
-export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics"> & Partial<Pick<RunContext, "runId">>;
+/** The slice of a run a fetch needs: cancellation, time limit, budget and counters, and the run a paid fetch (Firecrawl) is charged to. */
+export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics"> & Partial<Pick<RunContext, "runId" | "endsAt">>;
 
 export interface Fetcher {
   fetch(scope: FetchScope, req: FetchRequest): Promise<FetchResult>;
@@ -152,6 +152,8 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
         maxDelayMs: 30_000,
         shouldRetry: (err) => err instanceof FetchError && err.retryable,
         retryAfterMs: (err) => (err instanceof FetchError ? err.details.retryAfterMs : undefined),
+        // In a run, a long Retry-After is waited out if it ends before the time limit, and given up on if not.
+        deadline: scope.endsAt,
         signal: scope.signal,
       });
     } catch (err) {

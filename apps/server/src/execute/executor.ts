@@ -47,7 +47,7 @@ export async function executeWorkflow(ctx: RunContext, findMore?: FindMore): Pro
   const outcomes: Array<string | null> = [];
   const read = async (more: SourceBranch[]) => {
     branches.push(...more);
-    outcomes.push(...(await mapLimit(more, BRANCH_CONCURRENCY, (branch) => runBranch(ctx, branch, deadline))));
+    outcomes.push(...(await mapLimit(more, BRANCH_CONCURRENCY, (branch) => runBranch(ctx, branch, deadline, endsAt))));
   };
   await read(ctx.ir.sources);
   if (findMore) await readMore(ctx, findMore, read, deadline, endsAt);
@@ -135,8 +135,8 @@ const FINISHING_STEPS: ReadonlySet<Step["kind"]> = new Set(["prefilter", "match"
  * Runs one source's steps. Returns why the source failed (also recorded as an event), or null. Once
  * the run's time limit passes, slow steps are skipped and the rest save what was gathered.
  */
-async function runBranch(ctx: RunContext, branch: SourceBranch, deadline: AbortSignal): Promise<string | null> {
-  const timed: RunContext = { ...ctx, signal: AbortSignal.any([ctx.signal, deadline]) };
+async function runBranch(ctx: RunContext, branch: SourceBranch, deadline: AbortSignal, endsAt: number): Promise<string | null> {
+  const timed: RunContext = { ...ctx, signal: AbortSignal.any([ctx.signal, deadline]), endsAt };
   let candidates: Candidate[] = [];
   let outOfTime = false;
   const stopSlowWork = (step: Step) => {

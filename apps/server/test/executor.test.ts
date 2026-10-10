@@ -84,6 +84,33 @@ describe("executeWorkflow", () => {
     expect(events.some((e) => e.type === "source.failed")).toBe(false);
   });
 
+  test("sources fetch knowing when the run's time limit ends", async () => {
+    const run = await insertRun({ status: "running" });
+    const ir = buildTemplateIr(DEMO_CONTRACT, [company("OpenAI", "ashby", "openai", ["ai_lab"])], { budgets, maxItemsPerSource: 40 });
+    const { fetcher: fixtures } = fixtureFetcher({ "ashbyhq.com": "ashby" });
+    const ends: Array<number | undefined> = [];
+    const fetcher: Fetcher = {
+      fetch(scope, req) {
+        ends.push(scope.endsAt);
+        return fixtures.fetch(scope, req);
+      },
+      json(scope, url, purpose, opts) {
+        ends.push(scope.endsAt);
+        return fixtures.json(scope, url, purpose, opts);
+      },
+    };
+    const started = Date.now();
+    const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider });
+    await executeWorkflow(ctx);
+    await ctx.dispose();
+
+    expect(ends.length).toBeGreaterThan(0);
+    for (const end of ends) {
+      expect(end).toBeGreaterThanOrEqual(started + budgets.maxDurationMs);
+      expect(end).toBeLessThanOrEqual(Date.now() + budgets.maxDurationMs);
+    }
+  });
+
   test("fails the run when every source fails", async () => {
     await expect(runWith([company("Missing Co", "workable", "missing", [])])).rejects.toThrow("Missing Co could not be collected");
   });

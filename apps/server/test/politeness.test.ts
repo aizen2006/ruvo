@@ -252,6 +252,39 @@ describe("retry and circuit breaker", () => {
     expect(calls).toBe(1);
   });
 
+  describe("a Retry-After longer than maxDelayMs", () => {
+    const busy = new FetchError("http_status", "slow down", { url: "u", status: 429 });
+    const succeedsSecond = () => {
+      let calls = 0;
+      return async () => {
+        if (++calls < 2) throw busy;
+        return calls;
+      };
+    };
+
+    test("is waited out when it ends before the deadline", async () => {
+      const started = Date.now();
+      const calls = await withRetry(succeedsSecond(), { retries: 2, baseMs: 1, maxDelayMs: 5, shouldRetry: retryable, retryAfterMs: () => 60, deadline: Date.now() + 5_000 });
+      expect(calls).toBe(2);
+      expect(Date.now() - started).toBeGreaterThanOrEqual(50);
+    });
+
+    test("is given up on at once when it would end past the deadline", async () => {
+      let calls = 0;
+      const attempt = async () => {
+        calls++;
+        throw busy;
+      };
+      const opts = { retries: 2, baseMs: 1, maxDelayMs: 5, shouldRetry: retryable, retryAfterMs: () => 60_000, deadline: Date.now() + 5_000 };
+      await expect(withRetry(attempt, opts)).rejects.toBe(busy);
+      expect(calls).toBe(1);
+    });
+
+    test("is cut to maxDelayMs without a deadline", async () => {
+      expect(await withRetry(succeedsSecond(), { retries: 1, baseMs: 1, maxDelayMs: 5, shouldRetry: retryable, retryAfterMs: () => 60_000 })).toBe(2);
+    });
+  });
+
   test("opens after repeated failures and closes after the cooldown", () => {
     let now = 0;
     const breaker = createCircuitBreaker({ threshold: 2, cooldownMs: 100, now: () => now });

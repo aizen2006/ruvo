@@ -6,6 +6,11 @@ export interface RetryOptions {
   shouldRetry: (err: unknown) => boolean;
   /** Server-requested wait (e.g. Retry-After), which overrides the computed backoff. */
   retryAfterMs?: (err: unknown) => number | undefined;
+  /**
+   * When the caller's time is up (epoch ms), e.g. the run's time limit. A server-requested wait is then
+   * honoured in full if it ends sooner and given up on if not; without a deadline it is capped at maxDelayMs.
+   */
+  deadline?: number;
   signal?: AbortSignal;
 }
 
@@ -16,9 +21,14 @@ export async function withRetry<T>(fn: () => Promise<T>, opts: RetryOptions): Pr
       return await fn();
     } catch (err) {
       if (attempt >= opts.retries || !opts.shouldRetry(err) || opts.signal?.aborted) throw err;
+      const asked = opts.retryAfterMs?.(err);
+      if (asked !== undefined && opts.deadline !== undefined) {
+        if (Date.now() + asked >= opts.deadline) throw err;
+        await sleepUnlessAborted(asked, opts.signal);
+        continue;
+      }
       const backoff = Math.random() * opts.baseMs * 2 ** attempt;
-      const delay = Math.min(opts.retryAfterMs?.(err) ?? backoff, opts.maxDelayMs);
-      await sleepUnlessAborted(delay, opts.signal);
+      await sleepUnlessAborted(Math.min(asked ?? backoff, opts.maxDelayMs), opts.signal);
     }
   }
 }

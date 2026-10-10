@@ -32,6 +32,8 @@ const site = Bun.serve({
         return ++flakyCalls === 1
           ? new Response("slow down", { status: 429, headers: { "retry-after": "0" } })
           : html("<p>recovered</p>");
+      case "/come-back-later":
+        return new Response("slow down", { status: 429, headers: { "retry-after": "3600" } });
       case "/nul.html":
         return html("<p>a\u0000b</p>");
       case "/nul.json":
@@ -96,6 +98,12 @@ describe("fetcher", () => {
     const res = await localFetcher().fetch(s, page("/flaky"));
     expect(res.body).toContain("recovered");
     expect(s.metrics.snapshot().httpRequests).toBe(2);
+  });
+
+  test("gives up at once on a 429 whose Retry-After outlasts the run's time limit", async () => {
+    const s = { ...scope(), endsAt: Date.now() + 60_000 };
+    expect(await failureKind(localFetcher().fetch(s, page("/come-back-later")))).toBe("http_status");
+    expect(s.metrics.snapshot().httpRequests).toBe(1);
   });
 
   test("refuses robots-disallowed paths, oversize bodies, 404s and an empty budget", async () => {
