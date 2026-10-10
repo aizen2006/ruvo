@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compileKeywords } from "../src/execute/keywords";
+import { compileKeywords } from "../src/libs/keywords";
 import { joinLocations, locationBucket } from "../src/extract/parsers/location";
 import { arrangementFromWorkplaceType, detectArrangement } from "../src/extract/parsers/remote";
 import { formatSalary, parseSalary } from "../src/extract/parsers/salary";

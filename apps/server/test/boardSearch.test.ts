@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { Ats } from "../src/adapters/ats";
-import { createBudget, createMetrics } from "../src/core/run";
-import { searchRound } from "../src/plan/boardSearch";
+import type { SearchHit } from "../src/adapters/searchHits";
+import { createBudget, createMetrics, type EmitInput } from "../src/core/run";
+import { searchRounds } from "../src/discover/rounds";
+import { boardsFromHits } from "../src/domains/jobs/boards";
+import { recordBoards } from "../src/plan/atsDetect";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { listRegistry } from "../src/plan/registry";
 import { createSearchRunner } from "../src/search/cache";
@@ -12,22 +15,6 @@ import { fakeLlm } from "./helpers/fakeLlm";
 const hit = (url: string, title: string): SearchResultItem => ({ url, title, description: "" });
 const onBoards = (words: string) => `${words} (site:greenhouse.io OR site:jobs.ashbyhq.com OR site:jobs.lever.co OR site:apply.workable.com)`;
 
-const RESULTS: Record<string, SearchResultItem[]> = {
-  [onBoards("backend engineer")]: [
-    hit("https://job-boards.greenhouse.io/acme/jobs/1", "Backend Engineer at Acme"),
-    hit("https://jobs.lever.co/known/2", "Backend Engineer - Known"),
-    hit("https://jobs.ashbyhq.com/ghost/3", "Backend Engineer @ Ghost"),
-  ],
-  "remote backend engineer jobs": [
-    hit("https://remotejobs.example/top-50-backend", "Top 50 remote backend engineer jobs"),
-    hit("https://apply.workable.com/beta/j/4", "Senior Backend Engineer - Beta"),
-    hit("https://job-boards.greenhouse.io/delta/jobs/5", "Backend Engineer at Delta"),
-  ],
-};
-
-/** Boards with postings; any other board has none. */
-const POSTINGS: Record<string, number> = { "greenhouse:acme": 12, "workable:beta": 5, "greenhouse:delta": 3 };
-
 /** The model calls every unclear hit a page about one record, as it would a posting. */
 const allRecords = ({ input }: { input: Array<{ content: string }> }) => {
   const { results } = JSON.parse(input.at(-1)!.content) as { results: Array<{ index: number }> };
@@ -36,55 +23,87 @@ const allRecords = ({ input }: { input: Array<{ content: string }> }) => {
 
 beforeEach(resetDb);
 
-describe("searchRound", () => {
-  test("a job request's round adds the boards behind postings either search found, up to the cap, and pages beside them", async () => {
-    const searched: string[] = [];
-    const searcher = createSearchRunner({
-      searxng: {
-        async search(query) {
-          searched.push(query);
-          return { web: RESULTS[query] ?? [], creditsUsed: 0 };
-        },
-      },
-      usdPerCredit: 0,
-      cacheMode: "off",
-    });
-    const probed: string[] = [];
-    const probe = async (ats: Ats, slug: string) => {
-      probed.push(`${ats}:${slug}`);
-      const jobCount = POSTINGS[`${ats}:${slug}`];
-      return jobCount ? { ats, slug, jobCount } : null;
+describe("search rounds for a job request", () => {
+  test("search the boards beside the pages, and every posting found names its board instead of being read", async () => {
+    // Boards the registry knows, so nothing is probed.
+    await recordBoards(["acme", "delta", "ghost"].map((slug) => ({ name: slug[0]!.toUpperCase() + slug.slice(1), hit: { ats: "greenhouse" as Ats, slug, jobCount: 7 } })));
+    const results: Record<string, SearchResultItem[]> = {
+      // The first round looks for the request's role (DEMO_CONTRACT: backend, preferably remote).
+      [onBoards("Backend remote")]: [hit("https://job-boards.greenhouse.io/acme/jobs/1", "Backend Engineer at Acme"), hit("https://greenhouse.io/blog", "Hiring tips")],
+      [DEMO_CONTRACT.entityDescription]: [
+        hit("https://remotejobs.example/top-50-backend", "Top 50 remote backend engineer jobs"),
+        hit("https://job-boards.greenhouse.io/delta/jobs/5", "Backend Engineer at Delta"),
+      ],
+      // A later round searches the boards for the model's new queries too, unless one names a site.
+      [onBoards("platform engineer")]: [hit("https://job-boards.greenhouse.io/ghost/jobs/3", "Platform Engineer at Ghost")],
     };
+    const searched: string[] = [];
+    const web = {
+      searcher: createSearchRunner({
+        searxng: { search: async (query) => (searched.push(query), { web: results[query] ?? [], creditsUsed: 0 }) },
+        usdPerCredit: 0,
+        cacheMode: "off",
+      }),
+      robots: { check: async () => ({ allowed: true, crawlDelayMs: 0 }) },
+    };
+    const llm = fakeLlm({ search_hit_kinds: allRecords, more_search_queries: { queries: ["site:wellfound.com backend engineer", "platform engineer"] } });
     const scope = {
       signal: new AbortController().signal,
-      budget: createBudget({ maxPages: 10, maxBrowserPages: 0, maxLlmCalls: 10, maxSearches: 3, maxDurationMs: 60_000, maxRecords: 100 }),
+      budget: createBudget({ maxPages: 10, maxBrowserPages: 0, maxLlmCalls: 10, maxSearches: 4, maxDurationMs: 60_000, maxRecords: 100 }),
       metrics: createMetrics(),
     };
+    const events: EmitInput[] = [];
 
-    const round = await searchRound(DEMO_CONTRACT, { searcher, robots: { check: async () => ({ allowed: true, crawlDelayMs: 0 }) } }, fakeLlm({ search_hit_kinds: allRecords }), {
+    const found = await searchRounds(DEMO_CONTRACT, {
+      web,
+      llm,
+      mode: "balanced",
       runId: crypto.randomUUID(),
       scope,
       resultsPerQuery: 10,
-      queries: ["remote backend engineer jobs", "backend engineer salaries"],
-      boardWords: ["backend engineer", "site:wellfound.com backend engineer", "platform engineer"],
-      seen: new Set(["lever:known"]),
-      maxBoards: 2,
       userAgent: "test",
-      probe,
+      planned: [],
+      emit: (e) => events.push(e),
     });
 
-    // Of 3 searches the boards get 2 (half, rounded up), never for words naming a site; the pages get the rest.
-    expect(searched).toEqual([onBoards("backend engineer"), onBoards("platform engineer"), "remote backend engineer jobs"]);
-    expect(round.searches.map((s) => s.hits)).toEqual([3, 0, 3]);
-    // The seen board is skipped unprobed, one without postings is dropped, and probing stops at the cap.
-    expect(probed).toEqual(["greenhouse:acme", "ashby:ghost", "workable:beta"]);
-    expect(round.boards.map((b) => [b.ref, b.adapter, b.label])).toEqual([
-      ["greenhouse:acme", "greenhouse", "Acme"],
-      ["workable:beta", "workable", "Beta"],
+    // Board searches get at most half the searches left (rounded up), page searches the rest.
+    expect(searched).toEqual([onBoards("Backend remote"), DEMO_CONTRACT.entityDescription, onBoards("platform engineer"), "site:wellfound.com backend engineer"]);
+    expect(found.sources.map((s) => [s.ref, s.adapter])).toEqual([
+      ["greenhouse:acme", "greenhouse"],
+      ["greenhouse:delta", "greenhouse"],
+      ["html_list:https://remotejobs.example/top-50-backend", "html_list"],
+      ["greenhouse:ghost", "greenhouse"],
     ]);
-    expect(round.boards[1]!.reason).toBe('Job board on Workable with 5 postings, found by searching "remote backend engineer jobs"');
-    expect((await listRegistry()).map((c) => `${c.ats}:${c.slug}`)).toEqual(["greenhouse:acme", "workable:beta"]);
-    // A posting is never read as a page.
-    expect(round.pages.map((p) => p.ref)).toEqual(["html_list:https://remotejobs.example/top-50-backend"]);
+    expect(found.sources[1]!.reason).toBe(`Job board on Greenhouse with 7 postings, found by searching "${DEMO_CONTRACT.entityDescription}"`);
+    expect(events.filter((e) => e.type === "discovery.search_round").map((e) => e.message)).toEqual([
+      "Search round 1: 2 more companies on Greenhouse, plus 1 more source",
+      "Search round 2: 1 more company on Greenhouse",
+    ]);
+  });
+});
+
+describe("boardsFromHits", () => {
+  test("skips seen boards unprobed, drops boards without postings, stops at the cap, and adds the rest to the registry", async () => {
+    const posting = (url: string, title: string): SearchHit => ({ url, title, description: "", query: "remote backend engineer jobs" });
+    const hits = [
+      posting("https://jobs.lever.co/known/2", "Backend Engineer - Known"),
+      posting("https://jobs.ashbyhq.com/ghost/3", "Backend Engineer @ Ghost"),
+      posting("https://apply.workable.com/beta/j/4", "Senior Backend Engineer - Beta"),
+      posting("https://job-boards.greenhouse.io/delta/jobs/5", "Backend Engineer at Delta"),
+    ];
+    /** Boards with postings; any other board has none. */
+    const postings: Record<string, number> = { "workable:beta": 5, "greenhouse:delta": 3 };
+    const probed: string[] = [];
+    const probe = async (ats: Ats, slug: string) => {
+      probed.push(`${ats}:${slug}`);
+      const jobCount = postings[`${ats}:${slug}`];
+      return jobCount ? { ats, slug, jobCount } : null;
+    };
+
+    const boards = await boardsFromHits(DEMO_CONTRACT, hits, { seen: new Set(["lever:known"]), max: 1, userAgent: "test", probe });
+    expect(probed).toEqual(["ashby:ghost", "workable:beta"]);
+    expect(boards.map((b) => [b.ref, b.adapter, b.label])).toEqual([["workable:beta", "workable", "Beta"]]);
+    expect(boards[0]!.reason).toBe('Job board on Workable with 5 postings, found by searching "remote backend engineer jobs"');
+    expect((await listRegistry()).map((c) => `${c.ats}:${c.slug}`)).toEqual(["workable:beta"]);
   });
 });

@@ -1,5 +1,5 @@
 import { fieldText } from "../candidate";
-import { compileKeywords } from "../keywords";
+import { compileKeywords } from "../../libs/keywords";
 import type { StepFn } from "./types";
 
 /**

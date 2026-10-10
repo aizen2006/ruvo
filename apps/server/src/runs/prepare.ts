@@ -1,33 +1,22 @@
-import { isSensitive, type DatasetContract, type FoundSource, type SearchLog, type Stage, type WorkflowIR } from "@repo/contracts";
-import { ATS_LIST } from "../adapters/ats";
+import { isSensitive, type DatasetContract, type Stage, type WorkflowIR } from "@repo/contracts";
 import { compileRequirement } from "../compile/requirementCompiler";
 import { env } from "../config/env";
 import { createBudget, createMetrics, type EmitInput } from "../core/run";
 import type { ClaimedRun } from "../db/queue";
 import { getRequestPrompt, setRunStage } from "../db/repos/runs";
 import { attachWorkflow, getRunWorkflow, saveContract, saveWorkflow } from "../db/repos/workflows";
-import type { FetchScope } from "../fetch/fetcher";
+import { emitSearches, searchMore, searchRounds } from "../discover/rounds";
 import { autoDetectCompanies } from "../plan/atsDetect";
-import { platformName, roleWords, searchRound } from "../plan/boardSearch";
-import { discoverSources, foundCandidate, type SourceCandidate } from "../plan/discovery";
+import { discoverSources, foundCandidate } from "../plan/discovery";
 import { scopeLlm, type LlmClient } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
 import { planForContract } from "../plan/planner";
 import { listRegistry } from "../plan/registry";
-import {
-  addFoundSources,
-  moreSearchQueries,
-  searchQueriesFor,
-  type WebDiscovery,
-  type WebSearch,
-} from "../plan/webDiscovery";
+import type { WebDiscovery, WebSearch } from "../plan/webDiscovery";
 import { recompileWorkflow } from "./editContract";
 import { createEventBus, nextEventSeq, type EventBus } from "./eventBus";
-import { budgetsForMode, newBoardsForMode, runModels, searchResultsPerQuery } from "./modes";
+import { budgetsForMode, runModels, searchResultsPerQuery } from "./modes";
 import type { RunPreparer } from "./worker";
-
-/** Search rounds while preparing a run, at most; each round after the first searches with new queries. */
-const MAX_SEARCH_ROUNDS = 5;
 
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
@@ -79,7 +68,17 @@ export const createPreparer = ({ llm: baseLlm, memory, webSearch: web = null }: 
     if (web) {
       await stage("discovering", { type: "discovery.search_started", message: `Searching the web (up to ${caps.maxSearches} searches)` });
       const scope = { signal, budget: createBudget(caps), metrics: createMetrics() };
-      search = await searchRounds(contract, { web, llm, bus, run, scope, planned: discovery.candidates });
+      search = await searchRounds(contract, {
+        web,
+        llm,
+        mode: run.mode,
+        runId: run.id,
+        scope,
+        resultsPerQuery: searchResultsPerQuery(run.mode),
+        userAgent: env.USER_AGENT,
+        planned: discovery.candidates,
+        emit: bus.emit,
+      });
       const known = new Set(discovery.candidates.map((c) => c.ref));
       const added = search.sources.filter((s) => !known.has(s.ref)).map(foundCandidate);
       discovery.candidates.push(...added);
@@ -146,27 +145,22 @@ async function prepareMore(
   const { contract, ir } = current;
 
   await stage("discovering", { type: "discovery.search_started", message: "Looking for more: thinking of new searches" });
-  const tried = ir.search?.queries.map((q) => q.query) ?? searchQueriesFor(contract);
-  const queries = await moreSearchQueries(contract, tried, llm, signal);
-  if (queries.length === 0) throw new Error("Could not think of new searches for this request");
-
   const scope = { signal, budget: createBudget(budgetsForMode(run.mode, env, contract.maxRecords)), metrics: createMetrics() };
-  // One round like a run's own extra rounds (see moreLeads): pages, plus job boards for job requests.
-  const seen = new Set([...ir.sources, ...(ir.search?.sources ?? [])].map((s) => s.ref));
-  const found = await searchRound(contract, web, llm, {
+  // One round like a run's own extra rounds (see moreLeads), so a later round of the same request.
+  const more = await searchMore(contract, ir, {
+    web,
+    llm,
+    mode: run.mode,
     runId: run.id,
     scope,
     resultsPerQuery: searchResultsPerQuery(run.mode),
-    queries,
-    boardWords: queries,
-    seen,
-    maxBoards: newBoardsForMode(run.mode),
     userAgent: env.USER_AGENT,
+    round: 2,
   });
-  emitSearches(bus, found.searches);
+  if (more.queries.length === 0) throw new Error("Could not think of new searches for this request");
+  emitSearches(bus.emit, more.searches);
 
-  const search = { queries: [...(ir.search?.queries ?? []), ...found.searches], sources: addFoundSources(ir.search?.sources ?? [], [...found.boards, ...found.pages]) };
-  const { ir: next } = await recompileWorkflow(run.id, { current, contract, contractId: current.contractId, mode: run.mode, search, plannedBy: "find_more" });
+  const { ir: next } = await recompileWorkflow(run.id, { current, contract, contractId: current.contractId, mode: run.mode, search: more.search, plannedBy: "find_more" });
   const added = next.sources.length - ir.sources.length;
   await stage("planning", {
     type: "plan.completed",
@@ -174,71 +168,6 @@ async function prepareMore(
     message: added > 0 ? `Found ${added} new source${added === 1 ? "" : "s"}, ${next.sources.length} in all` : "No new sources found; collecting from the earlier ones again",
   });
   return afterPreparing(run, contract, next);
-}
-
-function emitSearches(bus: EventBus, searches: SearchLog[]) {
-  for (const s of searches) {
-    bus.emit({
-      stage: "discovering",
-      type: "discovery.searched",
-      level: s.error ? "warn" : "info",
-      message: s.error
-        ? `Could not search "${s.query}": ${s.error}`
-        : `Searched "${s.query}": ${s.hits} results${s.cached ? " (saved from an earlier run)" : ""}`,
-      data: s,
-    });
-  }
-}
-
-/**
- * Searches the web for sources in rounds, until the search budget is spent, a round finds nothing
- * new or MAX_SEARCH_ROUNDS have run; rounds after the first search with new queries from the
- * worker model. Hits become pages to read (list and single-record pages, profiles). For a job
- * request, each round also searches the job-board platforms, and every posting found on them
- * becomes its company's board instead, read through the ATS API like a registry company.
- */
-async function searchRounds(
-  contract: DatasetContract,
-  { web, llm, bus, run, scope, planned }: { web: WebSearch; llm: LlmClient; bus: EventBus; run: ClaimedRun; scope: FetchScope; planned: SourceCandidate[] },
-): Promise<WebDiscovery> {
-  const opts = { runId: run.id, scope, resultsPerQuery: searchResultsPerQuery(run.mode), userAgent: env.USER_AGENT };
-  const maxBoards = newBoardsForMode(run.mode);
-  const found: WebDiscovery = { sources: [], searches: [] };
-  let boards = 0;
-  let queries = searchQueriesFor(contract);
-  for (let round = 1; round <= MAX_SEARCH_ROUNDS && scope.budget.left("searches") > 0; round++) {
-    if (round > 1) {
-      queries = await moreSearchQueries(contract, found.searches.map((s) => s.query), llm, scope.signal).catch((err) => {
-        if (scope.signal.aborted) throw err;
-        return [];
-      });
-      if (queries.length === 0) break;
-    }
-    const seen = new Set([...planned, ...found.sources].map((s) => s.ref));
-    const boardWords = round === 1 ? [roleWords(contract)] : queries;
-    const { boards: newBoards, pages, searches } = await searchRound(contract, web, llm, { ...opts, queries, boardWords, seen, maxBoards: maxBoards - boards });
-    emitSearches(bus, searches);
-
-    const fresh = [...newBoards, ...pages.filter((s) => !seen.has(s.ref))];
-    // Profiles found again join their site's group; new sources go last, so earlier rounds' are read first.
-    found.sources = [...addFoundSources(found.sources, pages.filter((s) => seen.has(s.ref))), ...fresh];
-    found.searches.push(...searches);
-    boards += newBoards.length;
-    bus.emit({ stage: "discovering", type: "discovery.search_round", message: roundMessage(round, newBoards, fresh.length - newBoards.length) });
-    if (fresh.length === 0) break;
-  }
-  return found;
-}
-
-/** "Search round 2: 4 more companies on Greenhouse and Lever, plus 2 more sources". */
-function roundMessage(round: number, boards: FoundSource[], pages: number): string {
-  const platforms = ATS_LIST.filter((ats) => boards.some((b) => b.adapter === ats)).map(platformName);
-  const found = [
-    boards.length > 0 &&
-      `${boards.length} more ${boards.length === 1 ? "company" : "companies"}${platforms.length ? ` on ${new Intl.ListFormat("en-GB").format(platforms)}` : ""}`,
-    pages > 0 && `${pages} more source${pages === 1 ? "" : "s"}`,
-  ].filter(Boolean);
-  return `Search round ${round}: ${found.join(", plus ") || "nothing new"}`;
 }
 
 function noSourcesMessage(contract: DatasetContract, search: WebDiscovery | null): string {

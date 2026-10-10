@@ -78,13 +78,6 @@ export const listPagesForMode = (mode: RunMode) => ({ quick: 2, balanced: 5, tho
 /** Sources read at once; deeper modes read more sources, so more side by side (each host's own limit still holds). */
 export const branchConcurrencyForMode = (mode: RunMode) => ({ quick: 3, balanced: 4, thorough: 6 })[mode];
 
-/**
- * Companies web search may add to a job request's plan. Each is one more board to collect and
- * judge: a Balanced run read 16 registry boards in 1.5 of its 4 minutes, so 15 more fit beside
- * them; Quick has room for few, Thorough for twice as many.
- */
-export const newBoardsForMode = (mode: RunMode) => ({ quick: 5, balanced: 15, thorough: 30 })[mode];
-
 /** A stored run's models; runs created before modes existed fall back to the configured pair. */
 export const runModels = (run: { modelPlanner: string | null; modelWorker: string | null }, e: ModelEnv): ModelChoice => ({
   planner: run.modelPlanner ?? e.MODEL_PLANNER,

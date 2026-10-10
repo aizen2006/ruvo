@@ -6,7 +6,7 @@ import { noulBand, type DecisionRequest } from "../../decide/decider";
 import { verifyQuote } from "../../extract/verifyQuote";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
-import { compileKeywords } from "../keywords";
+import { compileKeywords } from "../../libs/keywords";
 import type { StepFn } from "./types";
 
 /**

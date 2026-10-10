@@ -1,4 +1,5 @@
-import type { DatasetContract } from "@repo/contracts";
+import type { DatasetContract, FoundSource, RunMode } from "@repo/contracts";
+import type { SearchHit } from "../adapters/searchHits";
 
 /**
  * What RUVO knows about one kind of record, e.g. job postings. The requirement compiler is told
@@ -17,6 +18,22 @@ export interface DomainPack {
   prompt: string;
   /** Its deterministic defaults for a contract the compiler wrote or a user edited, after the shared clean-up. */
   normalize?(contract: DatasetContract, context: NormalizeContext): DatasetContract;
+  /** What it adds to searching the web for sources (for jobs, the job-board platforms). */
+  search?: PackSearch;
+}
+
+/** A pack's part in a run's search rounds: searches of its own, and sources of its own among the hits. */
+export interface PackSearch {
+  /** New sources of its own that a run's searching may add, by the run's mode. */
+  maxNew: Record<RunMode, number>;
+  /** Its searches for a round, beside the round's queries for pages: round 1 searches for the request itself, later rounds for new queries. */
+  queries(contract: DatasetContract, queries: string[], round: number): string[];
+  /** Whether a search hit is its own, so never read as a page. */
+  recognize(hit: SearchHit): boolean;
+  /** Its new sources among a round's hits: at most `max`, and none `seen` before. */
+  sources(contract: DatasetContract, hits: SearchHit[], opts: { seen: ReadonlySet<string>; max: number; userAgent: string }): Promise<FoundSource[]>;
+  /** How the run's log sums up the sources it found in a round: "4 more companies on Greenhouse and Lever". */
+  summarize(sources: FoundSource[]): string;
 }
 
 export interface NormalizeContext {

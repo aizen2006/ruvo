@@ -3,7 +3,7 @@ import { thresholdsFor } from "../../decide/calibration";
 import { JUDGE_BATCH, noulBand, type DecisionRequest } from "../../decide/decider";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
-import { compileKeywords } from "../keywords";
+import { compileKeywords } from "../../libs/keywords";
 import type { StepFn } from "./types";
 
 type Label = "yes" | "no" | "unknown";

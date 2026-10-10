@@ -1,15 +1,14 @@
-import type { Criterion, DatasetContract, FoundSource, SearchLog } from "@repo/contracts";
-import { ATS_LIST, type Ats } from "../adapters/ats";
-import type { SearchHit } from "../adapters/searchHits";
-import { itemKeyFor } from "../core/items";
-import { compileKeywords, firstKeywordMatch } from "../execute/keywords";
-import { mapLimit } from "../libs/limit";
-import type { LlmClient } from "../llm/client";
-import { recordBoards, type Probe } from "./atsDetect";
-import { probeBoard, type ProbeHit } from "./atsProbe";
-import { isExcluded, normalize, registryCandidate } from "./discovery";
-import { listRegistry, type RegistryCompany } from "./registry";
-import { runSearches, sourcesFromHits, type WebDiscoveryOptions, type WebSearch } from "./webDiscovery";
+import type { Criterion, DatasetContract, FoundSource } from "@repo/contracts";
+import { ATS_LIST, type Ats } from "../../adapters/ats";
+import type { SearchHit } from "../../adapters/searchHits";
+import { itemKeyFor } from "../../core/items";
+import { compileKeywords, firstKeywordMatch } from "../../libs/keywords";
+import { mapLimit } from "../../libs/limit";
+import { recordBoards, type Probe } from "../../plan/atsDetect";
+import { probeBoard, type ProbeHit } from "../../plan/atsProbe";
+import { isExcluded, normalize, registryCandidate } from "../../plan/discovery";
+import { listRegistry, type RegistryCompany } from "../../plan/registry";
+import type { PackSearch } from "../types";
 
 /**
  * Job boards found on the web: a posting on an ATS platform RUVO reads (Greenhouse, Ashby,
@@ -26,9 +25,6 @@ const BOARD_SITES: Record<Ats, { site: string; hosts: string[] }> = {
 };
 
 const PROBE_CONCURRENCY = 8;
-
-/** Results read per board search: a whole page of them, as each can be another company at no extra search. */
-const BOARD_RESULTS = 20;
 
 export const platformName = (ats: Ats) => ats[0]!.toUpperCase() + ats.slice(1);
 
@@ -48,29 +44,6 @@ export function roleWords(contract: DatasetContract): string {
   const remote = on("remote", ["equals"]).some((c) => c.values.some((v) => v.toLowerCase() === "remote"));
   const location = on("location", ["equals", "keyword_any"])[0]?.values[0];
   return [role, remote && "remote", location].filter(Boolean).join(" ");
-}
-
-/**
- * One round of searching the web for sources. The `queries` find pages to read (see
- * sourcesFromHits). A job request also searches the board platforms for each of `boardWords`
- * that names no site of its own, and the postings either kind of search finds name up to
- * `maxBoards` boards not `seen` yet (see boardsFromHits); a posting is never read as a page.
- * Pages come back whether seen or not, so a profile found again can join its site's group.
- */
-export async function searchRound(
-  contract: DatasetContract,
-  web: WebSearch,
-  llm: LlmClient,
-  { queries, boardWords, maxBoards, ...opts }: WebDiscoveryOptions & { queries: string[]; boardWords: string[]; maxBoards: number; seen: ReadonlySet<string>; userAgent: string; probe?: Probe },
-): Promise<{ boards: FoundSource[]; pages: FoundSource[]; searches: SearchLog[] }> {
-  const jobs = contract.domain === "jobs";
-  // Board searches get at most half the searches left (rounded up), page searches the rest.
-  const boardSearches = jobs && maxBoards > 0 ? boardWords.filter((w) => !w.includes("site:")).map(boardQuery) : [];
-  const boardRun = await runSearches(boardSearches.slice(0, Math.ceil(opts.scope.budget.left("searches") / 2)), web.searcher, { ...opts, resultsPerQuery: BOARD_RESULTS });
-  const pageRun = await runSearches(queries.slice(0, opts.scope.budget.left("searches")), web.searcher, opts);
-  const boards = jobs && maxBoards > 0 ? await boardsFromHits(contract, [...boardRun.hits, ...pageRun.hits], { ...opts, max: maxBoards }) : [];
-  const pages = await sourcesFromHits(contract, jobs ? pageRun.hits.filter((h) => !boardOf(h.url)) : pageRun.hits, web, llm, opts);
-  return { boards, pages, searches: [...boardRun.searches, ...pageRun.searches] };
 }
 
 /**
@@ -107,7 +80,7 @@ interface Board {
  * boards are verified already; the others are checked with the board probe, a batch at a time
  * until `max` boards are kept, and join the registry, so later runs know them.
  */
-async function boardsFromHits(
+export async function boardsFromHits(
   contract: DatasetContract,
   hits: SearchHit[],
   opts: { seen: ReadonlySet<string>; max: number; userAgent: string; probe?: Probe },
@@ -165,3 +138,21 @@ function companyName(slug: string, titles: string[]): string {
   // Search engines cut long titles short with "...".
   return named?.replace(/\s*(?:\.\.\.|…)$/, "").trim() ?? words.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
+
+/**
+ * Search rounds look on the job-board platforms too: for the request's role and place in a run's
+ * first round, and for each new query after that, unless it names a site of its own. Every posting
+ * found names its company's board, which joins the plan instead of the posting being read as a page.
+ */
+export const boardSearch: PackSearch = {
+  // Each board is one more source to collect and judge: a Balanced run read 16 registry boards in
+  // 1.5 of its 4 minutes, so 15 more fit beside them; Quick has room for few, Thorough for twice as many.
+  maxNew: { quick: 5, balanced: 15, thorough: 30 },
+  queries: (contract, queries, round) => (round === 1 ? [roleWords(contract)] : queries).filter((w) => !w.includes("site:")).map(boardQuery),
+  recognize: (hit) => boardOf(hit.url) !== null,
+  sources: boardsFromHits,
+  summarize(boards) {
+    const platforms = ATS_LIST.filter((ats) => boards.some((b) => b.adapter === ats)).map(platformName);
+    return `${boards.length} more ${boards.length === 1 ? "company" : "companies"}${platforms.length ? ` on ${new Intl.ListFormat("en-GB").format(platforms)}` : ""}`;
+  },
+};
