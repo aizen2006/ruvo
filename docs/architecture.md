@@ -267,3 +267,5 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 | `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows (records come best lead first; `?isNew=true` keeps the new ones) |
 | `GET /api/datasets/:runId/export?format=csv\|json\|xlsx&scope=valid\|all` | Export |
 | `GET /api/recipes?host=`, `POST /api/recipes/:id/simulate-drift` | Recipe lineage and the drift demo |
+
+Only the dashboard may call the API from a browser (`middlewares/localOrigin.ts`). CORS answers its origins alone: any page on this machine, or `CORS_ORIGINS` in production. A request that changes data (POST, PUT, PATCH, DELETE) from any other origin gets 403, while curl and scripts, which send no Origin, pass. Outside production a request for any host name but localhost, 127.0.0.1 or [::1] gets 403 too, so a website can't rebind its own name to this machine.

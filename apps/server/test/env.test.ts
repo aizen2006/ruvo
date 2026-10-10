@@ -25,6 +25,13 @@ describe("loadEnv", () => {
     expect(loadEnv({ ...minimal, OPENAI_API_KEY: "" }).OPENAI_API_KEY).toBeUndefined();
   });
 
+  test("reads CORS_ORIGINS as origins, the published dashboard's by default", () => {
+    expect(loadEnv(minimal).CORS_ORIGINS).toEqual(["http://localhost:3001"]);
+    const origins = loadEnv({ ...minimal, CORS_ORIGINS: "https://ruvo.example.com/, http://10.0.0.5:3001" }).CORS_ORIGINS;
+    expect(origins).toEqual(["https://ruvo.example.com", "http://10.0.0.5:3001"]);
+    expect(() => loadEnv({ ...minimal, CORS_ORIGINS: "ruvo.example.com" })).toThrow(/CORS_ORIGINS/);
+  });
+
   test("lists every invalid variable in one error", () => {
     expect(() => loadEnv({ DECIDER_PROVIDER: "gpt" })).toThrow(/DATABASE_URL[\s\S]*DECIDER_PROVIDER/);
   });

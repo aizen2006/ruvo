@@ -17,7 +17,7 @@ The fetch service sits on an internal network with the guard, so the guard is it
 ## Run it
 
 ```bash
-cp .env.example .env        # set POSTGRES_PASSWORD, OPENAI_API_KEY and NEXT_PUBLIC_API_URL
+cp .env.example .env        # set POSTGRES_PASSWORD, OPENAI_API_KEY, NEXT_PUBLIC_API_URL and CORS_ORIGINS
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
@@ -27,6 +27,11 @@ succeeds. Any other server setting from `apps/server/.env.example` can go in the
 **`NEXT_PUBLIC_API_URL`** is the API's address as the browser reaches it (for example
 `https://api.example.com`). It is baked into the dashboard when the image builds, so after
 changing it rebuild with `up -d --build`.
+
+**`CORS_ORIGINS`** is the dashboard's address as the browser reaches it (for example
+`https://ruvo.example.com`; comma-separate several). It is the only web page the API answers:
+other sites can't read its answers or send it changes. Unset, it is `http://localhost:3001`, the
+dashboard this file publishes.
 
 **The AI account** here is an OpenAI API key. Without a key RUVO uses the ChatGPT sign-in, which
 is for a machine where the sign-in server (`bunx openai-oauth --detach`) runs next to RUVO: it

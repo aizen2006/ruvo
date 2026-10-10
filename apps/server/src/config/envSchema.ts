@@ -31,6 +31,16 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(3000),
   /** Interface the API listens on; unset means this machine only, or every interface in production (a container). */
   HOST: unsetIfBlank,
+  /**
+   * In production, the dashboard's origins (comma-separated): the only web pages that may call the API.
+   * Outside production that is any page on this machine.
+   */
+  CORS_ORIGINS: z
+    .string()
+    .default("http://localhost:3001")
+    .transform((v) => v.split(",").map((o) => o.trim()).filter(Boolean))
+    // Each as the browser sends it (scheme, host and port), so "https://ruvo.example.com/" still matches.
+    .pipe(z.array(z.string().url().transform((o) => new URL(o).origin))),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z.string().default("info"),
 
