@@ -1,10 +1,11 @@
 import type { DatasetContract } from "@repo/contracts";
+import { documentsPack } from "./documents";
 import { genericPack } from "./generic";
 import { jobsPack } from "./jobs";
 import type { DomainPack, FieldParser } from "./types";
 
 /** Every domain pack, in the order the compile prompt lists them; generic takes whatever the others don't. */
-export const PACKS: readonly DomainPack[] = [jobsPack, genericPack];
+export const PACKS: readonly DomainPack[] = [jobsPack, documentsPack, genericPack];
 
 /** The domains a contract may name, as the compiler's schema offers them. */
 export const DOMAINS = PACKS.map((p) => p.id) as [string, ...string[]];

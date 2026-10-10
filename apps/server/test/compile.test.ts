@@ -92,6 +92,20 @@ describe("normalizeContract", () => {
     expect(normalizeContract({ ...podcasts, domain: "jobs" }, "climate jobs").contract.sourceHints.searchQueries).toEqual([]);
   });
 
+  test("a documents request searches for its description, never requires what search results rarely say, and is one record per link", () => {
+    const fields = [
+      { name: "title", catalogKey: "title", type: "string" as const, required: true, description: "" },
+      { name: "author", catalogKey: "author", type: "string" as const, required: true, description: "" },
+      { name: "pages", catalogKey: "pages", type: "number" as const, required: true, description: "" },
+    ];
+    const docs = { ...base, domain: "documents", entityDescription: "A PDF guide to voice model APIs", fields, dedupKeys: [] };
+    const { contract, warnings } = normalizeContract(docs, "PDF documentation on using voice model APIs");
+    expect(contract.fields.map((f) => [f.name, f.required])).toEqual([["title", true], ["author", false], ["pages", false], ["url", true]]);
+    expect(warnings).toContain('Made "author" optional: search results rarely state it');
+    expect(contract.sourceHints.searchQueries).toEqual(["A PDF guide to voice model APIs"]);
+    expect(contract.dedupKeys).toEqual([["url"]]);
+  });
+
   test("defaults dedup keys and clamps maxRecords", () => {
     const { contract } = normalizeContract({ ...base, maxRecords: 999_999 }, "jobs");
     expect(contract.dedupKeys).toEqual([["url"], ["title", "location"]]);
@@ -118,6 +132,13 @@ describe("the compile prompt", () => {
       expect(COMPILE_SYSTEM_PROMPT).toContain(`- "${pack.id}": ${pack.describe}`);
       expect(COMPILE_SYSTEM_PROMPT).toContain(`DOMAIN "${pack.id}": ${pack.describe}\nCatalog keys:\n${bulletList(pack.fields)}`);
       expect(COMPILE_SYSTEM_PROMPT).toContain(pack.prompt);
+    }
+  });
+
+  test("sends requests for documents on any topic to the documents domain, before the generic one", () => {
+    expect(PACKS.map((p) => p.id)).toEqual(["jobs", "documents", "generic"]);
+    for (const rule of ['"documentation on using voice model APIs" ask for documents about a topic', "never make them required", "never add a criterion on the file type"]) {
+      expect(COMPILE_SYSTEM_PROMPT).toContain(rule);
     }
   });
 
