@@ -153,7 +153,7 @@ scrapling install              # the Chromium and the stealth browser Scrapling 
 
 git clone https://github.com/aizen2006/ruvo && cd ruvo
 bun install
-bun run setup        # env files, Postgres 17 and SearXNG in Docker, tables, then a dependency check
+bun run setup        # env file, Postgres 17 and SearXNG in Docker, tables, then a dependency check
                      # set OPENAI_API_KEY (or use ChatGPT, below) and TYPESAFE_API_KEY in apps/server/.env
 bun run doctor       # re-checks every dependency; run it after changing settings
 bun run dev          # API :3000, worker, fetch service and its guard, dashboard :3001
@@ -238,7 +238,7 @@ settings worth knowing:
 | `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. `cache_only` replays offline. |
 | `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 300, 20, 150, 8 min | These are ceilings no mode goes above. Lower them to cap what anyone can spend. |
 | `DAILY_BUDGET_USD` | unset | You want a hard daily cap: new runs are refused once the last 24 hours of AI and Firecrawl spend reach it. With an API key only. |
-| `PORT` | 3000 | If you change it, change `NEXT_PUBLIC_API_URL` in `apps/web/.env.local` to match. |
+| `PORT` | 3000 | If you change it, put `API_URL=http://localhost:<port>` in `apps/web/.env.local` so the dashboard finds the API. |
 
 ## Commands
 
@@ -246,7 +246,7 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 
 | Command | What it does |
 |---|---|
-| `bun run setup` | Local setup, safe to re-run: env files, Postgres and SearXNG, migrations, a dependency check |
+| `bun run setup` | Local setup, safe to re-run: env file, Postgres and SearXNG, migrations, a dependency check |
 | `bun run doctor` | Checks Postgres, both models through your AI account, the decision provider, Scrapling and the fetch service, and a search on SearXNG. A service that's off or not started yet is a "skip", not a failure |
 | `bun run dev` | API, worker, fetch service and dashboard, with reload |
 | `bun run check-types` | TypeScript across every package |

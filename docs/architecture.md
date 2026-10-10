@@ -270,3 +270,5 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 | `GET /api/recipes?host=`, `POST /api/recipes/:id/simulate-drift` | Recipe lineage and the drift demo |
 
 Only the dashboard may call the API from a browser (`middlewares/localOrigin.ts`). CORS answers its origins alone: any page on this machine, or `CORS_ORIGINS` in production. A request that changes data (POST, PUT, PATCH, DELETE) from any other origin gets 403, while curl and scripts, which send no Origin, pass. Outside production a request for any host name but localhost, 127.0.0.1 or [::1] gets 403 too, so a website can't rebind its own name to this machine.
+
+The browser reaches the API through the dashboard's own origin: `apps/web/app/api/[...path]/route.ts` passes each `/api/...` call on to `API_URL` (read per request) with only the headers the API reads, the page's Origin among them, and streams the answer back. It applies the same host-name rule outside production, reading Host and never X-Forwarded-Host, which a page can set.

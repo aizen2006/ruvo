@@ -72,6 +72,8 @@ describe("only the dashboard can call the API", () => {
   test("a request for another host name is refused, so a website can't rebind its name to this machine", async () => {
     const health = (host: string) => api.raw("/health", { headers: { host } }).then((r) => r.status);
     expect(await health("attacker.example")).toBe(403);
+    // A page can set X-Forwarded-Host, so it never stands in for Host.
+    expect((await api.raw("/health", { headers: { host: "attacker.example", "x-forwarded-host": "localhost" } })).status).toBe(403);
     expect(await health("127.0.0.1:3000")).toBe(200);
     expect(await health("[::1]:3000")).toBe(200);
   });

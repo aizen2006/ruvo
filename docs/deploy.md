@@ -17,21 +17,21 @@ The fetch service sits on an internal network with the guard, so the guard is it
 ## Run it
 
 ```bash
-cp .env.example .env        # set POSTGRES_PASSWORD, OPENAI_API_KEY, NEXT_PUBLIC_API_URL and CORS_ORIGINS
+cp .env.example .env        # set POSTGRES_PASSWORD, OPENAI_API_KEY and CORS_ORIGINS
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 The `migrate` service applies database migrations and exits; the API and worker start once it
 succeeds. Any other server setting from `apps/server/.env.example` can go in the same `.env`.
 
-**`NEXT_PUBLIC_API_URL`** is the API's address as the browser reaches it (for example
-`https://api.example.com`). It is baked into the dashboard when the image builds, so after
-changing it rebuild with `up -d --build`.
+**The browser talks only to the dashboard.** The dashboard's server passes its `/api/...` calls on
+to the API at `API_URL`, which this file sets to `http://api:3000`, so nothing about the API is
+baked into the image.
 
 **`CORS_ORIGINS`** is the dashboard's address as the browser reaches it (for example
-`https://ruvo.example.com`; comma-separate several). It is the only web page the API answers:
-other sites can't read its answers or send it changes. Unset, it is `http://localhost:3001`, the
-dashboard this file publishes.
+`https://ruvo.example.com`; comma-separate several). It is the only web page the API takes changes
+from (the dashboard passes the page's origin on), and other sites can't read its answers. Unset,
+it is `http://localhost:3001`, the dashboard this file publishes.
 
 **The AI account** here is an OpenAI API key. Without a key RUVO uses the ChatGPT sign-in, which
 is for a machine where the sign-in server (`bunx openai-oauth --detach`) runs next to RUVO: it

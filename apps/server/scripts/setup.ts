@@ -1,7 +1,7 @@
 /**
  * Local setup, safe to re-run: `bun run setup` from the repo root.
- * Creates the env files from their templates and picks how the Scrapling fetch service runs: with a Python that has
- * Scrapling, else in Docker (the compose `fetch` profile), else in a Python that uv installs Scrapling for. Then, once
+ * Creates the server's env file from its template and picks how the Scrapling fetch service runs: with a Python that
+ * has Scrapling, else in Docker (the compose `fetch` profile), else in a Python that uv installs Scrapling for. Then, once
  * the ports it needs are free, starts Postgres and SearXNG, builds the document sandbox, applies migrations and checks
  * every dependency (`bun run doctor`).
  */
@@ -9,7 +9,7 @@ import { $ } from "bun";
 import { existsSync } from "node:fs";
 import { copyFile } from "node:fs/promises";
 import { connect } from "node:net";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { loadEnv } from "../src/config/envSchema";
 import { DOCPARSE_IMAGE } from "../src/documents/sandbox";
 import { createVenv, findPython } from "./python";
@@ -17,19 +17,15 @@ import { createVenv, findPython } from "./python";
 const root = join(import.meta.dir, "..", "..", "..");
 const server = join(root, "apps", "server");
 
-const envFiles = [
-  { template: join(server, ".env.example"), target: join(server, ".env"), note: "set OPENAI_API_KEY in it, or sign in with ChatGPT on the dashboard's Settings page instead (see the README)" },
-  { template: join(root, "apps", "web", ".env.example"), target: join(root, "apps", "web", ".env.local"), note: "" },
-];
-for (const { template, target, note } of envFiles) {
-  if (existsSync(target)) continue;
-  await copyFile(template, target);
-  console.log(`Created ${relative(root, target)} from its template${note ? `; ${note}` : ""}.`);
+const envFile = join(server, ".env");
+if (!existsSync(envFile)) {
+  await copyFile(join(server, ".env.example"), envFile);
+  console.log("Created apps/server/.env from its template; set OPENAI_API_KEY in it, or sign in with ChatGPT on the dashboard's Settings page instead (see the README).");
 }
 
 // Bun loads only the current directory's .env (the repo root's), so load the server's: RUVO's settings, and the
 // ports docker compose reads from this process's environment (POSTGRES_PORT, SCRAPLING_PORT).
-process.loadEnvFile(join(server, ".env"));
+process.loadEnvFile(envFile);
 const env = loadEnv(process.env);
 
 const docker = (await $`docker info`.quiet().nothrow()).exitCode === 0;

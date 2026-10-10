@@ -116,11 +116,11 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-      args:
-        # The API's URL as the browser sees it; baked into the dashboard at build time.
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3000}
     restart: unless-stopped
     init: true
+    environment:
+      # The browser calls the dashboard, whose server passes API calls on to here.
+      API_URL: http://api:3000
     ports:
       - "3001:3001"
 

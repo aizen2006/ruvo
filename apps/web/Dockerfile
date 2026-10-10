@@ -1,6 +1,6 @@
 # RUVO dashboard image (Next.js standalone server). Build from the repo root:
 #   docker build -f apps/web/Dockerfile .
-# NEXT_PUBLIC_API_URL (the API's public URL, as the browser reaches it) is baked in at build time.
+# Nothing about the API is baked in: the server passes the browser's /api calls on to API_URL, read when they arrive.
 
 FROM oven/bun:1.4.2 AS bun
 
@@ -21,8 +21,6 @@ RUN bun install --frozen-lockfile --filter web
 
 COPY packages packages
 COPY apps/web apps/web
-ARG NEXT_PUBLIC_API_URL=http://localhost:3000
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN cd apps/web && bun run build
 
 FROM node:24-slim

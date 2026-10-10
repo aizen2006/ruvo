@@ -23,10 +23,7 @@ import type {
   WorkflowIR,
 } from "@repo/contracts";
 
-/** Typed client for the RUVO API (apps/server). */
-
-// Without the trim, a configured trailing slash turns every request into "//api/...", which matches no route.
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+/** Typed client for the RUVO API (apps/server). Calls go to the dashboard's own origin; its server passes them on (app/api). */
 
 export class ApiError extends Error {
   constructor(
@@ -44,13 +41,13 @@ export const isClientError = (error: unknown) => error instanceof ApiError && er
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    // Only bodies need a content type; a header-free GET stays a "simple" request with no CORS preflight.
-    res = await fetch(`${API_URL}${path}`, {
+    // Only bodies need a content type.
+    res = await fetch(path, {
       ...init,
       headers: { ...(init?.body !== undefined && { "content-type": "application/json" }), ...init?.headers },
     });
   } catch {
-    throw new ApiError(0, `Can't reach the RUVO API at ${API_URL}. Check that the server is running.`);
+    throw new ApiError(0, "Can't reach RUVO's dashboard server. Check that it is running.");
   }
   const body = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) {
@@ -130,5 +127,5 @@ export const api = {
   simulateDrift: (recipeId: string, mode: "minor" | "major") =>
     request<Recipe>(`/api/recipes/${recipeId}/simulate-drift`, { method: "POST", body: JSON.stringify({ mode }) }),
   exportUrl: (id: string, format: ExportQuery["format"], scope: ExportQuery["scope"]) =>
-    `${API_URL}/api/datasets/${id}/export${query({ format, scope })}`,
+    `/api/datasets/${id}/export${query({ format, scope })}`,
 };
