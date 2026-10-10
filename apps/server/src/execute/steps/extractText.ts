@@ -1,11 +1,10 @@
-import type { FieldValue } from "../../adapters/types";
+import { itemKeyFor, type FieldValue } from "../../core/items";
 import { runLadder, type ExtractorRung } from "../../extract/ladder";
 import { llmRung } from "../../extract/rungs/llm";
 import { regexRung } from "../../extract/rungs/regex";
 import { LlmError } from "../../llm/client";
 import { mapLimit } from "../../libs/limit";
 import type { Candidate } from "../candidate";
-import { itemKeyFor } from "../contractFields";
 import type { StepFn } from "./types";
 
 const LLM_CONCURRENCY = 6;

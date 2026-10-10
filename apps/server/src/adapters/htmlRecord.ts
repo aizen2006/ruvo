@@ -1,7 +1,7 @@
 import * as cheerio from "cheerio";
 import { z } from "zod";
+import { itemKeyFor, type FieldValue, type Item } from "../core/items";
 import type { RunContext } from "../core/run";
-import { itemKeyFor } from "../execute/contractFields";
 import { runLadder } from "../extract/ladder";
 import { jsonLdField, jsonLdRung } from "../extract/rungs/jsonLd";
 import { llmRung } from "../extract/rungs/llm";
@@ -11,7 +11,7 @@ import { htmlToText } from "../libs/text";
 import { canonicalUrl } from "../libs/url";
 import { extractJsonLd } from "../page/structured";
 import { derived } from "./fields";
-import { everyField, type FieldValue, type Item, type SourceAdapter } from "./types";
+import { everyField, type SourceAdapter } from "./types";
 
 const HtmlRecordParams = z.object({ url: z.string().url() });
 type HtmlRecordParams = z.infer<typeof HtmlRecordParams>;

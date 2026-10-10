@@ -1,6 +1,6 @@
 import type { FieldSpec } from "@repo/contracts";
 import { z } from "zod";
-import { itemKeyFor } from "../execute/contractFields";
+import { itemKeyFor, type FieldValue, type Item } from "../core/items";
 import { runLadder } from "../extract/ladder";
 import { parseCount } from "../extract/parsers/count";
 import { llmRung } from "../extract/rungs/llm";
@@ -8,7 +8,7 @@ import { savePage } from "../fetch/pageCache";
 import { LlmError } from "../llm/client";
 import { canonicalUrl } from "../libs/url";
 import { fromSearch } from "./fields";
-import { everyField, type FieldValue, type Item, type SourceAdapter } from "./types";
+import { everyField, type SourceAdapter } from "./types";
 
 /** One web-search result and the query that found it. */
 export const SearchHit = z.object({ url: z.string(), title: z.string(), description: z.string(), query: z.string() });

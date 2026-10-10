@@ -1,5 +1,6 @@
 import type { FieldSpec, Recipe } from "@repo/contracts";
 import { z } from "zod";
+import { itemKeyFor, type FieldValue, type Item } from "../core/items";
 import type { RunContext } from "../core/run";
 import { FetchError } from "../fetch/errors";
 import type { FetchResult } from "../fetch/fetcher";
@@ -12,12 +13,11 @@ import { acceptanceFailure, replayRecipe, type RecipeRow, type ReplayResult } fr
 import { findActiveRecipe, recordRecipeUse } from "../recipes/store";
 import { explainFailure } from "../repair/classify";
 import { repairRecipe, type FetchedPage, type RepairInput } from "../repair/repairRecipe";
-import { itemKeyFor } from "../execute/contractFields";
 import { detectArrangement } from "../extract/parsers/remote";
 import { formatSalary, parseSalary } from "../extract/parsers/salary";
 import { truncate } from "../libs/text";
 import { compactFields, derived } from "./fields";
-import type { FieldValue, Item, SourceAdapter } from "./types";
+import type { SourceAdapter } from "./types";
 
 const HtmlListParams = z.object({
   url: z.string().url(),

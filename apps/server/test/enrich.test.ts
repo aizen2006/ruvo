@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
-import type { Item } from "../src/adapters/types";
+import type { Item } from "../src/core/items";
 import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate } from "../src/execute/candidate";
 import { enrich } from "../src/execute/steps/enrich";

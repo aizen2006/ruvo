@@ -1,5 +1,5 @@
 import { fromText } from "../../adapters/fields";
-import type { FieldValue } from "../../adapters/types";
+import type { FieldValue } from "../../core/items";
 import type { ExtractorRung } from "../ladder";
 import { formatSalary, parseSalary } from "../parsers/salary";
 

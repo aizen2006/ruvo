@@ -1,12 +1,11 @@
 import type { Criterion, DatasetContract, Signal } from "@repo/contracts";
-import type { FieldValue } from "../../adapters/types";
 import { isSafeRegex } from "../../compile/normalize";
+import { itemKeyFor, type FieldValue } from "../../core/items";
 import { thresholdsFor } from "../../decide/calibration";
 import { noulBand, type DecisionRequest } from "../../decide/decider";
 import { verifyQuote } from "../../extract/verifyQuote";
 import { truncate } from "../../libs/text";
 import { fieldText, type Candidate } from "../candidate";
-import { itemKeyFor } from "../contractFields";
 import { compileKeywords } from "../keywords";
 import type { StepFn } from "./types";
 

@@ -1,6 +1,6 @@
 import type { DatasetContract, FieldSpec } from "@repo/contracts";
 import { z } from "zod";
-import type { FieldValue } from "../../adapters/types";
+import type { FieldValue } from "../../core/items";
 import { truncate } from "../../libs/text";
 import { PAGE_CONTENT_GUARD } from "../../llm/guard";
 import type { ExtractorRung } from "../ladder";

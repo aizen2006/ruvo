@@ -3,8 +3,9 @@ import { ashby } from "../src/adapters/ashby";
 import { greenhouse } from "../src/adapters/greenhouse";
 import { lever } from "../src/adapters/lever";
 import type { AtsParams } from "../src/adapters/ats";
-import type { Item, SourceAdapter } from "../src/adapters/types";
+import type { SourceAdapter } from "../src/adapters/types";
 import { workable } from "../src/adapters/workable";
+import type { Item } from "../src/core/items";
 import { fixtureFetcher, testScope } from "./helpers/fixtures";
 
 type Case = { adapter: SourceAdapter<AtsParams>; fixture: string; slug: string; company: string };

@@ -1,7 +1,7 @@
 import type { Criterion, DatasetContract, FoundSource, SearchLog } from "@repo/contracts";
 import { ATS_LIST, type Ats } from "../adapters/ats";
 import type { SearchHit } from "../adapters/searchHits";
-import { itemKeyFor } from "../execute/contractFields";
+import { itemKeyFor } from "../core/items";
 import { compileKeywords, firstKeywordMatch } from "../execute/keywords";
 import { mapLimit } from "../libs/limit";
 import type { LlmClient } from "../llm/client";

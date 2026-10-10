@@ -1,7 +1,7 @@
+import { itemKeyFor } from "../../core/items";
 import { fieldConfidence } from "../../extract/confidence";
 import { canonicalUrl } from "../../libs/url";
 import type { Candidate } from "../candidate";
-import { itemKeyFor } from "../contractFields";
 import type { StepFn } from "./types";
 
 /**

@@ -1,6 +1,6 @@
 import type { FieldSpec } from "@repo/contracts";
 import * as cheerio from "cheerio";
-import type { FieldValue } from "../../adapters/types";
+import type { FieldValue } from "../../core/items";
 import { truncate } from "../../libs/text";
 import { extractJsonLd, jsonLdOfType } from "../../page/structured";
 import type { ExtractorRung } from "../ladder";

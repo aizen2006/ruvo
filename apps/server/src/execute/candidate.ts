@@ -1,5 +1,5 @@
 import type { RecordStatus, Signal } from "@repo/contracts";
-import type { Item } from "../adapters/types";
+import type { Item } from "../core/items";
 
 /**
  * An item moving through a source branch, plus what the pipeline has learned about it.

@@ -1,6 +1,6 @@
 import { EVIDENCE_METHODS, type Budgets, type CatalogKey, type DatasetContract, type PlanDraft, type Provenance, type SourceBranch, type Step, type WorkflowIR } from "@repo/contracts";
 import { getAdapter } from "../adapters";
-import { itemKeyFor } from "../execute/contractFields";
+import { itemKeyFor } from "../core/items";
 import type { SourceCandidate } from "./discovery";
 
 /** Fields RUVO produces itself rather than reading from a source. */

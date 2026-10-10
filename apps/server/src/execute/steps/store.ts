@@ -1,10 +1,10 @@
 import { inArray, sql } from "drizzle-orm";
+import { itemKeyFor } from "../../core/items";
 import type { Metrics } from "../../core/run";
 import { db } from "../../db/client";
 import { evidence, records } from "../../db/schema";
 import { fieldConfidence } from "../../extract/confidence";
 import type { Candidate } from "../candidate";
-import { itemKeyFor } from "../contractFields";
 import type { StepFn } from "./types";
 
 /**

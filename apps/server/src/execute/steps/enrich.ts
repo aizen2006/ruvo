@@ -1,5 +1,5 @@
 import type { FieldSpec } from "@repo/contracts";
-import type { FieldValue } from "../../adapters/types";
+import { itemKeyFor, type FieldValue } from "../../core/items";
 import { runLadder } from "../../extract/ladder";
 import { jsonLdRung } from "../../extract/rungs/jsonLd";
 import { llmRung } from "../../extract/rungs/llm";
@@ -9,7 +9,6 @@ import { LlmError } from "../../llm/client";
 import { htmlToText } from "../../libs/text";
 import { mapLimit } from "../../libs/limit";
 import type { Candidate } from "../candidate";
-import { itemKeyFor } from "../contractFields";
 import type { StepFn } from "./types";
 
 const CONCURRENCY = 4;

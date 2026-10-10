@@ -1,7 +1,7 @@
+import type { FieldValue } from "../core/items";
 import type { FetchResult } from "../fetch/fetcher";
 import { formatSalary, type SalaryPeriod } from "../extract/parsers/salary";
 import { truncate } from "../libs/text";
-import type { FieldValue } from "./types";
 
 /**
  * Helpers adapters use to turn source values into fields with evidence.

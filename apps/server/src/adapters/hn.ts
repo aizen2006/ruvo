@@ -1,9 +1,10 @@
 import { z } from "zod";
+import type { Item } from "../core/items";
 import { parseHnHeader } from "../extract/parsers/hnHeader";
 import { formatSalary } from "../extract/parsers/salary";
 import { htmlToText, truncate } from "../libs/text";
 import { compactFields, derived, fromText } from "./fields";
-import type { Item, SourceAdapter } from "./types";
+import type { SourceAdapter } from "./types";
 
 const HnParams = z.object({
   /** "latest" or a specific thread's item id. */
