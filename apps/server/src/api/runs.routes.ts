@@ -7,7 +7,7 @@ import { badRequest } from "../libs/errors";
 import { isChatModel } from "../llm/models";
 import { modelsForMode } from "../runs/modes";
 import { getRecordWithEvidence, listRecords } from "../db/repos/records";
-import { assertUnderDailyBudget, createRun, getQualityReport, getRunDetail, getRunDiff, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
+import { assertUnderDailyBudget, createRun, getQualityReport, getRunContract, getRunDetail, getRunDiff, listEvents, listRuns, requestCancel, rerunRun, startRun } from "../db/repos/runs";
 import { getRunWorkflow } from "../db/repos/workflows";
 import { editRunContract } from "../runs/editContract";
 import { fieldNamesOf, parseId } from "./params";
@@ -64,7 +64,7 @@ runsRouter.get("/:id/events", async (req, res) => {
 runsRouter.get("/:id/records", async (req, res) => {
   const id = runId(req.params.id);
   const query = ListRecordsQuery.parse(req.query);
-  const { contract } = await getRunDetail(id);
+  const contract = await getRunContract(id);
   res.json(await listRecords(id, query, fieldNamesOf(contract)));
 });
 

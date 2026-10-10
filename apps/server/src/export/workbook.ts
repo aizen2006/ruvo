@@ -6,7 +6,7 @@ import { spreadsheetText } from "../libs/spreadsheetText";
 export const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 export interface WorkbookInput {
-  run: RunDetail;
+  run: Omit<RunDetail, "funnel">;
   /** The dataset's columns, in contract order. */
   fieldNames: string[];
   rows: ExportRow[];
@@ -81,7 +81,7 @@ function addTable(sheet: Worksheet, headers: string[], rows: CellValue[][]) {
   sizeColumns(sheet, headers.length);
 }
 
-function addAbout(sheet: Worksheet, run: RunDetail, rows: ExportRow[], sourceLabels: Map<string, string>) {
+function addAbout(sheet: Worksheet, run: WorkbookInput["run"], rows: ExportRow[], sourceLabels: Map<string, string>) {
   const rowsPerSource = new Map<string, number>([...sourceLabels.keys()].map((id) => [id, 0]));
   for (const { record } of rows) rowsPerSource.set(record.sourceId, (rowsPerSource.get(record.sourceId) ?? 0) + 1);
   const sources = [...rowsPerSource].map(([id, count]) => `${sourceLabels.get(id) ?? id} (${count} ${count === 1 ? "row" : "rows"})`);

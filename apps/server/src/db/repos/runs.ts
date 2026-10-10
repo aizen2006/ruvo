@@ -2,6 +2,7 @@ import {
   emptyMetrics,
   isSensitive,
   isTerminal,
+  type DatasetContract,
   type ModelChoice,
   type RunDetail,
   type RunEvent,
@@ -156,20 +157,28 @@ export async function listRuns(limit = 50): Promise<RunSummary[]> {
 }
 
 export async function getRunDetail(runId: string): Promise<RunDetail> {
+  const summary = await getRunSummary(runId);
+  const [contract, funnel] = await Promise.all([getRunContract(runId), getRunFunnel(runId, summary.metrics.rawRecords)]);
+  return { ...summary, contract, funnel };
+}
+
+export async function getRunSummary(runId: string): Promise<RunSummary> {
   const [row] = await selectSummaries().where(eq(runs.id, runId));
   if (!row) throw notFound("Run");
+  return toSummary(row);
+}
 
-  const [[latestContract], funnel] = await Promise.all([
-    db
-      .select({ contract: datasetContracts.contract })
-      .from(datasetContracts)
-      .where(eq(datasetContracts.requestId, row.requestId))
-      .orderBy(desc(datasetContracts.version))
-      .limit(1),
-    getRunFunnel(runId, row.metrics.rawRecords),
-  ]);
-
-  return { ...toSummary(row), contract: latestContract?.contract ?? null, funnel };
+/** The latest contract of the run's request, null until compiled. Cheaper than getRunDetail, which also counts the funnel. */
+export async function getRunContract(runId: string): Promise<DatasetContract | null> {
+  const [row] = await db
+    .select({ contract: datasetContracts.contract })
+    .from(runs)
+    .leftJoin(datasetContracts, eq(datasetContracts.requestId, runs.requestId))
+    .where(eq(runs.id, runId))
+    .orderBy(desc(datasetContracts.version))
+    .limit(1);
+  if (!row) throw notFound("Run");
+  return row.contract;
 }
 
 /**

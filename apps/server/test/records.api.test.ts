@@ -102,6 +102,21 @@ describe("export", () => {
     expect(rows.length).toBe((await api.get(`/api/runs/${runId}/records`)).body.total);
     expect(rows[0]!._evidence).toContain("title:API");
   });
+
+  test("columns follow the run's latest contract", async () => {
+    const run = await insertRun({ status: "completed" });
+    await saveContract({ requestId: run.requestId, contract: DEMO_CONTRACT, editedBy: "template" });
+    const fields = DEMO_CONTRACT.fields.filter((f) => f.name !== "salary");
+    await saveContract({ requestId: run.requestId, contract: { ...DEMO_CONTRACT, fields }, editedBy: "user" });
+    const res = await api.raw(`/api/datasets/${run.id}/export?format=csv`);
+    expect((await res.text()).split("\r\n")[0]).toStartWith("company,title,location,remote,url,");
+  });
+
+  test("unknown runs return 404", async () => {
+    const unknown = "00000000-0000-0000-0000-000000000000";
+    expect((await api.get(`/api/runs/${unknown}/records`)).status).toBe(404);
+    expect((await api.raw(`/api/datasets/${unknown}/export?format=csv`)).status).toBe(404);
+  });
 });
 
 describe("toCsv", () => {
