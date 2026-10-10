@@ -5,11 +5,12 @@
  * with a blank URL, or SearXNG while it isn't running, are reported as "skip", not failures. So are a Python without
  * Scrapling, which only a fetch service run outside Docker needs, and a fetch service that `bun run dev` will start.
  */
-import { $, SQL } from "bun";
+import { SQL } from "bun";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { env } from "../src/config/env";
 import { chatgptFailure, openaiFor } from "../src/llm/client";
+import { findPython } from "./python";
 
 type Outcome = { status: "pass" | "fail" | "skip"; detail: string };
 type Check = { name: string; run: () => Promise<Outcome> };
@@ -20,9 +21,8 @@ const skip = (detail: string): Outcome => ({ status: "skip", detail });
 /** The same OpenAI access RUVO uses: the API with the key, or the ChatGPT sign-in server. */
 const openai = openaiFor(env);
 const ai = env.AI_ACCOUNT === "chatgpt" ? "chatgpt" : "openai";
-const python = env.SCRAPLING_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
-// Whether that Python can run the fetch service: scrapling[all] also brings its web server (starlette, uvicorn).
-const installed = await $`${python} -c "import scrapling, starlette, uvicorn; print(scrapling.__version__)"`.quiet().nothrow();
+/** The Python `bun run dev` would run the fetch service with, and whether it has Scrapling. */
+const native = await findPython(env.SCRAPLING_PYTHON);
 
 async function openaiParse(model: string): Promise<Outcome> {
   if (!openai) return skip("OPENAI_API_KEY not set");
@@ -78,12 +78,11 @@ const checks: Check[] = [
     },
   },
   {
-    name: `scrapling in ${python}`,
+    name: `scrapling in ${native.python}`,
     run: async () => {
-      if (installed.exitCode === 0) return pass(installed.text().trim());
-      const reason = installed.stderr.toString().trim().split("\n").at(-1);
-      if (!env.SCRAPLING_PYTHON) return skip(`${reason}: only a fetch service run outside Docker needs it`);
-      throw new Error(`${reason}; install Scrapling: pip install "scrapling[all]", then scrapling install`);
+      if (native.scrapling) return pass(native.scrapling);
+      if (!env.SCRAPLING_PYTHON) return skip(`${native.error}: only a fetch service run outside Docker needs it`);
+      throw new Error(`${native.error}; install Scrapling: pip install "scrapling[all]", then scrapling install`);
     },
   },
   {
@@ -92,9 +91,9 @@ const checks: Check[] = [
       if (!env.SCRAPLING_URL) return skip("off (SCRAPLING_URL is blank): pages are read with plain requests only");
       const health = await fetch(`${env.SCRAPLING_URL}/health`).catch(() => null);
       if (!health) {
-        if (installed.exitCode === 0) return skip("not running; `bun run dev` starts it");
+        if (native.scrapling) return skip("not running; `bun run dev` starts it");
         throw new Error(
-          `nothing answers, and ${python} has no Scrapling to start one with: run it in Docker with ` +
+          `nothing answers, and ${native.python} has no Scrapling to start one with: run it in Docker with ` +
             '`docker compose --profile fetch up -d`, or install Scrapling (pip install "scrapling[all]", then scrapling install) and run `bun run dev`',
         );
       }

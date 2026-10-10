@@ -4,11 +4,11 @@
  * SCRAPLING_URL's port; the service sends every connection it makes through the guard and stops when this script does.
  * A fetch service that already answers there, such as Docker's (`docker compose --profile fetch up -d`), is used instead.
  */
-import { $ } from "bun";
 import { once } from "node:events";
 import { join } from "node:path";
 import { env } from "../src/config/env";
 import { startEgressGuard } from "../src/fetch/egressGuard";
+import { findPython } from "./python";
 
 if (!env.SCRAPLING_URL) {
   console.log("SCRAPLING_URL is blank, so the Scrapling fetch service stays off.");
@@ -19,13 +19,10 @@ if (await fetch(new URL("/health", serviceUrl), { signal: AbortSignal.timeout(3_
   console.log(`A fetch service already answers at ${env.SCRAPLING_URL} (Docker's fetch profile, or one started earlier), so RUVO uses it.`);
   process.exit(0);
 }
-const python = env.SCRAPLING_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
-// scrapling[all] also brings the service's web server (starlette, uvicorn).
-const installed = await $`${python} -c ${"import scrapling, starlette, uvicorn"}`.quiet().nothrow();
-if (installed.exitCode !== 0) {
-  const reason = installed.stderr.toString().trim().split("\n").at(-1);
+const { python, scrapling, error } = await findPython(env.SCRAPLING_PYTHON);
+if (!scrapling) {
   stop(
-    `Scrapling is not installed for "${python}" (${reason})`,
+    `Scrapling is not installed for "${python}" (${error})`,
     'install it: pip install "scrapling[all]", then scrapling install (or set SCRAPLING_PYTHON to a Python that has it)',
   );
 }

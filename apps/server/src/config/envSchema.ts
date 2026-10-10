@@ -78,7 +78,7 @@ const EnvSchema = z.object({
   /** Ports on this machine: the fetch service's, and that of the egress guard `bun run dev` sends its connections through. */
   SCRAPLING_PORT: z.coerce.number().int().positive().default(8001),
   EGRESS_PORT: z.coerce.number().int().positive().default(1080),
-  /** The Python that has Scrapling installed; unset means `python` on Windows and `python3` elsewhere. */
+  /** The Python that has Scrapling installed; unset means setup's .venv when it has Scrapling, else `python` on Windows and `python3` elsewhere. */
   SCRAPLING_PYTHON: unsetIfBlank,
   /**
    * How documents found on the web are read, always in the sandbox (infra/docparse): "docker" starts a container per

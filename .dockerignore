@@ -1,5 +1,6 @@
 # Build context is the repo root; keep secrets, installs and build output out of it.
 **/node_modules
+.venv
 **/.env*
 !**/.env.example
 **/.next

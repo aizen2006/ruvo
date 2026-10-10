@@ -4,6 +4,8 @@
 node_modules
 .pnp
 .pnp.js
+# The fetch service's Python, when `bun run setup` installs Scrapling with uv
+.venv
 
 # Local env files
 .env
