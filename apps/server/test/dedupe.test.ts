@@ -4,10 +4,12 @@ import { db } from "../src/db/client";
 import { records } from "../src/db/schema";
 import { clusterDuplicates, normalizeText, recordKeys, type DedupeCandidate } from "../src/execute/dedupe";
 import { executeWorkflow } from "../src/execute/executor";
+import { dedupeRun } from "../src/execute/steps/dedupe";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import type { RegistryCompany } from "../src/plan/registry";
 import { buildTemplateIr } from "../src/plan/templates";
-import { createRunContext } from "../src/runs/runContext";
+import { createMetrics } from "../src/runs/metrics";
+import { createRunContext, type RunContext } from "../src/runs/runContext";
 import { insertRun, resetDb } from "./helpers/db";
 import { createDecider } from "../src/decide/decider";
 import { fakeLlm } from "./helpers/fakeLlm";
@@ -87,5 +89,32 @@ const offDecider = createDecider({ provider: null, mode: "off" });
     expect(kept.every((r) => r.seenOn.sort().join() === "Mirror board,OpenAI")).toBe(true);
     expect(kept.every((r) => r.canonicalKey?.startsWith("url:https://jobs.ashbyhq.com/openai/"))).toBe(true);
     expect(ctx.metrics.snapshot()).toMatchObject({ duplicates: 2, validRecords: 2 });
+  });
+
+  test("points duplicates at their keeper and replaces an earlier pass's results", async () => {
+    const run = await insertRun({ status: "running" });
+    const job = (itemKey: string, sourceId: string, url: string, confidence: number) => ({
+      runId: run.id,
+      sourceId,
+      itemKey,
+      status: "valid" as const,
+      confidence,
+      data: { company: "Acme", title: `Engineer ${itemKey}`, location: "Remote", url },
+    });
+    const [a, , c] = await db
+      .insert(records)
+      .values([job("a", "src_a", "https://acme.example/jobs/1", 0.9), job("b", "src_b", "https://acme.example/jobs/1", 0.5), job("c", "src_b", "https://acme.example/jobs/2", 0.9)])
+      .returning();
+    // An earlier pass had marked c a duplicate of a.
+    await db.update(records).set({ duplicateOf: a!.id, seenOn: ["Board A", "Board B"] }).where(eq(records.id, c!.id));
+    const sources = [{ id: "src_a", label: "Board A" }, { id: "src_b", label: "Board B" }];
+    const ctx = { runId: run.id, contract: DEMO_CONTRACT, ir: { dedupe: { keys: specs }, sources }, metrics: createMetrics() } as unknown as RunContext;
+
+    expect(await dedupeRun(ctx)).toBe(1);
+    const byKey = new Map((await db.select().from(records).where(eq(records.runId, run.id))).map((r) => [r.itemKey, r]));
+    expect(byKey.get("a")).toMatchObject({ duplicateOf: null, seenOn: ["Board A", "Board B"], canonicalKey: "url:https://acme.example/jobs/1" });
+    expect(byKey.get("b")).toMatchObject({ duplicateOf: a!.id, seenOn: ["Board B"] });
+    expect(byKey.get("c")).toMatchObject({ duplicateOf: null, seenOn: ["Board B"], fuzzyKey: "company+title+location:acme|engineer c|remote" });
+    expect(ctx.metrics.snapshot()).toMatchObject({ duplicates: 1, validRecords: 2 });
   });
 });

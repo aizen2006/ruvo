@@ -1,5 +1,5 @@
 import type { EvidenceMethod } from "@repo/contracts";
-import { and, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { db } from "../../db/client";
 import { evidence, records } from "../../db/schema";
 import type { RunContext } from "../../runs/runContext";
@@ -38,24 +38,25 @@ export async function dedupeRun(ctx: RunContext): Promise<number> {
 
   const labelOf = new Map(ctx.ir.sources.map((s) => [s.id, s.label]));
   const sourceOf = new Map(rows.map((r) => [r.id, r.sourceId]));
-  let duplicates = 0;
+  const seenOn = (ids: string[]) => [...new Set(ids.map((id) => labelOf.get(sourceOf.get(id)!) ?? sourceOf.get(id)!))];
 
-  await db.transaction(async (tx) => {
-    // Store keys (useful for inspection and for diffing runs) and reset earlier dedupe results.
-    for (const { row, keys } of keyed) {
-      const own = labelOf.get(row.sourceId) ?? row.sourceId;
-      await tx
-        .update(records)
-        .set({ canonicalKey: keys[0] || null, fuzzyKey: keys[1] || null, duplicateOf: null, seenOn: [own] })
-        .where(eq(records.id, row.id));
-    }
-    for (const [keeperId, duplicateIds] of clusters) {
-      duplicates += duplicateIds.length;
-      const seenOn = [...new Set([keeperId, ...duplicateIds].map((id) => labelOf.get(sourceOf.get(id)!) ?? sourceOf.get(id)!))];
-      await tx.update(records).set({ seenOn }).where(eq(records.id, keeperId));
-      await tx.update(records).set({ duplicateOf: keeperId }).where(inArray(records.id, duplicateIds));
-    }
-  });
+  // Every record's keys (useful for inspection and for diffing runs) and result, replacing earlier dedupe results.
+  const results = new Map(
+    keyed.map(({ row, keys }) => [row.id, { canonicalKey: keys[0] || null, fuzzyKey: keys[1] || null, duplicateOf: null as string | null, seenOn: seenOn([row.id]) }]),
+  );
+  let duplicates = 0;
+  for (const [keeperId, duplicateIds] of clusters) {
+    duplicates += duplicateIds.length;
+    results.get(keeperId)!.seenOn = seenOn([keeperId, ...duplicateIds]);
+    for (const id of duplicateIds) results.get(id)!.duplicateOf = keeperId;
+  }
+
+  // One statement for the whole run rather than one per record.
+  const values = [...results].map(([id, r]) => sql`(${id}::uuid, ${r.canonicalKey}, ${r.fuzzyKey}, ${r.duplicateOf}::uuid, ${JSON.stringify(r.seenOn)}::jsonb)`);
+  await db.execute(sql`
+    update ${records} set canonical_key = v.canonical_key, fuzzy_key = v.fuzzy_key, duplicate_of = v.duplicate_of, seen_on = v.seen_on
+    from (values ${sql.join(values, sql`, `)}) as v(id, canonical_key, fuzzy_key, duplicate_of, seen_on)
+    where ${records.id} = v.id`);
 
   ctx.metrics.set("duplicates", duplicates);
   await recountStatuses(ctx);
