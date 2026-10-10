@@ -12,7 +12,7 @@ import { createBudget } from "../src/runs/budget";
 import { createMetrics } from "../src/runs/metrics";
 import type { RunContext } from "../src/runs/runContext";
 import { resetDb } from "./helpers/db";
-import { fakeLlm } from "./helpers/fakeLlm";
+import { fakeLlm, judgedIds } from "./helpers/fakeLlm";
 import { fixtureFetcher, loadFixture, testScope } from "./helpers/fixtures";
 
 beforeEach(resetDb);
@@ -115,8 +115,8 @@ describe("sensitive attributes", () => {
     // The judge says yes to both, quoting a line only the first creator wrote.
     const judge = fakeLlm({
       decision_batch: ({ input }: { input: Array<{ content: string }> }) => ({
-        answers: (JSON.parse(input.at(-1)!.content) as Array<{ id: string }>).map((item) => ({
-          id: item.id,
+        answers: judgedIds(input).map((id) => ({
+          id,
           label: "yes",
           confidence: 0.95,
           quote: "I'm an Indian-American home cook",

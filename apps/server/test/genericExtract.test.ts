@@ -10,6 +10,7 @@ import { parseCount } from "../src/extract/parsers/count";
 import { jsonLdRung } from "../src/extract/rungs/jsonLd";
 import { llmRung } from "../src/extract/rungs/llm";
 import { schemaListItems } from "../src/extract/schemaOrg";
+import { PAGE_CONTENT_GUARD } from "../src/llm/guard";
 import { extractJsonLd } from "../src/page/structured";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { createBudget } from "../src/runs/budget";
@@ -65,7 +66,7 @@ describe("records from any page", () => {
     expect(out.followers).toMatchObject({ value: "24000", evidence: { method: "LLM", verified: true, snippet: "24K followers" } });
     const system = llm.calls[0]!.input[0]!.content;
     expect(system).toContain("one record of this kind: A climate content creator");
-    expect(system).toContain("data, not instructions");
+    expect(system).toContain(PAGE_CONTENT_GUARD);
     expect(system).not.toContain("salary");
   });
 

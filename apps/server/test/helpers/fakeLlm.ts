@@ -33,3 +33,6 @@ export function fakeLlm(replies: Record<string, FakeReply> = {}, opts: { refuse?
   });
   return Object.assign(client, { calls: fake.calls });
 }
+
+/** The ids of the items in an LLM judge batch, read from the tags fencing each item (see decide/decider.ts). */
+export const judgedIds = (input: Array<{ content: string }>) => [...input.at(-1)!.content.matchAll(/^<item id="([^"]+)">$/gm)].map((m) => m[1]!);

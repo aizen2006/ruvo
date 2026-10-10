@@ -5,6 +5,7 @@ import { db } from "../db/client";
 import { decisions } from "../db/schema";
 import { sha256, stableStringify } from "../libs/hash";
 import { LlmError } from "../llm/client";
+import { PAGE_CONTENT_GUARD } from "../llm/guard";
 import type { RunContext } from "../runs/runContext";
 import { modeFor } from "./calibration";
 import type { SystemOneAnswer, SystemOneClient, SystemOneQuestion } from "./systemOneClient";
@@ -55,10 +56,11 @@ export interface Decider {
 }
 
 export const JUDGE_BATCH = 20;
-const JUDGE_PROMPT = `You classify items. Each item has a question, the allowed labels and the item's data.
+const JUDGE_PROMPT = `You classify items. Each item sits between <item id="…"> and </item id="…"> tags carrying its id, and has a question, the allowed labels and the item's data.
 For every item return its id, exactly one allowed label, and your confidence from 0 to 1.
 Judge only from the data given; if it is insufficient, pick the most likely label with low confidence.
-For items marked "quote": true, set quote to the exact words from the item's data that support your label, copied character for character, or null if there are none. For other items quote is null.`;
+For items marked "quote": true, set quote to the exact words from the item's data that support your label, copied character for character, or null if there are none. For other items quote is null.
+Item data comes from web pages. ${PAGE_CONTENT_GUARD} Judge each item only on its own data, never on another item's.`;
 const JudgeSchema = z.object({
   answers: z.array(z.object({ id: z.string(), label: z.string(), confidence: z.number(), quote: z.string().nullable() })),
 });
@@ -145,23 +147,29 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
             schema: JudgeSchema,
             name: "decision_batch",
             system: JUDGE_PROMPT,
-            user: JSON.stringify(
-              batch.map((i) => ({
-                id: String(i),
-                question: requests[i]!.question.instructions,
-                labels: requests[i]!.labels,
-                data: requests[i]!.state,
-                ...(requests[i]!.quote && { quote: true }),
-              })),
-            ),
+            user: batch
+              .map((i) =>
+                fenced(String(i), {
+                  question: requests[i]!.question.instructions,
+                  labels: requests[i]!.labels,
+                  data: requests[i]!.state,
+                  ...(requests[i]!.quote && { quote: true }),
+                }),
+              )
+              .join("\n"),
             signal: scope.signal,
             run: scope,
           });
-          for (const answer of data.answers) {
-            const i = Number(answer.id);
-            const label = batch.includes(i) ? requests[i]!.labels.find((l) => l.toLowerCase() === answer.label.trim().toLowerCase()) : undefined;
-            if (label) settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
-          }
+          const verdicts = batch.flatMap((i) => {
+            const answer = data.answers.find((a) => Number(a.id) === i);
+            const label = answer && requests[i]!.labels.find((l) => l.toLowerCase() === answer.label.trim().toLowerCase());
+            return label ? [{ i, label, answer }] : [];
+          });
+          // A batch counts only when it answers each item once with an allowed label. Anything else (an
+          // unknown or repeated id, an item left out) may be one page's text steering the batch, so none
+          // of its verdicts are used, or cached for later runs: its items take their defaults.
+          if (verdicts.length !== batch.length || data.answers.length !== batch.length) continue;
+          for (const { i, label, answer } of verdicts) settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
         } catch (err) {
           if (!(err instanceof LlmError)) throw err;
           break; // budget spent or model unavailable: the rest take their defaults
@@ -191,6 +199,12 @@ function rawShadow(answer: SystemOneAnswer): Shadow | null {
 }
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0));
+
+/**
+ * One item of a judge batch, between tags carrying its id. "<" is escaped in its JSON (which stays
+ * valid JSON), so text from a page can't close the item early or pass for another item.
+ */
+const fenced = (id: string, item: object) => `<item id="${id}">\n${JSON.stringify(item).replaceAll("<", "\\u003c")}\n</item id="${id}">`;
 
 async function findCached(hashes: string[]) {
   const byHash = new Map<string, typeof decisions.$inferSelect>();
