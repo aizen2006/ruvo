@@ -2,7 +2,8 @@
  * Verifies every external dependency RUVO needs: `bun run smoke` (`bun run doctor` from the repo root).
  * Postgres; both models through the AI account (OpenAI's API, or the ChatGPT sign-in server); the decision
  * provider; Scrapling and the fetch service; SearXNG. Checks that need a missing API key, a service turned off
- * with a blank URL, or the fetch service or SearXNG while it isn't running, are reported as "skip", not failures.
+ * with a blank URL, or SearXNG while it isn't running, are reported as "skip", not failures. So are a Python without
+ * Scrapling, which only a fetch service run outside Docker needs, and a fetch service that `bun run dev` will start.
  */
 import { $, SQL } from "bun";
 import { zodTextFormat } from "openai/helpers/zod";
@@ -20,6 +21,8 @@ const skip = (detail: string): Outcome => ({ status: "skip", detail });
 const openai = openaiFor(env);
 const ai = env.AI_ACCOUNT === "chatgpt" ? "chatgpt" : "openai";
 const python = env.SCRAPLING_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
+// Whether that Python can run the fetch service: scrapling[all] also brings its web server (starlette, uvicorn).
+const installed = await $`${python} -c "import scrapling, starlette, uvicorn; print(scrapling.__version__)"`.quiet().nothrow();
 
 async function openaiParse(model: string): Promise<Outcome> {
   if (!openai) return skip("OPENAI_API_KEY not set");
@@ -77,12 +80,10 @@ const checks: Check[] = [
   {
     name: `scrapling in ${python}`,
     run: async () => {
-      const res = await $`${python} -c "import scrapling, starlette, uvicorn; print(scrapling.__version__)"`.quiet().nothrow();
-      if (res.exitCode !== 0) {
-        const reason = res.stderr.toString().trim().split("\n").at(-1);
-        throw new Error(`${reason}; install Scrapling: pip install "scrapling[all]", then scrapling install`);
-      }
-      return pass(res.text().trim());
+      if (installed.exitCode === 0) return pass(installed.text().trim());
+      const reason = installed.stderr.toString().trim().split("\n").at(-1);
+      if (!env.SCRAPLING_PYTHON) return skip(`${reason}: only a fetch service run outside Docker needs it`);
+      throw new Error(`${reason}; install Scrapling: pip install "scrapling[all]", then scrapling install`);
     },
   },
   {
@@ -90,7 +91,13 @@ const checks: Check[] = [
     run: async () => {
       if (!env.SCRAPLING_URL) return skip("off (SCRAPLING_URL is blank): pages are read with plain requests only");
       const health = await fetch(`${env.SCRAPLING_URL}/health`).catch(() => null);
-      if (!health) return skip("not running; start it with `bun run dev`");
+      if (!health) {
+        if (installed.exitCode === 0) return skip("not running; `bun run dev` starts it");
+        throw new Error(
+          `nothing answers, and ${python} has no Scrapling to start one with: run it in Docker with ` +
+            '`docker compose --profile fetch up -d`, or install Scrapling (pip install "scrapling[all]", then scrapling install) and run `bun run dev`',
+        );
+      }
       if (!health.ok) throw new Error(`/health: HTTP ${health.status}`);
       const { scrapling } = (await health.json()) as { scrapling: string };
       // One real fetch, which goes out through the egress guard.
