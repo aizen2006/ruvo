@@ -1,0 +1,1 @@
+ALTER TABLE "decisions" ADD COLUMN "reusable" boolean DEFAULT true NOT NULL;

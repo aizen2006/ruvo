@@ -237,6 +237,8 @@ export const decisions = pgTable(
     providerModel: text("provider_model"),
     shadow: jsonb("shadow"),
     ms: integer("ms").notNull(),
+    /** False for a verdict from a judge batch that didn't answer every item exactly once: it decided its run, but is never reused. */
+    reusable: boolean("reusable").notNull().default(true),
     createdAt: createdAt(),
   },
   // The decider's cache looks answers up by input hash alone, which the (task, hash) index cannot serve.

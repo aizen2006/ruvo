@@ -122,14 +122,14 @@ describe("LLM judge", () => {
   });
 
   test.each([
-    ["an unknown id", ["0", "1", "7"], "yes"],
-    ["an item left out", ["0"], "yes"],
-    ["a label that isn't allowed", ["0", "1"], "maybe"],
-  ])("a batch answering with %s is not used or cached", async (_, ids, label) => {
+    ["an unknown id", ["0", "1", "7"], "yes", ["LLM", "LLM"]],
+    ["an item left out", ["0"], "yes", ["LLM", "DEFAULT"]],
+    ["a label that isn't allowed", ["0", "1"], "maybe", ["DEFAULT", "DEFAULT"]],
+  ])("a batch answering with %s decides this run only, and is never reused", async (_, ids, label, decidedBy) => {
     const twoTitles = () => [request("Platform Engineer"), request("Data Engineer")];
     const stray = fakeLlm({ decision_batch: { answers: ids.map((id) => ({ id, label, confidence: 0.9, quote: null })) } });
     const first = await decider().decideMany(scope(stray), twoTitles());
-    expect(first.map((d) => d.decidedBy)).toEqual(["DEFAULT", "DEFAULT"]);
+    expect(first.map((d): string => d.decidedBy)).toEqual(decidedBy);
 
     const judge = judgeYes();
     const again = await decider().decideMany(scope(judge), twoTitles());

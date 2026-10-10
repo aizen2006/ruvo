@@ -1,4 +1,4 @@
-import { and, desc, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import type { Env } from "../config/env";
 import { db } from "../db/client";
@@ -94,6 +94,7 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
       const models: Array<string | null> = requests.map(() => null);
       const hashes = requests.map((r) => sha256(stableStringify({ task: r.task, state: r.state, question: r.question, labels: r.labels })));
       const pending = () => requests.map((_, i) => i).filter((i) => !decided[i]);
+      const unreusable = new Set<number>();
       const unquoted = () => pending().filter((i) => !requests[i]!.quote);
       const settle = (i: number, label: L, confidence: number, decidedBy: DecisionTier, cached = false, quote: string | null = null) => {
         decided[i] = { label, confidence, decidedBy, cached, providerModel: models[i]!, shadow: shadows[i]!, quote };
@@ -165,11 +166,14 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
             const label = answer && requests[i]!.labels.find((l) => l.toLowerCase() === answer.label.trim().toLowerCase());
             return label ? [{ i, label, answer }] : [];
           });
-          // A batch counts only when it answers each item once with an allowed label. Anything else (an
-          // unknown or repeated id, an item left out) may be one page's text steering the batch, so none
-          // of its verdicts are used, or cached for later runs: its items take their defaults.
-          if (verdicts.length !== batch.length || data.answers.length !== batch.length) continue;
-          for (const { i, label, answer } of verdicts) settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
+          // A batch should answer each item once with an allowed label. One that doesn't (an unknown or repeated
+          // id, an item left out) may be one page's text steering it: its verdicts still decide this run, so one
+          // skipped item doesn't cost the others, but none is reused by later runs. Skipped items take their defaults.
+          const whole = verdicts.length === batch.length && data.answers.length === batch.length;
+          for (const { i, label, answer } of verdicts) {
+            settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
+            if (!whole) unreusable.add(i);
+          }
         } catch (err) {
           if (!(err instanceof LlmError)) throw err;
           break; // budget spent or model unavailable: the rest take their defaults
@@ -180,7 +184,7 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
       for (const i of pending()) settle(i, requests[i]!.defaultLabel, 0, "DEFAULT");
       const final = decided as Decision<L>[];
 
-      await record(scope, requests, final, hashes);
+      await record(scope, requests, final, hashes, unreusable);
       for (const d of final) {
         if (d.decidedBy === "RULES") scope.metrics.decision("rules");
         else if (d.decidedBy === "DECIDER") scope.metrics.decision("decider");
@@ -212,17 +216,23 @@ async function findCached(hashes: string[]) {
   const rows = await db
     .select()
     .from(decisions)
-    .where(and(inArray(decisions.inputHash, hashes), inArray(decisions.decidedBy, ["DECIDER", "LLM"])))
+    .where(and(inArray(decisions.inputHash, hashes), inArray(decisions.decidedBy, ["DECIDER", "LLM"]), eq(decisions.reusable, true)))
     .orderBy(desc(decisions.createdAt));
   for (const row of rows) if (!byHash.has(row.inputHash)) byHash.set(row.inputHash, row);
   return byHash;
 }
 
-async function record<L extends string>(scope: DecisionScope, requests: DecisionRequest<L>[], final: Decision<L>[], hashes: string[]) {
+async function record<L extends string>(
+  scope: DecisionScope,
+  requests: DecisionRequest<L>[],
+  final: Decision<L>[],
+  hashes: string[],
+  unreusable: ReadonlySet<number>,
+) {
   const rows = final
     // Cached answers are recorded too, so every run's decision log is complete.
-    .map((d, i) => ({ d, r: requests[i]!, hash: hashes[i]! }))
-    .map(({ d, r, hash }) => ({
+    .map((d, i) => ({ d, r: requests[i]!, hash: hashes[i]!, reusable: !unreusable.has(i) }))
+    .map(({ d, r, hash, reusable }) => ({
       runId: scope.runId,
       task: r.task,
       subject: r.subject.slice(0, 300),
@@ -235,6 +245,7 @@ async function record<L extends string>(scope: DecisionScope, requests: Decision
       providerModel: d.providerModel,
       shadow: d.shadow,
       ms: 0,
+      reusable,
     }));
   if (rows.length) await db.insert(decisions).values(rows);
 }
