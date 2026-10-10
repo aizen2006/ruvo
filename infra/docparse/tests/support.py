@@ -10,8 +10,9 @@ from openpyxl import Workbook
 DOCPARSE = "/app/docparse.py"
 
 
-def run(document: bytes) -> dict:
-    done = subprocess.run([sys.executable, DOCPARSE], input=document, capture_output=True, timeout=120, check=True)
+def run(document: bytes, parse: bool = False) -> dict:
+    args = [sys.executable, DOCPARSE, *(["--parse"] if parse else [])]
+    done = subprocess.run(args, input=document, capture_output=True, timeout=120, check=True)
     return json.loads(done.stdout)
 
 
@@ -33,25 +34,29 @@ def stream(data: bytes, entries: bytes = b"") -> bytes:
     return b"<< /Length %d %s >>\nstream\n%s\nendstream" % (len(data), entries, data)
 
 
-def text_pdf(pages: list[str], catalog: bytes = b"", info: bytes | None = None, extra: tuple[bytes, ...] = ()) -> bytes:
-    """A PDF with a page of Helvetica text per item of `pages` (lines split on "\\n"). Its objects are the catalog (1),
-    the page tree (2), the font (3), then each page and its content, the Info dictionary when given, then `extra`,
-    which `catalog` may refer to."""
-    first_page = 4
+HELVETICA = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
+
+
+def text_pdf(pages: list[str], catalog: bytes = b"", font: bytes = HELVETICA, extra: tuple[bytes, ...] = (),
+             info: bytes | None = None) -> bytes:
+    """A PDF with a page of text per item of `pages` (lines split on "\\n", characters taken as the font's codes).
+    Its objects: the catalog (1), the page tree (2), the font (3), then `extra` from 4, which the catalog and font may
+    refer to, then each page and its content, then the Info dictionary when given."""
+    first_page = 4 + len(extra)
     page_numbers = [first_page + 2 * i for i in range(len(pages))]
-    after_pages = first_page + 2 * len(pages)
     objects = [
         b"<< /Type /Catalog /Pages 2 0 R %s >>" % catalog,
         b"<< /Type /Pages /Kids [%s] /Count %d >>" % (b" ".join(b"%d 0 R" % n for n in page_numbers), len(pages)),
-        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        font,
+        *extra,
     ]
     for number, text in zip(page_numbers, pages):
         lines = b" 0 -14 Td ".join(b"(%s) Tj" % escape(line) for line in text.split("\n"))
         objects.append(b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents %d 0 R >>" % (number + 1))
         objects.append(stream(b"BT /F1 12 Tf 72 720 Td %s ET" % lines))
-    if info is not None:
-        objects.append(info)
-    return pdf(*objects, *extra, trailer=b"/Info %d 0 R" % after_pages if info is not None else b"")
+    if info is None:
+        return pdf(*objects)
+    return pdf(*objects, info, trailer=b"/Info %d 0 R" % (len(objects) + 1))
 
 
 def escape(text: str) -> bytes:

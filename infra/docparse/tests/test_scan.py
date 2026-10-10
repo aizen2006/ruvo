@@ -6,7 +6,7 @@ import unittest
 import zipfile
 from datetime import date
 
-from support import pdf, run, stream, text_pdf, xlsx
+from support import run, stream, text_pdf, xlsx
 
 XMP = b"""<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?><x:xmpmeta xmlns:x="adobe:ns:meta/">
 <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about=""
@@ -30,7 +30,7 @@ class Pdf(unittest.TestCase):
         })
 
     def test_xmp_metadata_fills_in_what_info_lacks(self):
-        result = run(text_pdf(["Hello"], catalog=b"/Metadata 6 0 R", extra=(stream(XMP, b"/Type /Metadata /Subtype /XML"),)))
+        result = run(text_pdf(["Hello"], catalog=b"/Metadata 4 0 R", extra=(stream(XMP, b"/Type /Metadata /Subtype /XML"),)))
         self.assertEqual(result["verdict"], "clean")
         meta = result["meta"]
         self.assertEqual((meta["title"], meta["author"], meta["keywords"]), ("Voice API guide", "Ann Lee, Bo Chen", "voice, api"))
@@ -39,7 +39,7 @@ class Pdf(unittest.TestCase):
     def test_an_open_action_that_only_sets_the_first_view_is_not_active_content(self):
         # LaTeX's hyperref writes one into most papers.
         self.assertEqual(run(text_pdf(["Paper"], catalog=b"/OpenAction [4 0 R /Fit]"))["verdict"], "clean")
-        goto = text_pdf(["Paper"], catalog=b"/OpenAction 6 0 R", extra=(b"<< /S /GoTo /D [4 0 R /Fit] >>",))
+        goto = text_pdf(["Paper"], catalog=b"/OpenAction 4 0 R", extra=(b"<< /S /GoTo /D [5 0 R /Fit] >>",))
         self.assertEqual(run(goto)["verdict"], "clean")
 
     def test_a_damaged_pdf_is_rejected(self):

@@ -1,45 +1,60 @@
-"""RUVO's document sandbox: scans a PDF, Excel workbook, CSV or JSON document that RUVO found on the web.
+"""RUVO's document sandbox: scans a PDF, Excel workbook, CSV or JSON document that RUVO found on the web and, when
+it is clean, parses it.
 
 Documents are hostile input (active content, parser exploits, decompression bombs), so RUVO's API and worker never
 parse them: each one is read here, in a container per document with no network, a read-only filesystem, and memory,
 CPU and process limits.
 
-Run: docparse < document    the document on stdin, one JSON object on stdout
+Run: docparse [--parse] < document    the document on stdin, one JSON object on stdout
 
 The result always has these keys:
-  verdict  "clean" (may be parsed), "risky" (active content: metadata only, never parsed) or "rejected" (dropped)
-  reason   why the document was rejected, in plain words; else null
-  type     what the bytes are, whatever the name or declared type says: "pdf", "xlsx", "csv", "json", "html" (a web
-           page, always rejected) or null (anything else)
-  flags    what the scan found: active content ("javascript", "open_action", "auto_action", "launch", "embedded_file",
-           "rich_media", "xfa", "submit_form", "remote_goto" in a PDF; "macros", "external_link", "ole_object", "dde"
-           in a workbook) and "encrypted"
-  meta     what the file says about itself, {} when rejected. A PDF: title, author, subject, keywords, created,
-           modified (ISO 8601) and pages. A workbook: the same but pages, plus sheets [{name, hidden, rows, columns}].
-           A CSV: encoding, delimiter, columns (the header) and rows. JSON: encoding, shape ("array", "object" or
-           "lines"), columns (the keys of the object or of the first item) and rows (items). Missing values are null.
+  verdict     "clean" (may be parsed), "risky" (active content: metadata only, never parsed) or "rejected" (dropped)
+  reason      why the document was rejected, in plain words; else null
+  type        what the bytes are, whatever the name or declared type says: "pdf", "xlsx", "csv", "json", "html" (a
+              web page, always rejected) or null (anything else)
+  flags       what the scan found: active content ("javascript", "open_action", "auto_action", "launch",
+              "embedded_file", "rich_media", "xfa", "submit_form", "remote_goto" in a PDF; "macros", "external_link",
+              "ole_object", "dde" in a workbook) and "encrypted"; a parse adds "no_text_layer" for a PDF without text
+  meta        what the file says about itself, {} when rejected. A PDF: title, author, subject, keywords, created,
+              modified (ISO 8601) and pages. A workbook: the same but pages, plus sheets [{name, hidden, rows,
+              columns}]. A CSV: encoding, delimiter, columns (the header) and rows. JSON: encoding, shape ("array",
+              "object" or "lines"), columns (the keys of the object or of the first item) and rows (items). Missing
+              values are null.
+  capped      true when the parse stopped at a cap: 200 pages, 5,000 rows, 2,000 characters a value, or 10 million
+              characters in all
+  text        a parsed PDF's text, its pages joined by blank lines: NFKC-normalized, invisible characters removed and
+              words broken across lines joined; else null
+  pageStarts  where each page starts in text, in UTF-16 code units as JavaScript counts them; else null
+  tables      a parsed workbook's visible sheets, or a CSV or JSON file's rows (an array of objects or JSON Lines):
+              [{name (the sheet, or null), headers, rows: [{row (its number in the sheet or file), values}]}], hidden
+              rows and columns left out. Values are as stored: formulas are never evaluated. Else null.
 """
 
 import csv
 import html
 import io
 import json
+import math
 import re
 import sys
 import unicodedata
 import zipfile
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from itertools import accumulate, chain, islice
 
 import charset_normalizer
 from defusedxml.ElementTree import fromstring
 from openpyxl import load_workbook
+from openpyxl.worksheet._reader import WorkSheetParser
 from pypdf import PdfReader
 from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, NameObject
 
 MB = 1 << 20
 MAX_BYTES = 64 * MB  # RUVO caps downloads well below this
+MAX_PAGES = 200
+MAX_ROWS = 5_000
 MAX_TEXT = 2_000  # characters in one value
+MAX_OUTPUT = 10_000_000  # characters a parse gives in all, so a small compressed file can't flood the worker
 MAX_DEPTH = 64  # JSON nesting
 MAX_PDF_OBJECTS = 100_000
 # Zip-bomb limits, checked against the central directory before any entry is read.
@@ -77,6 +92,7 @@ PDF_META = {
 }
 
 WORKBOOK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"
+XLSX_COLUMNS = 16_384  # Excel's last column, XFD
 # An absolute path, a drive letter or a ".." step: an entry meant to land outside the folder it is unpacked into.
 UNSAFE_PATH = re.compile(r"^[/\\]|^[A-Za-z]:|(?:^|[/\\])\.\.(?:[/\\]|$)")
 FORMULA = re.compile(rb"<(?:\w+:)?f\b[^>]*(?<!/)>(.*?)</(?:\w+:)?f>", re.S)
@@ -90,35 +106,80 @@ SPACE = re.compile(r"\s*")
 NUMBER = re.compile(r"[-+]?\d[\d.,]*%?")
 # Characters that render as nothing or reorder text: zero-width, bidi controls, soft hyphens and C0 controls.
 INVISIBLE = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f\u00ad\u200b-\u200f\u202a-\u202e\u2060\u2066-\u2069\ufeff\ud800-\udfff]")
+# A word broken across lines ("exam-\nple"); joined when the next line goes on in lower case.
+BROKEN_WORD = re.compile(r"(?<=\w)[-\u00ad\u2010\u2011][ \t]*\n[ \t]*(?=\w)")
 
 
 class Rejected(Exception):
     """A document RUVO drops; the message says why."""
 
 
-def read(data: bytes) -> dict:
-    """A document's scan (see the result above)."""
-    doc = {"verdict": "clean", "reason": None, "type": None, "flags": [], "meta": {}}
+class Caps:
+    """What a parse may still give (rows, and characters in all), and whether a cap cut it short."""
+
+    def __init__(self) -> None:
+        self.rows, self.chars, self.hit = MAX_ROWS, MAX_OUTPUT, False
+
+    def text(self, text: str) -> str:
+        """`text`, cut to the characters left."""
+        if len(text) > self.chars:
+            self.hit, text = True, text[: self.chars]
+        self.chars -= len(text)
+        return text
+
+    def value(self, value):
+        """A value as it goes out: text cleaned and capped, dates in ISO 8601, nested JSON as its text."""
+        if isinstance(value, (date, time)):  # datetimes too
+            return value.isoformat()
+        if isinstance(value, timedelta):
+            return str(value)
+        if isinstance(value, float) and not math.isfinite(value):
+            return None  # JSON has no infinity
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value, ensure_ascii=False)
+        if isinstance(value, str) and len(value := clean(value)) > MAX_TEXT:
+            self.hit, value = True, value[:MAX_TEXT]
+        return value
+
+    def row(self, values: list) -> bool:
+        """Whether a row fits under the caps; when it does, it is counted."""
+        size = len(json.dumps(values, ensure_ascii=False))
+        if self.rows == 0 or size > self.chars:
+            self.hit = True
+            return False
+        self.rows, self.chars = self.rows - 1, self.chars - size
+        return True
+
+
+def read(data: bytes, parse: bool) -> dict:
+    """A document's scan and, when it is clean and `parse` is set, its text or rows (see the result above)."""
+    doc = {"verdict": "clean", "reason": None, "type": None, "flags": [], "meta": {}, "capped": False, "text": None,
+           "pageStarts": None, "tables": None}
     try:
-        scan(data, doc)
+        opened = scan(data, doc)
+        if doc["flags"]:
+            doc["verdict"] = "risky"
+        elif parse:
+            caps = Caps()
+            PARSERS[doc["type"]](opened, doc, caps)
+            doc["capped"] = caps.hit
     except Rejected as e:
         return rejected(str(e), doc["type"])
     except MemoryError:
         return rejected("too large to read within the sandbox's memory", doc["type"])
     except Exception as e:  # a damaged or hostile file can make a parser fail in any way
         return rejected(f"could not be read ({type(e).__name__}: {clean(str(e))[:200]})", doc["type"])
-    if doc["flags"]:
-        doc["verdict"] = "risky"
     return doc
 
 
 def rejected(reason: str, type_: str | None) -> dict:
-    return {"verdict": "rejected", "reason": reason, "type": type_, "flags": [], "meta": {}}
+    return {"verdict": "rejected", "reason": reason, "type": type_, "flags": [], "meta": {}, "capped": False,
+            "text": None, "pageStarts": None, "tables": None}
 
 
-def scan(data: bytes, doc: dict) -> None:
+def scan(data: bytes, doc: dict):
     """Finds what the bytes are (their content decides, never a name or declared type), then scans them as that,
-    filling in the type, flags and metadata."""
+    filling in the type, flags and metadata. Returns what a parse reads on from."""
     if not data:
         raise Rejected("an empty file")
     if len(data) > MAX_BYTES:
@@ -144,14 +205,15 @@ def scan(data: bytes, doc: dict) -> None:
     return scan_csv(text, encoding, doc)
 
 
-def scan_pdf(data: bytes, doc: dict) -> None:
+def scan_pdf(data: bytes, doc: dict) -> PdfReader:
     reader = PdfReader(io.BytesIO(data))
     if reader.is_encrypted:
         # Its objects can't be read without the password, so there is no metadata to give either.
         doc["flags"] = ["encrypted"]
-        return
+        return reader
     doc["flags"] = sorted(pdf_flags(reader))
     doc["meta"] = pdf_meta(reader)
+    return reader
 
 
 def pdf_flags(reader: PdfReader) -> set[str]:
@@ -194,7 +256,29 @@ def pdf_meta(reader: PdfReader) -> dict:
     return {**meta, "pages": len(reader.pages)}
 
 
-def scan_xlsx(data: bytes, doc: dict) -> None:
+def parse_pdf(reader: PdfReader, doc: dict, caps: Caps) -> None:
+    """The text of the first MAX_PAGES pages, and where each starts."""
+    pages = []
+    for page in islice(reader.pages, MAX_PAGES):
+        if caps.chars <= 0:
+            caps.hit = True
+            break
+        pages.append(caps.text(page_text(page.extract_text())))
+    caps.hit |= len(reader.pages) > MAX_PAGES
+    if not any(text.strip() for text in pages):
+        doc["flags"].append("no_text_layer")  # scanned pages: reading them would take OCR
+        return
+    doc["text"] = "\n\n".join(pages)
+    doc["pageStarts"] = list(accumulate((len(text.encode("utf-16-le")) // 2 + 2 for text in pages[:-1]), initial=0))
+
+
+def page_text(text: str) -> str:
+    """A page's text as RUVO matches quotes against it: cleaned, with words broken across lines joined."""
+    text = BROKEN_WORD.sub(lambda m: "" if m.string[m.end()].islower() else m[0], unicodedata.normalize("NFKC", text))
+    return INVISIBLE.sub("", text)
+
+
+def scan_xlsx(data: bytes, doc: dict):
     try:
         archive = zipfile.ZipFile(io.BytesIO(data))
     except zipfile.BadZipFile:
@@ -224,6 +308,39 @@ def scan_xlsx(data: bytes, doc: dict) -> None:
             for ws in workbook.worksheets
         ],
     }
+    return workbook
+
+
+def parse_xlsx(workbook, doc: dict, caps: Caps) -> None:
+    """A table for each visible sheet."""
+    doc["tables"] = []
+    for ws in workbook.worksheets:
+        if ws.sheet_state != "visible":
+            continue
+        if caps.rows == 0:
+            caps.hit = True
+            break
+        header, rows = split_header(sheet_rows(ws))
+        if header:
+            doc["tables"].append(table(meta_value(ws.title), header, rows, caps))
+
+
+def sheet_rows(ws):
+    """A worksheet's rows as (row number, values), hidden rows and columns left out. openpyxl's read-only sheets don't
+    say what is hidden, so the rows come from openpyxl's own sheet parser, which records it."""
+    workbook = ws.parent
+    with ws._get_source() as source:
+        parser = WorkSheetParser(source, ws._shared_strings, data_only=True, epoch=workbook.epoch,
+                                 date_formats=workbook._date_formats, timedelta_formats=workbook._timedelta_formats)
+        hidden = None
+        for number, cells in parser.parse():
+            if hidden is None:  # columns are described before the first row
+                hidden = {i for col in parser.column_dimensions.values() if col.get("hidden") in ("1", "true")
+                          for i in range(int(col["min"]), min(int(col["max"]), XLSX_COLUMNS) + 1)}
+            if parser.row_dimensions.get(str(number), {}).get("hidden") in ("1", "true"):
+                continue
+            values = {cell["column"]: cell["value"] for cell in cells if cell["value"] is not None and cell["column"] not in hidden}
+            yield number, [values.get(i) for i in range(1, max(values, default=0) + 1) if i not in hidden]
 
 
 def check_archive(archive: zipfile.ZipFile) -> None:
@@ -289,7 +406,7 @@ def decode(data: bytes) -> tuple[str, str]:
     return text.removeprefix("\ufeff"), encoding
 
 
-def scan_csv(text: str, encoding: str, doc: dict) -> None:
+def scan_csv(text: str, encoding: str, doc: dict) -> tuple[list, list]:
     # A small sample keeps the sniffer's regular expressions quick on any input.
     try:
         dialect = csv.Sniffer().sniff(text[: 16 * 1024], delimiters=",;\t|")
@@ -297,7 +414,15 @@ def scan_csv(text: str, encoding: str, doc: dict) -> None:
         raise Rejected("text that isn't a CSV or JSON file")
     doc["type"] = "csv"
     header, rows = split_header(enumerate(csv.reader(io.StringIO(text, newline=""), dialect), start=1))
-    doc["meta"] = {"encoding": encoding, "delimiter": dialect.delimiter, "columns": names(header), "rows": sum(1 for _ in rows)}
+    kept = list(islice(rows, MAX_ROWS + 1))  # one over the cap, so a parse knows when it stopped short
+    count = len(kept) + sum(1 for _ in rows)
+    doc["meta"] = {"encoding": encoding, "delimiter": dialect.delimiter, "columns": names(header), "rows": count}
+    return header, kept
+
+
+def parse_csv(scanned: tuple[list, list], doc: dict, caps: Caps) -> None:
+    header, rows = scanned
+    doc["tables"] = [table(None, header, rows, caps)] if header else []
 
 
 def split_header(rows):
@@ -323,7 +448,7 @@ def filled(values: list) -> list:
     return [v for v in values if v not in (None, "")]
 
 
-def scan_json(text: str, encoding: str, doc: dict) -> None:
+def scan_json(text: str, encoding: str, doc: dict) -> list:
     if max(accumulate(map(DEPTH.__getitem__, BRACKETS.findall(text))), default=0) > MAX_DEPTH:
         raise Rejected(f"JSON nested over {MAX_DEPTH} levels deep")
     decoder = json.JSONDecoder(parse_constant=not_json)
@@ -334,14 +459,15 @@ def scan_json(text: str, encoding: str, doc: dict) -> None:
         value, end = decoder.raw_decode(text, start)
         if SPACE.match(text, end).end() == len(text):
             doc["meta"] = {"encoding": encoding, "shape": "object", "columns": names(value), "rows": None}
-            return
+            return []
         shape, items = "lines", (decoder.decode(line) for line in io.StringIO(text) if line.strip())
-    count, columns = 0, None
+    count, kept = 0, []
     for item in items:  # one at a time, so a large file is never held decoded whole
         count += 1
-        if columns is None and isinstance(item, dict):
-            columns = names(item)
-    doc["meta"] = {"encoding": encoding, "shape": shape, "columns": columns or [], "rows": count}
+        if isinstance(item, dict) and len(kept) <= MAX_ROWS:  # one over the cap, as for a CSV
+            kept.append((count, item))
+    doc["meta"] = {"encoding": encoding, "shape": shape, "columns": names(kept[0][1]) if kept else [], "rows": count}
+    return kept
 
 
 def array_items(decoder: json.JSONDecoder, text: str, start: int):
@@ -363,6 +489,29 @@ def array_items(decoder: json.JSONDecoder, text: str, start: int):
 
 def not_json(constant: str):
     raise ValueError(f"{constant} isn't JSON")
+
+
+def parse_json(kept: list, doc: dict, caps: Caps) -> None:
+    """Rows from the objects of an array or JSON Lines; their keys, in the order first seen, are the headers."""
+    header = list(dict.fromkeys(key for _, item in kept for key in item))
+    rows = ((number, [item.get(key) for key in header]) for number, item in kept)
+    doc["tables"] = [table(None, header, rows, caps)] if kept else []
+
+
+def table(name: str | None, header: list, rows, caps: Caps) -> dict:
+    """A table as it goes out: its headers, then (row number, values) rows while the caps allow, each at least as
+    long as the header."""
+    out = {"name": name, "headers": names(header), "rows": []}
+    for number, values in rows:
+        values = [caps.value(value) for value in values] + [None] * (len(header) - len(values))
+        if not caps.row(values):
+            break
+        out["rows"].append({"row": number, "values": values})
+    return out
+
+
+# How each type of clean document is parsed, from what its scan opened.
+PARSERS = {"pdf": parse_pdf, "xlsx": parse_xlsx, "csv": parse_csv, "json": parse_json}
 
 
 def clean(text: str) -> str:
@@ -391,9 +540,9 @@ def attempt(get):
 
 
 def main() -> None:
-    if sys.argv[1:]:
-        sys.exit("usage: docparse < document")
-    result = read(sys.stdin.buffer.read(MAX_BYTES + 1))
+    if sys.argv[1:] not in ([], ["--parse"]):
+        sys.exit("usage: docparse [--parse] < document")
+    result = read(sys.stdin.buffer.read(MAX_BYTES + 1), parse=sys.argv[1:] == ["--parse"])
     # A lone surrogate can't be UTF-8, so it goes out as "?".
     sys.stdout.buffer.write(json.dumps(result, ensure_ascii=False).encode("utf-8", "replace"))
 
