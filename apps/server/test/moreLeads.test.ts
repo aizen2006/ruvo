@@ -20,7 +20,7 @@ import { fixtureFetcher } from "./helpers/fixtures";
 
 const PODCASTS: DatasetContract = {
   ...DEMO_CONTRACT,
-  entity: "other",
+  domain: "generic",
   entityDescription: "A podcast about climate technology",
   title: "Climate tech podcasts",
   fields: [

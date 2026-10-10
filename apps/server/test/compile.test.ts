@@ -90,9 +90,7 @@ describe("the compile prompt", () => {
   test("lists every domain, then gives each its catalog and rules after the shared ones", () => {
     for (const pack of PACKS) {
       expect(COMPILE_SYSTEM_PROMPT).toContain(`- "${pack.id}": ${pack.describe}`);
-      expect(COMPILE_SYSTEM_PROMPT).toContain(`ENTITY "${pack.id}": ${pack.describe}
-Catalog keys:
-${bulletList(pack.fields)}`);
+      expect(COMPILE_SYSTEM_PROMPT).toContain(`DOMAIN "${pack.id}": ${pack.describe}\nCatalog keys:\n${bulletList(pack.fields)}`);
       expect(COMPILE_SYSTEM_PROMPT).toContain(pack.prompt);
     }
   });

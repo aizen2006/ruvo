@@ -1,4 +1,4 @@
-import type { CatalogKey, DatasetContract, EvidenceMethod, Locator } from "@repo/contracts";
+import type { DatasetContract, EvidenceMethod, Locator } from "@repo/contracts";
 
 /** Provenance for one field value, before it is scored and stored as an evidence row. */
 export interface EvidenceDraft {
@@ -22,7 +22,7 @@ export interface FieldValue {
 export interface Item {
   /** Stable id within the source (ATS job id, HN comment id, …). */
   externalId: string;
-  fields: Partial<Record<CatalogKey | (string & {}), FieldValue>>;
+  fields: Partial<Record<string, FieldValue>>;
   /** Long-form text for regex/LLM enrichment and decisions (e.g. the job description). */
   text: { plain: string; sourceUrl: string; pageId: string | null } | null;
   /** Extra source data used by matching (e.g. department, registry tags). */

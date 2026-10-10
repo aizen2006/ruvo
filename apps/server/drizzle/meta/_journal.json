@@ -78,6 +78,13 @@
       "when": 1791649459390,
       "tag": "0010_reject_reason_codes",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791653748867,
+      "tag": "0011_contracts_name_a_domain",
+      "breakpoints": true
     }
   ]
 }

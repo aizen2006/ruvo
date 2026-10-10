@@ -30,7 +30,7 @@ const CASES: EvalCase[] = [
   {
     prompt: DEMO_PROMPT,
     checks: [
-      ["entity is job_posting", (c) => c.entity === "job_posting"],
+      ["domain is jobs", (c) => c.domain === "jobs"],
       ["asks for company, title, location, salary, url, match_reason", (c) => ["company", "title", "location", "salary", "url", "match_reason"].every((k) => field(c, k))],
       ["salary is optional ('if available')", (c) => field(c, "salary")?.required === false],
       ["remote is a soft preference", (c) => remoteCriterion(c)?.strength === "soft"],
@@ -66,7 +66,7 @@ const CASES: EvalCase[] = [
   },
   {
     prompt: "Find companies that could sponsor a student hackathon in Bangalore.",
-    checks: [["entity is 'other'", (c) => c.entity === "other"]],
+    checks: [["domain is generic", (c) => c.domain === "generic"]],
   },
   {
     prompt: "Frontend engineer roles in New York.",

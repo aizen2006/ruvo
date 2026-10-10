@@ -21,7 +21,7 @@ beforeEach(resetDb);
 
 const CREATORS: DatasetContract = {
   ...DEMO_CONTRACT,
-  entity: "other",
+  domain: "generic",
   entityDescription: "A climate content creator",
   title: "Climate creators",
   fields: [

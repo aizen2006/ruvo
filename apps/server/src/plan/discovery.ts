@@ -51,7 +51,7 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
   ]);
 
   let selected: Array<{ company: RegistryCompany; reason: string }>;
-  if (contract.entity !== "job_posting") {
+  if (contract.domain !== "jobs") {
     // The registry and community boards only hold job postings; other data comes from linked pages.
     selected = [];
   } else if (named.some((n) => n.match)) {
@@ -86,7 +86,7 @@ export function discoverSources(contract: DatasetContract, registry: RegistryCom
       .map(({ company, reason }) => registryCandidate(company, reason)),
   );
 
-  if (contract.entity === "job_posting" && hints.includeCommunityBoards && available.has("hn_whoishiring")) {
+  if (contract.domain === "jobs" && hints.includeCommunityBoards && available.has("hn_whoishiring")) {
     candidates.push({
       ref: "hn_whoishiring:latest",
       adapter: "hn_whoishiring",

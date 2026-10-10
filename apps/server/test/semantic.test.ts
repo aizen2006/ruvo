@@ -98,7 +98,7 @@ describe("semantic criteria", () => {
 describe("sensitive attributes", () => {
   const contract: DatasetContract = {
     ...DEMO_CONTRACT,
-    entity: "other",
+    domain: "generic",
     entityDescription: "A home cooking creator",
     fields: [{ name: "title", catalogKey: "title", type: "string", required: true, description: "Creator name" }],
     criteria: [{ id: "origin", label: "Indian origin", kind: "semantic", fields: ["title"], values: ["Is this creator of Indian origin?"], strength: "soft", weight: 1 }],

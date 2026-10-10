@@ -7,7 +7,8 @@ import { EvidenceMethod } from "./record";
  * directly), versioned, and re-runnable. Each source is an independent branch of steps.
  */
 
-export const AdapterId = z.enum(["greenhouse", "ashby", "lever", "workable", "hn_whoishiring", "html_list", "html_record", "search_hits"]);
+/** A source adapter's id, e.g. "html_list"; the server's adapter registry checks it. */
+export const AdapterId = z.string();
 export type AdapterId = z.infer<typeof AdapterId>;
 
 export const FetchMode = z.enum(["auto", "http", "browser"]);
@@ -84,7 +85,7 @@ export type FoundSource = z.infer<typeof FoundSource>;
 
 export const WorkflowIR = z.object({
   irVersion: z.literal(1),
-  entity: z.string(),
+  domain: z.string(),
   sources: z.array(SourceBranch),
   dedupe: z.object({ keys: z.array(z.array(z.string())), prefer: z.array(EvidenceMethod) }),
   budgets: Budgets,

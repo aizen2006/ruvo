@@ -35,12 +35,12 @@ export interface WorkflowMemory {
 
 /**
  * What a contract asks for, in a stable canonical form: the parts that decide which plan
- * fits (entity, fields, criteria, assumptions, source hints), not the prompt's wording.
+ * fits (domain, fields, criteria, assumptions, source hints), not the prompt's wording.
  */
 export function contractSummary(c: DatasetContract): string {
   const sorted = (xs: string[]) => [...xs].map((x) => x.toLowerCase()).sort();
   return [
-    `entity: ${c.entity} (${c.entityDescription})`,
+    `domain: ${c.domain} (${c.entityDescription})`,
     `fields: ${sorted(c.fields.map((f) => `${f.name}${f.required ? "*" : ""}`)).join(", ")}`,
     `criteria: ${sorted(c.criteria.map((k) => `${k.strength} ${k.kind} ${k.label}: ${sorted(k.values).join("/")}`)).join("; ")}`,
     `assumptions: ${sorted(c.assumptions.map((a) => a.interpretation)).join("; ")}`,

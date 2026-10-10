@@ -246,7 +246,7 @@ function noSourcesMessage(contract: DatasetContract, search: WebDiscovery | null
     const queries = search.searches.map((s) => `"${s.query}"`).join(", ");
     return `No sources found: searched the web for ${queries || "nothing"} and found no page RUVO may read. Add the address of a page that lists these records`;
   }
-  return contract.entity === "job_posting"
+  return contract.domain === "jobs"
     ? "No supported sources match this request"
     : "No page to read yet: add the address of a page that lists these records to the contract";
 }

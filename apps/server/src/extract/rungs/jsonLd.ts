@@ -50,7 +50,7 @@ export const jsonLdRung: ExtractorRung = {
   async fill(ctx, fields, input) {
     if (!input.html) return {};
     const items = extractJsonLd(cheerio.load(input.html));
-    const jobs = ctx.contract.entity === "job_posting";
+    const jobs = ctx.contract.domain === "jobs";
     const [record] = jobs ? jsonLdOfType(items, "JobPosting") : schemaRecords(items);
     if (!record) return {};
     const type = String(([] as unknown[]).concat(record["@type"])[0]);

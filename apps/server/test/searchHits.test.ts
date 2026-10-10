@@ -12,7 +12,7 @@ beforeEach(resetDb);
 
 const CREATORS: DatasetContract = {
   ...DEMO_CONTRACT,
-  entity: "other",
+  domain: "generic",
   entityDescription: "A climate content creator on Instagram",
   fields: [
     { name: "name", catalogKey: "title", type: "string", required: true, description: "Creator name" },

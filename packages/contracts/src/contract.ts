@@ -8,28 +8,12 @@ import { z } from "zod";
  * strict-mode safe: object root, every field required (use nullable), no records or min/max.
  */
 
-/** Known fields for the job_posting entity; adapters map their data onto these keys. */
-export const JOB_CATALOG = [
-  "company",
-  "title",
-  "location",
-  "remote",
-  "salary",
-  "url",
-  "department",
-  "employment_type",
-  "posted_at",
-  "description",
-  "match_reason",
-] as const;
-export const CatalogKey = z.enum([...JOB_CATALOG, "custom"]);
-export type CatalogKey = z.infer<typeof CatalogKey>;
-
 export const FieldType = z.enum(["string", "url", "boolean", "date", "number", "money_range", "string_list"]);
 
 export const FieldSpec = z.object({
   name: z.string().describe("snake_case column name"),
-  catalogKey: CatalogKey,
+  /** A key of the domain's catalog, which adapters map their data onto, or "custom"; the server checks it against the domain. */
+  catalogKey: z.string(),
   type: FieldType,
   required: z.boolean(),
   description: z.string(),
@@ -67,7 +51,8 @@ export const SourceHints = z.object({
 export type SourceHints = z.infer<typeof SourceHints>;
 
 export const DatasetContract = z.object({
-  entity: z.enum(["job_posting", "other"]),
+  /** The domain pack that knows this kind of record ("jobs", or "generic" for any other); the server checks it. */
+  domain: z.string(),
   entityDescription: z.string(),
   title: z.string().describe("Short name for the dataset"),
   fields: z.array(FieldSpec),

@@ -1,7 +1,5 @@
-import type { CatalogKey } from "@repo/contracts";
-
 /** What each job catalog field means; shown to the compiler so it maps user wording onto them. */
-export const JOB_FIELD_GUIDE: Record<Exclude<CatalogKey, "custom">, string> = {
+export const JOB_FIELD_GUIDE: Record<string, string> = {
   company: "Hiring company name",
   title: "Job title",
   location: "Office location(s) as written by the employer",

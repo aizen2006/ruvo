@@ -4,7 +4,7 @@ import { COMPANY_TAG_GUIDE, JOB_FIELD_GUIDE } from "./fields";
 
 /** Job postings: the deep domain, read from job boards RUVO knows, boards found by search, and job pages. */
 export const jobsPack: DomainPack = {
-  id: "job_posting",
+  id: "jobs",
   describe: "requests about jobs, roles, openings or hiring",
   fields: JOB_FIELD_GUIDE,
   required: ["company", "title", "url"],

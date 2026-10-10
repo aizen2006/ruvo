@@ -1,10 +1,11 @@
-import { EVIDENCE_METHODS, type Budgets, type CatalogKey, type DatasetContract, type PlanDraft, type Provenance, type SourceBranch, type Step, type WorkflowIR } from "@repo/contracts";
+import { EVIDENCE_METHODS, type Budgets, type DatasetContract, type PlanDraft, type Provenance, type SourceBranch, type Step, type WorkflowIR } from "@repo/contracts";
 import { getAdapter } from "../adapters";
+import { fills } from "../adapters/types";
 import { itemKeyFor } from "../core/items";
 import type { SourceCandidate } from "./discovery";
 
 /** Fields RUVO produces itself rather than reading from a source. */
-const GENERATED_FIELDS: ReadonlySet<CatalogKey> = new Set(["match_reason"]);
+const GENERATED_FIELDS: ReadonlySet<string> = new Set(["match_reason"]);
 
 const MAX_ITEMS_PER_SOURCE = 100;
 /** Posting pages each source may fetch to fill missing fields (JSON-LD, page text). */
@@ -60,7 +61,7 @@ export function compileIr(contract: DatasetContract, draft: PlanDraft, candidate
 
   return {
     irVersion: 1,
-    entity: contract.entity,
+    domain: contract.domain,
     sources,
     dedupe: { keys: contract.dedupKeys, prefer: [...EVIDENCE_METHODS] },
     budgets,
@@ -103,7 +104,7 @@ function buildBranch(
   const include = hard("keyword_any");
   const exclude = hard("keyword_none");
   const prefilterFields = [...new Set([...include, ...exclude].flatMap((c) => c.fields.map((f) => itemKeyFor(contract, f))))];
-  const adapterKind = getAdapter(candidate.adapter).kind;
+  const adapter = getAdapter(candidate.adapter);
 
   const steps: Step[] = [
     {
@@ -111,13 +112,13 @@ function buildBranch(
       kind: "collect",
       adapter: candidate.adapter,
       params: candidate.params,
-      fetch: adapterKind === "api" ? "http" : "auto",
+      fetch: adapter.kind === "api" ? "http" : "auto",
       maxItems: clamp(Math.round(plan.maxItems || DEFAULT_ITEMS_PER_SOURCE), 1, MAX_ITEMS_PER_SOURCE),
     },
   ];
   // Free-text sources need their fields read from the text before any keyword gate can apply.
   // Triage decides relevance first so LLM extraction is spent only on promising posts.
-  if (adapterKind === "text") {
+  if (adapter.kind === "text") {
     steps.push(
       { id: `${id}.triage`, kind: "triage", task: "RELEVANCE", criterionId: null, llmBudget: TEXT_SOURCE_LLM_ITEMS },
       { id: `${id}.extract_text`, kind: "extract_text", parser: "hn_header", llmFallback: true, llmBudget: TEXT_SOURCE_LLM_ITEMS },
@@ -132,9 +133,8 @@ function buildBranch(
     fields: prefilterFields.length ? prefilterFields : ["title"],
   });
   // Fields this source doesn't provide are looked for in descriptions and posting pages.
-  const provided = new Set(Object.keys(getAdapter(candidate.adapter).provides));
-  const toEnrich = contract.fields.filter((f) => f.catalogKey !== "custom" && !GENERATED_FIELDS.has(f.catalogKey) && !provided.has(f.catalogKey));
-  if (toEnrich.length && adapterKind !== "text") {
+  const toEnrich = contract.fields.filter((f) => f.catalogKey !== "custom" && !GENERATED_FIELDS.has(f.catalogKey) && !fills(adapter, f.catalogKey));
+  if (toEnrich.length && adapter.kind !== "text") {
     steps.push({
       id: `${id}.enrich`,
       kind: "enrich",
@@ -158,11 +158,11 @@ function buildBranch(
  * produce would mark every record incomplete, so it is relaxed with a warning instead.
  */
 function effectiveRequiredFields(contract: DatasetContract, chosen: SourceCandidate[], warnings: string[]): string[] {
-  const provided = new Set(chosen.flatMap((c) => Object.keys(getAdapter(c.adapter).provides)));
+  const adapters = chosen.map((c) => getAdapter(c.adapter));
   return contract.fields
     .filter((f) => f.required)
     .filter((f) => {
-      const producible = GENERATED_FIELDS.has(f.catalogKey) || provided.has(f.catalogKey);
+      const producible = GENERATED_FIELDS.has(f.catalogKey) || adapters.some((a) => fills(a, f.catalogKey));
       if (!producible) warnings.push(`"${f.name}" is required but no chosen source provides it; treating it as optional`);
       return producible;
     })

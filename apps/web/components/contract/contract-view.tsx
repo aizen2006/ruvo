@@ -88,7 +88,7 @@ export function ContractView({
 
       <SourcePages
         urls={draft.sourceHints.urls}
-        needed={draft.entity !== "job_posting"}
+        needed={draft.domain !== "jobs"}
         onChange={editable ? (urls) => update({ sourceHints: { ...draft.sourceHints, urls } }) : undefined}
       />
 

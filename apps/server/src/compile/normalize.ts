@@ -1,4 +1,4 @@
-import { CatalogKey, type Criterion, type DatasetContract, type FieldSpec } from "@repo/contracts";
+import type { Criterion, DatasetContract, FieldSpec } from "@repo/contracts";
 import { JOB_FIELD_GUIDE } from "../domains/jobs/fields";
 
 /**
@@ -17,7 +17,7 @@ export function normalizeContract(input: DatasetContract, prompt: string): { con
     .filter((c): c is Criterion => c !== null);
 
   const assumptions = [...input.assumptions];
-  if (input.entity === "job_posting" && mentionsCompanyQuality(prompt) && !criteria.some((c) => c.kind === "company_tag")) {
+  if (input.domain === "jobs" && mentionsCompanyQuality(prompt) && !criteria.some((c) => c.kind === "company_tag")) {
     criteria.push(DEFAULT_COMPANY_CRITERION);
     assumptions.push(DEFAULT_COMPANY_ASSUMPTION);
     warnings.push('Added the default interpretation of "good companies" (registry tags)');
@@ -48,7 +48,7 @@ export function normalizeContract(input: DatasetContract, prompt: string): { con
 /** Trimmed, unique search queries (max 8). Non-job requests get a fallback query if the LLM wrote none. */
 function normalizeQueries(input: DatasetContract, warnings: string[]): string[] {
   const queries = [...new Set(input.sourceHints.searchQueries.map((q) => q.trim()).filter(Boolean))].slice(0, 8);
-  if (queries.length === 0 && input.entity !== "job_posting" && input.sourceHints.urls.length === 0) {
+  if (queries.length === 0 && input.domain !== "jobs" && input.sourceHints.urls.length === 0) {
     const fallback = input.entityDescription.trim() || input.title.trim();
     if (fallback) {
       queries.push(fallback);
@@ -91,7 +91,7 @@ function normalizeFields(input: DatasetContract, warnings: string[]): FieldSpec[
     fields.push({ ...field, name });
   }
 
-  if (input.entity === "job_posting") {
+  if (input.domain === "jobs") {
     for (const required of REQUIRED_JOB_FIELDS) {
       if (!fields.some((f) => f.catalogKey === required.catalogKey)) {
         fields.push(required);
@@ -101,9 +101,9 @@ function normalizeFields(input: DatasetContract, warnings: string[]): FieldSpec[
     // An `equals` criterion on a catalog field the model didn't list (e.g. "preferably remote" with no
     // remote column) would be dropped as unusable; add the field as optional so the preference survives.
     for (const criterion of input.criteria.filter((c) => c.kind === "equals")) {
-      for (const key of criterion.fields.map((f) => CatalogKey.safeParse(f).data)) {
-        if (!key || key === "custom" || fields.some((f) => f.name === key || f.catalogKey === key)) continue;
-        fields.push({ name: key, catalogKey: key, type: "string", required: false, description: JOB_FIELD_GUIDE[key] });
+      for (const key of criterion.fields) {
+        if (!Object.hasOwn(JOB_FIELD_GUIDE, key) || fields.some((f) => f.name === key || f.catalogKey === key)) continue;
+        fields.push({ name: key, catalogKey: key, type: "string", required: false, description: JOB_FIELD_GUIDE[key]! });
         warnings.push(`Added optional "${key}" field for criterion "${criterion.label}"`);
       }
     }

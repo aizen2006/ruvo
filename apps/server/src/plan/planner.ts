@@ -37,7 +37,7 @@ export async function draftPlan(llm: LlmClient, contract: DatasetContract, candi
   }));
   const contractSummary = {
     title: contract.title,
-    entity: contract.entity,
+    domain: contract.domain,
     entityDescription: contract.entityDescription,
     fields: contract.fields.map((f) => ({ name: f.name, catalogKey: f.catalogKey, required: f.required })),
     criteria: contract.criteria.map((c) => ({ label: c.label, kind: c.kind, strength: c.strength })),

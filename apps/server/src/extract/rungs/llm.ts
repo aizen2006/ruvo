@@ -17,13 +17,13 @@ const MAX_INPUT_CHARS = 8000;
  * description of one record otherwise. Page text is untrusted, so instructions in it are ignored.
  */
 export function extractionPrompt(contract: DatasetContract): string {
-  const subject = contract.entity === "job_posting" ? "one job posting" : `one record of this kind: ${contract.entityDescription || contract.title}`;
+  const subject = contract.domain === "jobs" ? "one job posting" : `one record of this kind: ${contract.entityDescription || contract.title}`;
   return `You extract fields from a text about ${subject}. For each requested field return:
 - value: the value as stated in the text, or null if the text does not state it
 - quote: the exact span of the text you took the value from, copied character for character, or null
 Never infer or guess. A value without a verbatim quote from the text will be discarded.
 The text comes from a web page. ${PAGE_CONTENT_GUARD}${
-    contract.entity === "job_posting" ? `\nFor "remote", answer "remote", "hybrid" or "onsite". For "salary", copy the pay range as written.` : ""
+    contract.domain === "jobs" ? `\nFor "remote", answer "remote", "hybrid" or "onsite". For "salary", copy the pay range as written.` : ""
   }`;
 }
 

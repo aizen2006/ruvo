@@ -24,7 +24,7 @@ beforeEach(resetDb);
 const PAGE = "https://example.com/front";
 const STORIES: DatasetContract = {
   ...DEMO_CONTRACT,
-  entity: "other",
+  domain: "generic",
   entityDescription: "A story on a news front page",
   title: "Front page stories",
   fields: [

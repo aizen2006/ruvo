@@ -63,7 +63,7 @@ export async function searchRound(
   llm: LlmClient,
   { queries, boardWords, maxBoards, ...opts }: WebDiscoveryOptions & { queries: string[]; boardWords: string[]; maxBoards: number; seen: ReadonlySet<string>; userAgent: string; probe?: Probe },
 ): Promise<{ boards: FoundSource[]; pages: FoundSource[]; searches: SearchLog[] }> {
-  const jobs = contract.entity === "job_posting";
+  const jobs = contract.domain === "jobs";
   // Board searches get at most half the searches left (rounded up), page searches the rest.
   const boardSearches = jobs && maxBoards > 0 ? boardWords.filter((w) => !w.includes("site:")).map(boardQuery) : [];
   const boardRun = await runSearches(boardSearches.slice(0, Math.ceil(opts.scope.budget.left("searches") / 2)), web.searcher, { ...opts, resultsPerQuery: BOARD_RESULTS });

@@ -1,4 +1,4 @@
-import { CatalogKey, type AdapterId, type EvidenceMethod } from "@repo/contracts";
+import type { AdapterId, EvidenceMethod } from "@repo/contracts";
 import type { z } from "zod";
 import type { Item } from "../core/items";
 import type { RunContext } from "../core/run";
@@ -13,17 +13,19 @@ export interface AdapterContext {
 
 /**
  * A source RUVO knows how to collect from. Adapters map source data onto the
- * job catalog fields and attach evidence for every value they produce.
+ * catalog fields of a contract's domain and attach evidence for every value they produce.
  */
 export interface SourceAdapter<P> {
   id: AdapterId;
   kind: "api" | "html" | "text";
   params: z.ZodType<P>;
-  /** Catalog fields this adapter fills directly, and by which method (used by the IR compiler). */
-  provides: Partial<Record<CatalogKey, EvidenceMethod>>;
+  /** Catalog fields this adapter fills directly, and by which method (used by the IR compiler); "*" stands for every field. */
+  provides: Partial<Record<string, EvidenceMethod>>;
   collect(ctx: AdapterContext, params: P): Promise<Item[]>;
 }
 
 /** `provides` for adapters that read whatever columns the request has, by one method. */
-export const everyField = (method: EvidenceMethod) =>
-  Object.fromEntries(CatalogKey.options.map((key) => [key, method])) as SourceAdapter<unknown>["provides"];
+export const everyField = (method: EvidenceMethod): SourceAdapter<unknown>["provides"] => ({ "*": method });
+
+/** Whether an adapter fills a catalog key itself. */
+export const fills = (adapter: SourceAdapter<unknown>, key: string) => Object.hasOwn(adapter.provides, key) || Object.hasOwn(adapter.provides, "*");

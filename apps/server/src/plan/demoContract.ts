@@ -9,7 +9,7 @@ export const DEMO_PROMPT =
   "Return company, title, location, salary if available, job URL, and why the role matches.";
 
 export const DEMO_CONTRACT: DatasetContract = {
-  entity: "job_posting",
+  domain: "jobs",
   entityDescription: "Open job postings for backend and AI engineering roles",
   title: "Backend + AI engineering roles",
   fields: [

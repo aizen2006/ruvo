@@ -81,7 +81,7 @@ const sensitiveRule = (attributes: string[]) =>
 function semanticRequest(contract: DatasetContract, criterion: Criterion, candidate: Candidate): DecisionRequest<"yes" | "no" | "unknown"> {
   const description = truncate(candidate.item.text?.plain ?? fieldText(candidate, "description"), 800);
   const state =
-    contract.entity === "job_posting"
+    contract.domain === "jobs"
       ? {
           title: fieldText(candidate, "title"),
           team: fieldText(candidate, "department") || String(candidate.item.meta.team ?? ""),

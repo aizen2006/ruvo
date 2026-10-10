@@ -13,7 +13,7 @@ beforeEach(resetDb);
 
 const PODCASTS: DatasetContract = {
   ...DEMO_CONTRACT,
-  entity: "other",
+  domain: "generic",
   entityDescription: "A podcast about climate technology",
   fields: [
     { name: "name", catalogKey: "title", type: "string", required: true, description: "Podcast name" },

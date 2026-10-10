@@ -57,7 +57,7 @@ describe("html_list pagination", () => {
   });
 
   const CONTRACT = {
-    entity: "other",
+    domain: "generic",
     fields: [
       { name: "name", catalogKey: "title", type: "string", required: true, description: "Company name" },
       { name: "website", catalogKey: "url", type: "url", required: true, description: "Profile link" },

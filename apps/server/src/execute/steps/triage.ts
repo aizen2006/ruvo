@@ -20,7 +20,7 @@ export const triage: StepFn<"triage"> = async (ctx, branch, step, input) => {
   );
   const question =
     ctx.contract.criteria.find((c) => c.kind === "semantic")?.values[0] ??
-    (ctx.contract.entity === "job_posting"
+    (ctx.contract.domain === "jobs"
       ? `Is this a job posting for the kind of role described here: ${ctx.contract.title}?`
       : `Is this about ${ctx.contract.entityDescription || ctx.contract.title}?`);
 
