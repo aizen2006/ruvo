@@ -2,6 +2,7 @@ import { parseRetryAfter } from "../../libs/retry";
 import { FetchError } from "../errors";
 import { readCapped } from "../readCapped";
 import { assertPublicUrl } from "../ssrf";
+import { isBotChallenge } from "../sufficiency";
 import { ACCEPT, acceptsContentType, DEFAULT_MAX_BYTES, type Fetched, type TransportRequest, type TransportScope } from "./types";
 
 /** Redirects followed per request, as RFC 9309 asks for robots.txt. */
@@ -80,6 +81,8 @@ export function createDirectTransport(opts: { userAgent: string; timeoutMs: numb
       throw new FetchError("unsupported_content", `Unexpected content-type "${contentType}" from ${url}`, { url });
     }
     const body = await readCapped(res, req.maxBytes ?? DEFAULT_MAX_BYTES, url);
-    return { finalUrl: url, status: res.status, contentType, body };
+    // A consent or login wall served as the page comes back marked, as from the Scrapling service, so it is never stored.
+    const challenge = req.expect === "html" && isBotChallenge(res.status, Object.fromEntries(res.headers), body);
+    return { finalUrl: url, status: res.status, contentType, body, challenge };
   };
 }

@@ -29,16 +29,33 @@ export function assessHtml(html: string): Sufficiency {
 }
 
 const CHALLENGE_STATUS = new Set([403, 429, 503]);
-// Cloudflare's challenge page. Not /cdn-cgi/challenge-platform/ or the Turnstile script: good pages carry those too.
-const CHALLENGE_MARKERS = ["<title>Just a moment...</title>", "_cf_chl_opt", "cType: '"];
+/**
+ * Markers only a bot check's page carries: Cloudflare's challenge (not /cdn-cgi/challenge-platform/ or the Turnstile
+ * script, which good pages carry too), DataDome's CAPTCHA host, PerimeterX's (HUMAN's) "press and hold" box, and
+ * Akamai's denial page.
+ */
+const CHALLENGE_MARKERS = ["<title>Just a moment...</title>", "_cf_chl_opt", "cType: '", "captcha-delivery.com", 'id="px-captcha"', "<TITLE>Access Denied</TITLE>"];
+/** reCAPTCHA and hCaptcha, a bot check only with a refusing status: good pages carry them in their forms. */
+const CAPTCHA_MARKERS = ["google.com/recaptcha/", "recaptcha.net/recaptcha/", "hcaptcha.com/1/api.js"];
+/**
+ * Consent and login walls, which come with HTTP 200: Google's, YouTube's and Yahoo's consent forms, and LinkedIn's
+ * sign-in wall (its page key; a link to the wall, which any page may carry, is not one).
+ */
+const WALL_MARKERS = ["consent.google.com/save", "consent.youtube.com/save", "collectConsent?sessionId=", 'content="auth_wall_'];
 
-/** A bot check (e.g. Cloudflare's "Just a moment...") in place of the page, from any fetch method. */
+const hasAny = (body: string, markers: string[]) => markers.some((marker) => body.includes(marker));
+
+/**
+ * A bot check (e.g. Cloudflare's "Just a moment...") with a refusing status, or a consent or login wall, in place
+ * of the page, from any fetch method.
+ */
 export function isBotChallenge(status: number, headers: Record<string, string>, body: string): boolean {
-  return CHALLENGE_STATUS.has(status) && (headers["cf-mitigated"] === "challenge" || hasChallengeMarkers(body));
+  if (hasAny(body, WALL_MARKERS)) return true;
+  return CHALLENGE_STATUS.has(status) && (headers["cf-mitigated"] === "challenge" || hasAny(body, CHALLENGE_MARKERS) || hasAny(body, CAPTCHA_MARKERS));
 }
 
 /**
- * The bot check's markers in the page itself. A stealth browser result is judged by these alone:
- * Scrapling keeps the cf-mitigated header on a page it got past.
+ * The markers of a bot check or wall in the page itself, whatever its status. A stealth browser result is judged
+ * by these alone: Scrapling keeps the cf-mitigated header on a page it got past.
  */
-export const hasChallengeMarkers = (body: string) => CHALLENGE_MARKERS.some((marker) => body.includes(marker));
+export const hasChallengeMarkers = (body: string) => hasAny(body, CHALLENGE_MARKERS) || hasAny(body, WALL_MARKERS);

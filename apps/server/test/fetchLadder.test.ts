@@ -15,6 +15,7 @@ const JOBS_URL = "https://shop.example/jobs";
 const fullPage = `<html><body><h1>Jobs</h1><p>${"Backend engineer, remote. ".repeat(40)}</p></body></html>`;
 const challenge = `<html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt = {};</script></body></html>`;
 const appShell = `<html><body><div id="root"></div></body></html>`;
+const signInWall = `<html><head><meta name="pageKey" content="auth_wall_desktop_profile"><title>Sign Up | LinkedIn</title></head><body><h2>Sign in</h2></body></html>`;
 const down = new FetchError("service_down", "RUVO's fetch service is unreachable", { url: JOBS_URL });
 const html = (status: number, body: string, headers: Record<string, string> = {}) => ({ status, body, headers: { "content-type": "text/html", ...headers } });
 /** A reply with its own `url` ended elsewhere, as after a redirect. */
@@ -97,6 +98,14 @@ describe("fetch ladder", () => {
     expect(await storedVias()).toEqual([]);
   });
 
+  test("a sign-in or consent wall served as the page counts as a bot check: one stealth try, and it is never stored", async () => {
+    const { client, calls } = fakeScrapling({ http: html(200, signInWall), stealth: html(200, signInWall) });
+    const error = await failure(fetcherWith(client).fetch(scope(), req("auto")));
+    expect(error).toMatchObject({ kind: "http_status", details: { challenge: true } });
+    expect(calls).toEqual(["http", "stealth"]);
+    expect(await storedVias()).toEqual([]);
+  });
+
   test("a thin page goes to the browser, which says why", async () => {
     const { client, calls } = fakeScrapling({ http: html(200, appShell), browser: html(200, fullPage) });
     const s = scope();
@@ -175,7 +184,10 @@ describe("fetch ladder", () => {
 });
 
 describe("in-process fetching", () => {
-  const site = Bun.serve({ port: 0, fetch: () => new Response("<p>local</p>", { headers: { "content-type": "text/html" } }) });
+  const site = Bun.serve({
+    port: 0,
+    fetch: (r) => new Response(new URL(r.url).pathname === "/wall" ? signInWall : "<p>local</p>", { headers: { "content-type": "text/html" } }),
+  });
   const local = `http://127.0.0.1:${site.port}/page`;
   afterAll(() => site.stop());
 
@@ -220,5 +232,12 @@ describe("in-process fetching", () => {
     // Read in-process, the page has too little text: auto mode asks for the browser.
     expect((await failure(fetcher.fetch(scope(), req("auto", local)))).kind).toBe("service_down");
     expect(calls).toEqual(["browser", "http", "browser"]);
+  });
+
+  test("with the service down, a wall read in-process is never stored either", async () => {
+    const { client, calls } = fakeScrapling({ http: down, stealth: down });
+    expect((await failure(fetcherWith(client).fetch(scope(), req("auto", `http://127.0.0.1:${site.port}/wall`)))).kind).toBe("service_down");
+    expect(calls).toEqual(["http", "stealth"]);
+    expect(await storedVias()).toEqual([]);
   });
 });
