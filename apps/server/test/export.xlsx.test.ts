@@ -11,9 +11,11 @@ import { startTestServer } from "./helpers/http";
 
 const api = startTestServer();
 const POSTING = "https://jobs.example.com/acme/42";
+/** Formulas a spreadsheet could still read: after a space or a line break, and in full-width form. */
+const FORMULAS = { company: " =1+1", title: "\n=1+1", location: "\uFF1D1+1", remote: "\uFF0B1", department: "\uFF0D1", posted_at: "\uFF20SUM(A1)" };
 let runId: string;
 
-/** One finished run with a planned source, a kept row and a set-aside row carrying a formula. */
+/** One finished run with a planned source, a kept row and two set-aside rows carrying formulas. */
 beforeAll(async () => {
   await resetDb();
   const run = await insertRun({ status: "completed", modelPlanner: "planner-model", modelWorker: "worker-model" });
@@ -32,6 +34,8 @@ beforeAll(async () => {
     .values([
       { runId, sourceId, itemKey: "a", status: "valid", matchScore: 0.75, confidence: 0.95, data: { company: "Acme", title: "Backend engineer", location: "Remote", url: POSTING } },
       { runId, sourceId, itemKey: "b", status: "invalid", confidence: 0.5, data: { company: "=HYPERLINK(\"http://evil\")", title: "Sales\u202E lead\u202C", location: "Paris", url: "javascript:alert(1)" } },
+      // A match score puts it after "b", whose score is unset.
+      { runId, sourceId, itemKey: "c", status: "invalid", matchScore: 0, confidence: 0.5, data: FORMULAS },
     ])
     .returning();
   const receipt = { method: "API" as const, sourceUrl: POSTING, pageId: null, locator: { kind: "jsonPath" as const, value: "$.title" }, verified: true };
@@ -113,5 +117,12 @@ describe("Excel export", () => {
     const receipt = rowValues(workbook, "Receipts", 4);
     expect(receipt[3]).toBe("'=HYPERLINK(\"http://evil\")");
     expect(receipt[6]).toBe("'@SUM(A1)");
+  });
+
+  test("neutralises formulas after spaces or line breaks and in full-width form", async () => {
+    const workbook = await download("all");
+    const header = rowValues(workbook, "Data", 1);
+    const row = workbook.getWorksheet("Data")!.getRow(4);
+    for (const [field, formula] of Object.entries(FORMULAS)) expect(row.getCell(header.indexOf(field) + 1).value).toBe(`'${formula}`);
   });
 });

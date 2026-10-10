@@ -113,6 +113,17 @@ describe("toCsv", () => {
     expect(toCsv(["a"], [{ a: "=HYPERLINK(1)" }])).toBe("a\r\n'=HYPERLINK(1)\r\n");
   });
 
+  test.each([
+    [" =1+1", "' =1+1"],
+    ["\n=1+1", "\"'\n=1+1\""],
+    ["\uFF1D1+1", "'\uFF1D1+1"],
+    ["\uFF0B1", "'\uFF0B1"],
+    ["\uFF0D1", "'\uFF0D1"],
+    ["\uFF20SUM(A1)", "'\uFF20SUM(A1)"],
+  ])("neutralises the formula %p", (value, cell) => {
+    expect(toCsv(["a"], [{ a: value }])).toBe(`a\r\n${cell}\r\n`);
+  });
+
   test("drops invisible and bidirectional control characters, and keeps every other character as it is", () => {
     expect(toCsv(["a"], [{ a: "\u202EAcme \uFB01nance\u202C\u2066" }])).toBe("a\r\nAcme \uFB01nance\r\n");
     // Removed before the formula check, so they can't hide a formula from it.
