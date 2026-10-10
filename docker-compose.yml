@@ -1,7 +1,8 @@
 # Local infrastructure for RUVO.
-#   docker compose up -d                  -> postgres and searxng
-#   docker compose --profile laya up -d   -> also the optional self-hosted Laya decider
-# A port set in apps/server/.env (POSTGRES_PORT) applies when `bun run setup` starts these,
+#   docker compose up -d                   -> postgres and searxng
+#   docker compose --profile fetch up -d   -> also the fetch service, for a machine without Python and Scrapling
+#   docker compose --profile laya up -d    -> also the optional self-hosted Laya decider
+# Ports set in apps/server/.env (POSTGRES_PORT, SCRAPLING_PORT) apply when `bun run setup` starts these,
 # or by hand with `docker compose --env-file apps/server/.env up -d`.
 services:
   postgres:
@@ -38,6 +39,42 @@ services:
       timeout: 3s
       retries: 10
 
+  # The fetch service (SCRAPLING_URL), which `bun run dev` uses when it answers. As in docker-compose.prod.yml, its
+  # only network is internal, so the egress guard, which refuses private addresses, is its only way out.
+  scrapling:
+    profiles: ["fetch"]
+    build: ./infra/scrapling
+    restart: unless-stopped
+    init: true
+    environment:
+      EGRESS_PROXY: socks5://egress:1080
+    networks: [scrape]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  egress:
+    profiles: ["fetch"]
+    build:
+      context: .
+      dockerfile: infra/egress/Dockerfile
+    restart: unless-stopped
+    init: true
+    networks: [default, scrape]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # Docker publishes no port for a container whose only network is internal, so this one forwards 127.0.0.1:SCRAPLING_PORT to it.
+  relay:
+    profiles: ["fetch"]
+    image: alpine/socat:1.8.1.1
+    command: ["TCP-LISTEN:8001,fork,reuseaddr", "TCP:scrapling:8001"]
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${SCRAPLING_PORT:-8001}:8001"
+    networks: [default, scrape]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
   # Fallback decision provider; the MVP uses the hosted Jev API instead.
   laya:
     profiles: ["laya"]
@@ -47,6 +84,10 @@ services:
     volumes:
       - laya-models:/models
     mem_limit: 4g
+
+networks:
+  scrape:
+    internal: true
 
 volumes:
   postgres-data:

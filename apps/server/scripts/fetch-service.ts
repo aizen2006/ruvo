@@ -2,6 +2,7 @@
  * Runs RUVO's Scrapling fetch service natively for development: `bun scripts/fetch-service.ts`.
  * Starts the egress guard on 127.0.0.1:EGRESS_PORT, then infra/scrapling/server.py with your own Scrapling on
  * SCRAPLING_URL's port; the service sends every connection it makes through the guard and stops when this script does.
+ * A fetch service that already answers there, such as Docker's (`docker compose --profile fetch up -d`), is used instead.
  */
 import { $ } from "bun";
 import { once } from "node:events";
@@ -14,6 +15,10 @@ if (!env.SCRAPLING_URL) {
   process.exit(0);
 }
 const serviceUrl = new URL(env.SCRAPLING_URL);
+if (await fetch(new URL("/health", serviceUrl)).then((res) => res.ok, () => false)) {
+  console.log(`A fetch service already answers at ${env.SCRAPLING_URL} (Docker's fetch profile, or one started earlier), so RUVO uses it.`);
+  process.exit(0);
+}
 const python = env.SCRAPLING_PYTHON ?? (process.platform === "win32" ? "python" : "python3");
 // scrapling[all] also brings the service's web server (starlette, uvicorn).
 const installed = await $`${python} -c ${"import scrapling, starlette, uvicorn"}`.quiet().nothrow();
