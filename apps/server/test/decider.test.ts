@@ -137,6 +137,62 @@ describe("LLM judge", () => {
   });
 });
 
+describe("LLM judge batches", () => {
+  const decider = () => createDecider({ provider: null, mode: "off" });
+  const roles = (n: number) => Array.from({ length: n }, (_, i) => request(`Role ${i}`));
+  /** What judging one batch at a time decides: the judge's label for the first `judged` items, the default for the rest. */
+  const oneAtATime = (n: number, judged: number) =>
+    Array.from({ length: n }, (_, i) => (i < judged ? [i % 2 ? "no" : "yes", "LLM"] : ["no", "DEFAULT"]));
+
+  /** A judge that takes a moment to answer "yes" for even ids and "no" for odd ones; a batch holding `failOn` fails at once. */
+  function slowJudge(failOn?: string) {
+    const flight = { now: 0, max: 0 };
+    const llm = fakeLlm({
+      decision_batch: async ({ input }: { input: Array<{ content: string }> }) => {
+        const ids = judgedIds(input);
+        if (failOn && ids.includes(failOn)) throw new Error("model unavailable");
+        flight.max = Math.max(flight.max, ++flight.now);
+        await Bun.sleep(25);
+        flight.now--;
+        return { answers: ids.map((id) => ({ id, label: Number(id) % 2 ? "no" : "yes", confidence: 0.7, quote: null })) };
+      },
+    });
+    return { llm, flight };
+  }
+
+  test("three run at a time, and every item is decided as one batch at a time would", async () => {
+    const { llm, flight } = slowJudge();
+    const s = scope(llm, 7);
+    const results = await decider().decideMany(s, roles(130));
+
+    expect(results.map((r): string[] => [r.label, r.decidedBy])).toEqual(oneAtATime(130, 130));
+    expect(llm.calls).toHaveLength(7);
+    expect(flight.max).toBe(3);
+    // Seven batches, seven calls taken from the budget: none twice.
+    expect(s.budget.left("llmCalls")).toBe(0);
+    expect((await db.select().from(decisions)).every((d) => d.reusable)).toBe(true);
+  });
+
+  test("no batch starts once the budget is spent, and the rest take their defaults", async () => {
+    const { llm } = slowJudge();
+    const s = scope(llm, 2);
+    const results = await decider().decideMany(s, roles(130));
+
+    expect(results.map((r): string[] => [r.label, r.decidedBy])).toEqual(oneAtATime(130, 40));
+    expect(llm.calls).toHaveLength(2);
+    expect(s.metrics.snapshot().llmCalls).toBe(2);
+  });
+
+  test("a failed batch ends the judging there, setting aside a later batch that answered", async () => {
+    const { llm } = slowJudge("20");
+    const results = await decider().decideMany(scope(llm, 10), roles(130));
+
+    // The second batch failed while the first and third were in flight; one at a time, the third would not have run.
+    expect(results.map((r): string[] => [r.label, r.decidedBy])).toEqual(oneAtATime(130, 20));
+    expect(llm.calls).toHaveLength(3);
+  });
+});
+
 describe("bands", () => {
   test("noul band", () => {
     const band = noulBand(0.8, 0.2);

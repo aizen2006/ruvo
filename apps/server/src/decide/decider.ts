@@ -5,6 +5,7 @@ import type { RunContext } from "../core/run";
 import { db } from "../db/client";
 import { decisions } from "../db/schema";
 import { sha256, stableStringify } from "../libs/hash";
+import { mapLimit } from "../libs/limit";
 import { LlmError } from "../llm/client";
 import { PAGE_CONTENT_GUARD } from "../llm/guard";
 import { modeFor } from "./calibration";
@@ -56,6 +57,8 @@ export interface Decider {
 }
 
 export const JUDGE_BATCH = 20;
+/** Judge batches in flight at once. */
+const JUDGE_CONCURRENCY = 3;
 const JUDGE_PROMPT = `You classify items. Each item sits between <item id="…"> and </item id="…"> tags carrying its id, and has a question, the allowed labels and the item's data.
 For every item return its id, exactly one allowed label, and your confidence from 0 to 1.
 Judge only from the data given; if it is insufficient, pick the most likely label with low confidence.
@@ -137,10 +140,20 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
         );
       }
 
-      // 4. Batched LLM judge for whatever is still undecided
+      // 4. Batched LLM judge for whatever is still undecided, three batches at a time. Each call is taken from the
+      // budget in batch order before it starts, and the first batch that fails (budget spent or model unavailable)
+      // ends the judging there, as one batch at a time would: later batches aren't started, any already answered
+      // are set aside, and the rest take their defaults.
       const undecided = pending();
-      for (let start = 0; start < undecided.length; start += JUDGE_BATCH) {
-        const batch = undecided.slice(start, start + JUDGE_BATCH);
+      const batches = Array.from({ length: Math.ceil(undecided.length / JUDGE_BATCH) }, (_, b) =>
+        undecided.slice(b * JUDGE_BATCH, (b + 1) * JUDGE_BATCH),
+      );
+      let failed = batches.length;
+      const replies = await mapLimit(batches, JUDGE_CONCURRENCY, async (batch, b) => {
+        if (b > failed || !scope.budget.take("llmCalls")) {
+          failed = Math.min(failed, b);
+          return null;
+        }
         try {
           const { data } = await scope.llm.parse({
             stage: "decide",
@@ -160,25 +173,31 @@ export function createDecider(opts: { provider: SystemOneClient | null; mode: En
               .join("\n"),
             signal: scope.signal,
             run: scope,
+            paid: true,
           });
-          const verdicts = batch.flatMap((i) => {
-            const answer = data.answers.find((a) => Number(a.id) === i);
-            const label = answer && requests[i]!.labels.find((l) => l.toLowerCase() === answer.label.trim().toLowerCase());
-            return label ? [{ i, label, answer }] : [];
-          });
-          // A batch should answer each item once with an allowed label. One that doesn't (an unknown or repeated
-          // id, an item left out) may be one page's text steering it: its verdicts still decide this run, so one
-          // skipped item doesn't cost the others, but none is reused by later runs. Skipped items take their defaults.
-          const whole = verdicts.length === batch.length && data.answers.length === batch.length;
-          for (const { i, label, answer } of verdicts) {
-            settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
-            if (!whole) unreusable.add(i);
-          }
+          return data;
         } catch (err) {
           if (!(err instanceof LlmError)) throw err;
-          break; // budget spent or model unavailable: the rest take their defaults
+          failed = Math.min(failed, b);
+          return null;
         }
-      }
+      });
+      batches.slice(0, failed).forEach((batch, b) => {
+        const data = replies[b]!;
+        const verdicts = batch.flatMap((i) => {
+          const answer = data.answers.find((a) => Number(a.id) === i);
+          const label = answer && requests[i]!.labels.find((l) => l.toLowerCase() === answer.label.trim().toLowerCase());
+          return label ? [{ i, label, answer }] : [];
+        });
+        // A batch should answer each item once with an allowed label. One that doesn't (an unknown or repeated
+        // id, an item left out) may be one page's text steering it: its verdicts still decide this run, so one
+        // skipped item doesn't cost the others, but none is reused by later runs. Skipped items take their defaults.
+        const whole = verdicts.length === batch.length && data.answers.length === batch.length;
+        for (const { i, label, answer } of verdicts) {
+          settle(i, label, clamp01(answer.confidence), "LLM", false, answer.quote ?? null);
+          if (!whole) unreusable.add(i);
+        }
+      });
 
       // 5. Defaults
       for (const i of pending()) settle(i, requests[i]!.defaultLabel, 0, "DEFAULT");

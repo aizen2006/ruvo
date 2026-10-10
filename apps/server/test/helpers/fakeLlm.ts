@@ -4,7 +4,7 @@ type FakeReply = unknown | ((request: { input: Array<{ role: string; content: st
 
 /**
  * A stand-in for `openai.responses` that answers by schema name, e.g.
- * fakeResponses({ contract: {...} }). `refuse` makes a schema return a refusal.
+ * fakeResponses({ contract: {...} }). A reply may be a function, sync or async. `refuse` makes a schema return a refusal.
  */
 export function fakeResponses(replies: Record<string, FakeReply>, opts: { refuse?: string[] } = {}) {
   const calls: Array<{ name: string; model: string; input: Array<{ role: string; content: string }> }> = [];
@@ -17,7 +17,7 @@ export function fakeResponses(replies: Record<string, FakeReply>, opts: { refuse
       }
       if (!(name in replies)) throw new Error(`fakeResponses: no reply for schema "${name}"`);
       const reply = replies[name];
-      const parsed = typeof reply === "function" ? (reply as (r: { input: typeof body.input }) => unknown)({ input: body.input }) : reply;
+      const parsed = typeof reply === "function" ? await (reply as (r: { input: typeof body.input }) => unknown)({ input: body.input }) : reply;
       return { output_parsed: parsed, output: [], usage: { input_tokens: 1000, output_tokens: 200 } };
     },
   } as unknown as ResponsesApi;

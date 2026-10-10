@@ -33,6 +33,8 @@ export interface ParseRequest<T> {
   runId?: string;
   /** When called inside a run: counts the call against the run's budget and metrics. */
   run?: { runId: string; budget: Budget; metrics: Metrics };
+  /** The caller already took this call from `run`'s budget, so calls made in parallel take theirs in order. */
+  paid?: boolean;
 }
 
 export interface ParseResult<T> {
@@ -138,7 +140,7 @@ export function createLlmClient(opts: {
         }
       }
 
-      if (req.run && !req.run.budget.take("llmCalls")) {
+      if (req.run && !req.paid && !req.run.budget.take("llmCalls")) {
         throw new LlmError("budget_exhausted", "LLM call budget exhausted for this run");
       }
 
