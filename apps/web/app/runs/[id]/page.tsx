@@ -10,7 +10,7 @@ import { ResultView } from "@/components/result/result-view";
 import { DatasetHeader } from "@/components/run/dataset-header";
 import { PageNotice } from "@/components/ui/notice";
 import { phaseOf } from "@/lib/plain";
-import { useRun, useRunEvents } from "@/lib/queries";
+import { useRun, useRunEvents, useRunStream } from "@/lib/queries";
 import { useShowDetails } from "@/lib/use-show-details";
 import Loading from "@/app/loading";
 
@@ -26,6 +26,8 @@ export default function RunPage() {
  */
 function RunWorkspace({ id }: { id: string }) {
   const { data: run, error, isLoading } = useRun(id);
+  // While the run may still change, its stream says what did, so the page refetches only that.
+  useRunStream(id, run?.status);
   const events = useRunEvents(id, run?.status);
   const [edited, setEdited] = useState<DatasetContract | null>(null);
   const [showDetails, setShowDetails] = useShowDetails();

@@ -1,7 +1,9 @@
-import type { Budgets, DatasetContract, RunMetrics, Stage, WorkflowIR } from "@repo/contracts";
+import type { Budgets, DatasetContract, RunMetrics, RunTopic, Stage, WorkflowIR } from "@repo/contracts";
 import { eq } from "drizzle-orm";
 import { createBudget, createMetrics, type BudgetKey, type RunContext } from "../core/run";
 import { db } from "../db/client";
+import { setRunStage } from "../db/repos/runs";
+import { notifyRunChange } from "../db/runChanges";
 import type { Decider } from "../decide/decider";
 import type { Fetcher } from "../fetch/fetcher";
 import type { ScraplingClient } from "../fetch/scrapling";
@@ -42,8 +44,15 @@ export async function createRunContext(args: {
   const { runId } = args;
   const bus = createEventBus(runId, { startSeq: await nextEventSeq(runId) });
   const metrics = createMetrics(args.initialMetrics);
+  // None saved yet, so the first save always writes.
+  let saved: RunMetrics | null = null;
   const saveMetrics = async () => {
-    await db.update(runs).set({ metrics: metrics.snapshot() }).where(eq(runs.id, runId));
+    const snapshot = metrics.snapshot();
+    const topics = changedTopics(saved, snapshot);
+    if (topics.length === 0) return;
+    await db.update(runs).set({ metrics: snapshot }).where(eq(runs.id, runId));
+    saved = snapshot;
+    await notifyRunChange(runId, topics);
   };
   let currentStage: Stage = "collecting";
   const metricsTimer = setInterval(() => void saveMetrics().catch(() => {}), 1000);
@@ -68,7 +77,7 @@ export async function createRunContext(args: {
     emit: bus.emit,
     async setStage(stage) {
       currentStage = stage;
-      await db.update(runs).set({ stage }).where(eq(runs.id, runId));
+      await setRunStage(runId, stage);
       bus.emit({ stage, type: "stage.started", message: `Stage: ${stage}` });
     },
     saveMetrics,
@@ -77,4 +86,17 @@ export async function createRunContext(args: {
       await Promise.all([bus.close(), saveMetrics()]);
     },
   };
+}
+
+/**
+ * What a metrics save tells the dashboard changed: nothing when no counter moved, else the run, and its records or
+ * decisions when their counts moved too (the store step counts rows once they are saved, and dedupe recounts them).
+ */
+function changedTopics(before: RunMetrics | null, after: RunMetrics): RunTopic[] {
+  const moved = (pick: (m: RunMetrics) => unknown) => !before || JSON.stringify(pick(before)) !== JSON.stringify(pick(after));
+  if (!moved((m) => m)) return [];
+  const topics: RunTopic[] = ["run"];
+  if (moved((m) => [m.validRecords, m.incompleteRecords, m.invalidRecords, m.duplicates])) topics.push("records");
+  if (moved((m) => m.decisions)) topics.push("decisions");
+  return topics;
 }

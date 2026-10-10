@@ -7,6 +7,7 @@ import { optionsRouter } from "./api/options.routes";
 import { recipesRouter } from "./api/recipes.routes";
 import { runsRouter } from "./api/runs.routes";
 import { settingsRouter } from "./api/settings.routes";
+import { streamRouter } from "./api/stream.routes";
 import { env } from "./config/env";
 import { sql } from "./db/client";
 import { careersSite } from "./fixtures/careersSite";
@@ -38,6 +39,7 @@ export function createApp() {
   });
   app.use("/api/options", optionsRouter);
   app.use("/api/runs", runsRouter);
+  app.use("/api/runs", streamRouter);
   app.use("/api/datasets", datasetsRouter);
   app.use("/api/recipes", recipesRouter);
   // Fictional demo site for self-repair demos; not served in production.

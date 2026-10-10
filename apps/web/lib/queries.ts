@@ -1,28 +1,34 @@
 "use client";
 
-import { isTerminal, type ChatgptSignIn, type RunEvent, type RunStatus, type SettingsUpdate } from "@repo/contracts";
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { isTerminal, type ChatgptSignIn, type RunEvent, type RunStatus, type RunTopic, type SettingsUpdate } from "@repo/contracts";
+import { keepPreviousData, useMutation, useQuery, useQueryClient, type InvalidateQueryFilters } from "@tanstack/react-query";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { api, isClientError, type RecordFilters } from "./api";
 
 /**
- * React Query hooks. A run in progress polls once a second; a run waiting for review polls
- * slowly (only a start from elsewhere changes it); a finished run stops polling.
+ * React Query hooks. An open run page hears from the run's stream what changed (useRunStream) and refetches only
+ * that, polling every 15 s in case a change was missed. Without the stream, a run in progress polls once a second,
+ * a run waiting for review polls slowly (only a start from elsewhere changes it); a finished run stops polling.
  */
 
 const POLL_MS = 1000;
 const REVIEW_POLL_MS = 5000;
+/** How often a run page polls while the run's stream is open, in case a change was missed. */
+const FALLBACK_MS = 15_000;
 /** The API returns at most this many events per request. */
 const EVENTS_PAGE = 500;
 
-const pollInterval = (status: RunStatus | undefined) =>
-  status && isTerminal(status) ? false : status === "awaiting_approval" ? REVIEW_POLL_MS : POLL_MS;
+/** Polls every `ms`, or only as a fallback while the run's stream is open. */
+const every = (ms: number, live: boolean) => (live ? FALLBACK_MS : ms);
+const pollInterval = (status: RunStatus | undefined, live: boolean) =>
+  status && isTerminal(status) ? false : every(status === "awaiting_approval" ? REVIEW_POLL_MS : POLL_MS, live);
 /** Part of the query key for data that changes one last time when the run ends. */
 const phase = (status: RunStatus | undefined) => ({ finished: Boolean(status && isTerminal(status)) });
 
 export const runKeys = {
   all: ["runs"] as const,
   run: (id: string) => ["runs", id] as const,
+  events: (id: string) => ["runs", id, "events"] as const,
   workflow: (id: string) => ["runs", id, "workflow"] as const,
   records: (id: string, filters: RecordFilters) => ["runs", id, "records", filters] as const,
   evidence: (id: string, recordId: string) => ["runs", id, "evidence", recordId] as const,
@@ -30,6 +36,24 @@ export const runKeys = {
   diff: (id: string) => ["runs", id, "diff"] as const,
   decisions: (id: string) => ["runs", id, "decisions"] as const,
 };
+
+/** Runs whose stream is open (see useRunStream); their hooks poll only as a fallback meanwhile. */
+const liveRuns = new Set<string>();
+const liveListeners = new Set<() => void>();
+
+function setLive(id: string, live: boolean) {
+  if (live) liveRuns.add(id);
+  else liveRuns.delete(id);
+  liveListeners.forEach((listener) => listener());
+}
+
+function subscribeLive(listener: () => void) {
+  liveListeners.add(listener);
+  return () => void liveListeners.delete(listener);
+}
+
+/** Whether run `id`'s stream is open. */
+const useLive = (id: string) => useSyncExternalStore(subscribeLive, () => liveRuns.has(id), () => false);
 
 /** Modes, models and prices for a new run; they only change when the server restarts. */
 export const useRunOptions = () => useQuery({ queryKey: ["options"], queryFn: api.getOptions, staleTime: 5 * 60_000 });
@@ -95,11 +119,12 @@ export const useRuns = (limit: number) =>
   });
 
 export function useRun(id: string) {
+  const live = useLive(id);
   return useQuery({
     queryKey: runKeys.run(id),
     queryFn: () => api.getRun(id),
     // A missing run stays missing: stop asking.
-    refetchInterval: (q) => (isClientError(q.state.error) ? false : pollInterval(q.state.data?.status)),
+    refetchInterval: (q) => (isClientError(q.state.error) ? false : pollInterval(q.state.data?.status, live)),
   });
 }
 
@@ -118,13 +143,14 @@ export function useWorkflow(id: string, status: RunStatus | undefined) {
 }
 
 export function useRecords(id: string, filters: RecordFilters, status: RunStatus | undefined) {
+  const live = useLive(id);
   return useQuery({
     // Refetched once more when the run ends: deduplication happens last.
     queryKey: [...runKeys.records(id, filters), phase(status)],
     queryFn: () => api.listRecords(id, filters),
     placeholderData: keepPreviousData,
     enabled: status === "running" || Boolean(status && isTerminal(status)),
-    refetchInterval: status === "running" ? 2_000 : false,
+    refetchInterval: status === "running" && every(2_000, live),
   });
 }
 
@@ -138,48 +164,39 @@ export const useEvidence = (id: string, recordId: string | null) =>
 export const useQuality = (id: string, status: RunStatus | undefined) =>
   useQuery({ queryKey: runKeys.quality(id), queryFn: () => api.getQuality(id), enabled: status === "completed" });
 
+const NO_EVENTS: RunEvent[] = [];
+
 /**
- * Accumulates run events by polling `?after=lastSeq`, so each poll only transfers new events.
- * Polls never overlap, a long history is paged through, and a finished run is polled once
- * more shortly after it ends (the worker writes its last event just after the status flips).
+ * A run's events, oldest first. Each fetch asks only for events after the newest one held (`?after=seq`), paging
+ * through a long history, and React Query never runs two at once. A finished run is asked once more shortly
+ * after it ends: the worker writes its last event just after the status flips.
  */
 export function useRunEvents(id: string, status: RunStatus | undefined) {
-  const [events, setEvents] = useState<RunEvent[]>([]);
-  const lastSeq = useRef(0);
+  const client = useQueryClient();
+  const live = useLive(id);
+  const finished = Boolean(status && isTerminal(status));
+  const { data } = useQuery({
+    queryKey: runKeys.events(id),
+    queryFn: async () => {
+      let events = client.getQueryData<RunEvent[]>(runKeys.events(id)) ?? NO_EVENTS;
+      for (;;) {
+        const next = await api.listEvents(id, events.at(-1)?.seq ?? 0);
+        if (next.length) events = [...events, ...next];
+        if (next.length < EVENTS_PAGE) return events;
+      }
+    },
+    // Wait for the run itself: one that failed to load has no events.
+    enabled: Boolean(status),
+    refetchInterval: pollInterval(status, live),
+  });
 
   useEffect(() => {
-    // Wait for the run itself: one that failed to load has no events to poll for.
-    if (!status) return;
-    let cancelled = false;
-    let inFlight = false;
-    const poll = async () => {
-      if (inFlight) return;
-      inFlight = true;
-      try {
-        for (;;) {
-          const next = await api.listEvents(id, lastSeq.current).catch(() => [] as RunEvent[]);
-          if (cancelled || next.length === 0) return;
-          lastSeq.current = next.at(-1)!.seq;
-          setEvents((prev) => {
-            const last = prev.at(-1)?.seq ?? 0;
-            return [...prev, ...next.filter((e) => e.seq > last)];
-          });
-          if (next.length < EVENTS_PAGE) return;
-        }
-      } finally {
-        inFlight = false;
-      }
-    };
-    void poll();
-    const interval = pollInterval(status);
-    const timer = interval ? setInterval(poll, interval) : setTimeout(poll, 2_000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [id, status]);
+    if (!finished) return;
+    const timer = setTimeout(() => void client.invalidateQueries({ queryKey: runKeys.events(id) }), 2_000);
+    return () => clearTimeout(timer);
+  }, [client, id, finished]);
 
-  return events;
+  return data ?? NO_EVENTS;
 }
 
 /** Wraps a run action and refreshes everything about that run afterwards. */
@@ -191,19 +208,23 @@ export function useRunAction<T, V = void>(id: string, action: (variables: V) => 
   });
 }
 
-export const useDecisions = (id: string, status: RunStatus | undefined) =>
-  useQuery({
+export function useDecisions(id: string, status: RunStatus | undefined) {
+  const live = useLive(id);
+  return useQuery({
     queryKey: [...runKeys.decisions(id), phase(status)],
     queryFn: () => api.getDecisions(id),
     enabled: status === "running" || Boolean(status && isTerminal(status)),
-    refetchInterval: status === "running" ? 3_000 : false,
+    refetchInterval: status === "running" && every(3_000, live),
   });
+}
 
 export const recipeKeys = { all: ["recipes"] as const };
 
-/** Every recorded recipe version; refreshed while a run may be discovering or repairing one. */
-export const useRecipes = (status: RunStatus | undefined) =>
-  useQuery({ queryKey: recipeKeys.all, queryFn: api.listRecipes, refetchInterval: status === "running" ? 3_000 : false });
+/** Every recorded recipe version; refreshed while run `runId` may be discovering or repairing one. */
+export function useRecipes(runId: string, status: RunStatus | undefined) {
+  const live = useLive(runId);
+  return useQuery({ queryKey: recipeKeys.all, queryFn: api.listRecipes, refetchInterval: status === "running" && every(3_000, live) });
+}
 
 export function useSimulateDrift() {
   const client = useQueryClient();
@@ -215,3 +236,47 @@ export function useSimulateDrift() {
 
 export const useDiff = (id: string, status: RunStatus | undefined) =>
   useQuery({ queryKey: runKeys.diff(id), queryFn: () => api.getDiff(id), enabled: status === "completed" });
+
+/** What a run page refetches for each topic its stream names. */
+const TOPIC_QUERIES: Record<RunTopic, (id: string) => InvalidateQueryFilters> = {
+  run: (id) => ({ queryKey: runKeys.run(id), exact: true }),
+  events: (id) => ({ queryKey: runKeys.events(id) }),
+  records: (id) => ({ queryKey: ["runs", id, "records"] }),
+  decisions: (id) => ({ queryKey: runKeys.decisions(id) }),
+  recipes: () => ({ queryKey: recipeKeys.all }),
+};
+
+/**
+ * Keeps an unfinished run's page current: the run's stream (GET /api/runs/:id/stream) names what changed and only that
+ * is refetched, while the hooks above poll every 15 s in case a change was missed. Until the stream opens, and
+ * whenever it drops, they poll at their usual rates.
+ */
+export function useRunStream(id: string, status: RunStatus | undefined) {
+  const client = useQueryClient();
+  const watching = Boolean(status && !isTerminal(status));
+
+  useEffect(() => {
+    if (!watching) return;
+    let stream: EventSource;
+    let retry: ReturnType<typeof setTimeout> | undefined;
+    const open = () => {
+      stream = new EventSource(`/api/runs/${id}/stream`);
+      stream.onopen = () => setLive(id, true);
+      stream.onerror = () => {
+        setLive(id, false);
+        // The browser reconnects by itself when a stream drops, but not after an error answer (the API was down, say).
+        if (stream.readyState === EventSource.CLOSED) retry = setTimeout(open, FALLBACK_MS);
+      };
+      stream.onmessage = (message) => {
+        const { topics } = JSON.parse(message.data) as { topics: RunTopic[] };
+        for (const topic of topics) void client.invalidateQueries(TOPIC_QUERIES[topic](id));
+      };
+    };
+    open();
+    return () => {
+      clearTimeout(retry);
+      stream.close();
+      setLive(id, false);
+    };
+  }, [client, id, watching]);
+}

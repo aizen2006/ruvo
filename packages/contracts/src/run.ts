@@ -105,3 +105,10 @@ export const RunEvent = z.object({
   data: z.unknown(),
 });
 export type RunEvent = z.infer<typeof RunEvent>;
+
+/**
+ * What changed about a run, as its stream (GET /api/runs/:id/stream) names it so the dashboard refetches only that:
+ * the run itself (status, stage, counters), its events, records or decisions, or the page recipes it reads with.
+ */
+export const RunTopic = z.enum(["run", "events", "records", "decisions", "recipes"]);
+export type RunTopic = z.infer<typeof RunTopic>;

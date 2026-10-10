@@ -1,6 +1,7 @@
 import { desc, eq } from "drizzle-orm";
 import type { EmitInput } from "../core/run";
 import { db } from "../db/client";
+import { notifyRunChange } from "../db/runChanges";
 import { runEvents } from "../db/schema";
 import { logger } from "../libs/logger";
 
@@ -17,6 +18,8 @@ export interface EventBus {
 
 const writeToDb: EventWriter = async (rows) => {
   await db.insert(runEvents).values(rows);
+  // Recipe events (discovered, replayed, repaired, …) mean the recipes changed too.
+  await notifyRunChange(rows[0]!.runId, rows.some((r) => r.type.startsWith("recipe.")) ? ["events", "recipes"] : ["events"]);
 };
 
 /** Next sequence number for a run, so re-attempted runs append instead of colliding. */

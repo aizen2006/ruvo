@@ -17,6 +17,7 @@ import { badRequest, conflict, HttpError, notFound } from "../../libs/errors";
 import { isChatModel } from "../../llm/models";
 import { modelsForMode, runModels } from "../../runs/modes";
 import { db } from "../client";
+import { notifyRunChange } from "../runChanges";
 import { datasetContracts, llmCalls, requests, runEvents, runs, searchCalls } from "../schema";
 import { getRunFunnel } from "./funnel";
 import { loadRunWorkflow } from "./workflows";
@@ -249,7 +250,8 @@ export async function listEvents(runId: string, after: number, limit = 500): Pro
   }));
 }
 
-async function getStatus(runId: string) {
+/** The run's status; a 404 when there is no such run. */
+export async function getStatus(runId: string) {
   const [row] = await db.select({ status: runs.status }).from(runs).where(eq(runs.id, runId));
   if (!row) throw notFound("Run");
   return row;
@@ -257,6 +259,7 @@ async function getStatus(runId: string) {
 
 export async function setRunStage(runId: string, stage: Stage) {
   await db.update(runs).set({ stage }).where(eq(runs.id, runId));
+  await notifyRunChange(runId, ["run"]);
 }
 
 export async function getRequestPrompt(requestId: string): Promise<string> {

@@ -20,7 +20,7 @@ const ORIGIN_LABEL: Record<Recipe["origin"], string> = {
  * with buttons to break the newest version on purpose and watch the next run repair it.
  */
 export function RecipeLineage({ run, hosts }: { run: RunDetail; hosts: string[] }) {
-  const { data: recipes } = useRecipes(run.status);
+  const { data: recipes } = useRecipes(run.id, run.status);
   const relevant = (recipes ?? []).filter((r) => hosts.includes(r.host));
   if (relevant.length === 0) return null;
 

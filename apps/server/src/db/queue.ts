@@ -1,6 +1,7 @@
 import type { RunStatus } from "@repo/contracts";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "./client";
+import { notifyRunChange } from "./runChanges";
 import { runs } from "./schema";
 
 /**
@@ -44,6 +45,7 @@ export async function claimNextRun(workerId: string, phases: QueuePhase[] = ["qu
     .where(inArray(runs.id, oldestWaiting))
     .returning();
 
+  if (run) await notifyRunChange(run.id, ["run"]);
   return run ?? null;
 }
 
@@ -70,6 +72,7 @@ export async function completePreparation(runId: string, workerId: string, next:
     // Execution gets its own attempt budget.
     .set({ status: next, workerId: null, attempt: 0 })
     .where(owned(runId, workerId));
+  await notifyRunChange(runId, ["run"]);
 }
 
 /**
@@ -81,6 +84,7 @@ export async function finishRun(runId: string, workerId: string, status: FinalSt
     .update(runs)
     .set({ status, error: error ?? null, finishedAt: new Date(), ...(status === "completed" ? { stage: "done" as const } : {}) })
     .where(owned(runId, workerId));
+  await notifyRunChange(runId, ["run"]);
 }
 
 /**
@@ -92,6 +96,7 @@ export async function releaseRun(runId: string, workerId: string) {
     .update(runs)
     .set({ status: requeueStatus, workerId: null, attempt: sql`${runs.attempt} - 1` })
     .where(owned(runId, workerId));
+  await notifyRunChange(runId, ["run"]);
 }
 
 /**
@@ -115,5 +120,6 @@ export async function recoverStaleRuns(opts: { staleMs: number; maxAttempts: num
     .where(and(stale, gte(runs.attempt, opts.maxAttempts)))
     .returning({ id: runs.id });
 
+  await Promise.all([...requeued, ...failed].map(({ id }) => notifyRunChange(id, ["run"])));
   return { requeued: requeued.length, failed: failed.length };
 }

@@ -34,7 +34,7 @@ queued → compiling → awaiting_approval ─start─▶ queued_run → running
                       and filters on no sensitive attributes)
 ```
 
-- **API process** (`index.ts`): it only reads and writes rows.
+- **API process** (`index.ts`): it only reads and writes rows. The worker announces each change to a run with `pg_notify` (`db/runChanges.ts`); the API listens on one connection and passes them to the run's open streams.
 - **Worker process** (`worker.ts`): it claims runs with `FOR UPDATE SKIP LOCKED`. It sends a heartbeat every few seconds and checks for cancellation on each one.
 - **Stale runs**: a run whose heartbeat stops is requeued, up to 2 attempts. A requeued run replays from the caches, and records are written with upserts keyed on `(run_id, item_key)`, so replaying never duplicates them.
 - **Preparation** (`runs/prepare.ts`): compile, discover, plan, save. The status stays `compiling` throughout; the separate `stage` column shows understanding, planning and discovering.
@@ -266,6 +266,7 @@ Plan memory lives in Postgres too: `workflow_memory` keeps each remembered plan 
 | `POST /api/runs/:id/start`, `/cancel`, `/rerun`, `/more` | Run actions (`/more` searches the web for sources not read yet). A list that filters on sensitive attributes waits for review every time, re-runs too, and `/start` needs `{ "purposeConfirmed": true }` for it |
 | `PATCH /api/runs/:id/contract` | Edit the contract while reviewing (recompiles the IR) |
 | `GET /api/runs/:id/workflow`, `/events?after=`, `/records`, `/evidence/:recordId`, `/quality`, `/diff`, `/decisions` | Everything the dashboard shows (records come best lead first; `?isNew=true` keeps the new ones) |
+| `GET /api/runs/:id/stream` | Server-sent events naming what changed about a run (`run`, `events`, `records`, `decisions`, `recipes`), so an open run page refetches only that and polls every 15 s as a fallback |
 | `GET /api/datasets/:runId/export?format=csv\|json\|xlsx&scope=valid\|all` | Export |
 | `GET /api/recipes?host=`, `POST /api/recipes/:id/simulate-drift` | Recipe lineage and the drift demo |
 

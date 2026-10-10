@@ -4,8 +4,11 @@ import type { NextRequest } from "next/server";
 const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]"];
 /** All the API reads from a request: the body's type, a new run's Idempotency-Key, and the Origin it checks changes against. */
 const REQUEST_HEADERS = ["content-type", "idempotency-key", "origin"];
-/** All the browser needs from an answer: its type and, for an export, the file name. */
-const RESPONSE_HEADERS = ["content-type", "content-disposition"];
+/**
+ * All the browser needs from an answer: its type, for an export the file name, and for a run's stream its
+ * cache-control, whose no-transform keeps this server's compression from holding the stream's messages back.
+ */
+const RESPONSE_HEADERS = ["content-type", "content-disposition", "cache-control"];
 
 /** `headers` with only `names`, so nothing else (cookies, X-Forwarded-Host, CORS answers) gets through. */
 const only = (headers: Headers, names: string[]) => new Headers([...headers].filter(([name]) => names.includes(name)));
@@ -35,6 +38,8 @@ async function forward(request: NextRequest) {
       body: request.body,
       // Node's fetch needs this to stream a request body; the DOM types don't know it.
       duplex: "half",
+      // A browser that leaves (closing a run's stream, say) ends the call to the API too.
+      signal: request.signal,
     } as RequestInit);
   } catch {
     return Response.json({ error: `Can't reach the RUVO API at ${apiUrl}. Check that the server is running.` }, { status: 502 });
