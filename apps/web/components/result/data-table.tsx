@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { RecordFilters } from "@/lib/api";
-import { cellText, linkField, tableColumns } from "@/lib/cells";
+import { cellText, linkField, safeHref, tableColumns } from "@/lib/cells";
 import { formatNumber } from "@/lib/format";
 import { useDiff, useRecords, useWorkflow } from "@/lib/queries";
 import { useDebounced } from "@/lib/use-debounced";
@@ -236,7 +236,7 @@ export function DataTable({ run }: { run: RunDetail }) {
                   </TableCell>
                   {link && (
                     <TableCell>
-                      <OpenLink href={String(record.data[link] ?? "")} />
+                      <OpenLink value={record.data[link]} />
                     </TableCell>
                   )}
                 </TableRow>
@@ -325,8 +325,11 @@ export const NewBadge = () => (
   </>
 );
 
-function OpenLink({ href }: { href: string }) {
-  if (!href) return null;
+function OpenLink({ value }: { value: unknown }) {
+  if (!value) return null;
+  const href = safeHref(value);
+  // Anything but an http(s) address shows as text, so it can't open a file or a program.
+  if (!href) return <span className="line-clamp-2 max-w-56 font-mono text-micro break-all text-graphite">{String(value)}</span>;
   return (
     <a
       href={href}

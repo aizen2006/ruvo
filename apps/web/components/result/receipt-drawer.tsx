@@ -5,6 +5,7 @@ import { Check, ExternalLink, Minus, X } from "lucide-react";
 import { columnTitle } from "@/components/plan/column-chips";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { safeHref } from "@/lib/cells";
 import { FETCH_PHRASE, LEAD_SCORE_HINT, LEAD_TIER_LABEL, leadOf, SOURCE_PHRASE } from "@/lib/plain";
 import { useEvidence } from "@/lib/queries";
 import { cn } from "@/lib/utils";
@@ -16,6 +17,7 @@ const text = (value: unknown) => (value === null || value === undefined || value
 function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetContract }) {
   const field = contract.fields.find((f) => f.name === item.field);
   const value = text(item.value);
+  const href = safeHref(item.sourceUrl);
   return (
     <li className="space-y-tight border-t border-hairline py-group first:border-t-0 first:pt-0">
       <div className="flex items-start justify-between gap-item">
@@ -31,11 +33,15 @@ function ValueReceipt({ item, contract }: { item: Evidence; contract: DatasetCon
         <span>{SOURCE_PHRASE[item.method]}</span>
         {/* Search results already say so in the source phrase. */}
         {item.fetchedVia && item.fetchedVia !== "search" && <span>{FETCH_PHRASE[item.fetchedVia]}</span>}
-        {item.method !== "DERIVED" && (
-          <a href={item.sourceUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-ink underline underline-offset-4 hover:decoration-2">
-            Open the page <ExternalLink className="size-3" aria-hidden />
-          </a>
-        )}
+        {item.method !== "DERIVED" &&
+          (href ? (
+            <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-ink underline underline-offset-4 hover:decoration-2">
+              Open the page <ExternalLink className="size-3" aria-hidden />
+            </a>
+          ) : (
+            // Not an http(s) address, so it is named, not linked.
+            <span className="break-all">{item.sourceUrl}</span>
+          ))}
         <span>Checked {new Date(item.capturedAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}</span>
       </p>
     </li>

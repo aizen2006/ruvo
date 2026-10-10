@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { safeHref } from "@/lib/cells";
 import { Button } from "../ui/button";
 
 /**
@@ -50,7 +51,8 @@ export function SourcePages({
         <ul className="divide-y divide-hairline border-y border-hairline text-small">
           {urls.map((url) => (
             <li key={url} className="flex items-center justify-between gap-3 py-2">
-              <a href={url} target="_blank" rel="noreferrer" className="truncate font-mono text-small text-ink hover:underline">
+              {/* With no href (not an http(s) address) the anchor is plain text, not a link. */}
+              <a href={safeHref(url)} target="_blank" rel="noreferrer" className="truncate font-mono text-small text-ink hover:underline">
                 {url}
               </a>
               {onChange && (
