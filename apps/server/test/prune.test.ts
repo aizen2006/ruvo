@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "../src/db/client";
-import { pruneStorage } from "../src/db/prune";
-import { evidence, llmCalls, pages, records } from "../src/db/schema";
-import { insertRun, resetDb } from "./helpers/db";
+import { PRUNE_LOCK, pruneStorage } from "../src/db/prune";
+import { evidence, llmCalls, pages, records, runEvents, searchCalls } from "../src/db/schema";
+import { startWorker } from "../src/runs/worker";
+import { insertRun, resetDb, waitFor } from "./helpers/db";
 
 beforeEach(resetDb);
 
@@ -53,8 +54,43 @@ describe("pruneStorage", () => {
     const call = { stage: "compile", model: "gpt-6-sol", schemaName: "s", inputHash: "h", ms: 1, output: { city: "Paris" } };
     await db.insert(llmCalls).values([call, { ...call, cached: true }]);
 
-    expect((await pruneStorage({ olderThanDays: 30 })).llmOutputs).toBe(1);
+    expect((await pruneStorage({ olderThanDays: 30 }))!.llmOutputs).toBe(1);
     const original = await db.select({ output: llmCalls.output }).from(llmCalls).where(eq(llmCalls.cached, false));
     expect(original[0]!.output).toEqual({ city: "Paris" });
+  });
+
+  test("deletes finished runs' activity and AI and search logs older than the retention period", async () => {
+    const old = new Date(Date.now() - 60 * DAY);
+    const finished = await insertRun({ status: "completed", finishedAt: old });
+    const waiting = await insertRun({ status: "awaiting_approval" });
+    const recent = await insertRun({ status: "completed", finishedAt: new Date() });
+    const event = (runId: string, ts: Date) => ({ runId, seq: 1, ts, stage: "done" as const, type: "run.completed", level: "info" as const, message: "Run completed" });
+    await db.insert(runEvents).values([event(finished.id, old), event(waiting.id, old), event(recent.id, new Date())]);
+    const call = { stage: "compile", model: "gpt-6-sol", schemaName: "s", inputHash: "h", ms: 1 };
+    await db.insert(llmCalls).values([{ ...call, createdAt: old }, call]);
+    const search = { provider: "searxng", query: "jobs", inputHash: "h" };
+    await db.insert(searchCalls).values([{ ...search, createdAt: old }, search]);
+
+    expect(await pruneStorage({ olderThanDays: 30 })).toMatchObject({ runEvents: 1, llmCalls: 1, searchCalls: 1 });
+    // A run still waiting for approval keeps its activity, however old.
+    const kept = await db.select({ runId: runEvents.runId }).from(runEvents);
+    expect(kept.map((e) => e.runId).sort()).toEqual([waiting.id, recent.id].sort());
+    expect(await db.select().from(llmCalls)).toHaveLength(1);
+    expect(await db.select().from(searchCalls)).toHaveLength(1);
+  });
+
+  test("two prunes at once run once: the second does nothing while the first holds the lock", async () => {
+    await db.transaction(async (tx) => {
+      await tx.execute(sql`select pg_advisory_xact_lock(${PRUNE_LOCK})`);
+      expect(await pruneStorage({ olderThanDays: 30 })).toBeNull();
+    });
+    expect(await pruneStorage({ olderThanDays: 30 })).not.toBeNull();
+  });
+
+  test("a worker prunes when it starts", async () => {
+    await db.insert(llmCalls).values({ stage: "compile", model: "gpt-6-sol", schemaName: "s", inputHash: "h", ms: 1, createdAt: new Date(Date.now() - 60 * DAY) });
+    const worker = startWorker({ execute: async () => {}, pollMs: 20 });
+    await waitFor(() => db.select().from(llmCalls), (rows) => rows.length === 0);
+    await worker.stop();
   });
 });

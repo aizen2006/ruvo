@@ -45,6 +45,8 @@ const EnvSchema = z.object({
   LOG_LEVEL: z.string().default("info"),
 
   DATABASE_URL: z.string().url(),
+  /** Days old data is kept: once a day the worker deletes older uncited pages, finished runs' activity, and AI and search call logs. */
+  RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 
   /** When set, RUVO uses OpenAI's API with this key; without it, your ChatGPT plan (see AI_ACCOUNT below). */
   OPENAI_API_KEY: unsetIfBlank,

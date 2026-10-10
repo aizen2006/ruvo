@@ -1,3 +1,5 @@
+import { env } from "../config/env";
+import { pruneStorage } from "../db/prune";
 import {
   claimNextRun,
   completePreparation,
@@ -10,6 +12,8 @@ import {
 } from "../db/queue";
 import { logger } from "../libs/logger";
 import { appendEvent } from "./eventBus";
+
+const PRUNE_EVERY_MS = 24 * 60 * 60 * 1000;
 
 /** Executes one claimed run. Must stop promptly when `signal` aborts. */
 export type RunExecutor = (run: ClaimedRun, signal: AbortSignal) => Promise<void>;
@@ -49,6 +53,7 @@ export function startWorker(opts: WorkerOptions) {
   let stopped = false;
   let current: AbortController | null = null;
   let wake: (() => void) | null = null;
+  let prunedAt = 0;
 
   const sleep = (ms: number) =>
     new Promise<void>((resolve) => {
@@ -123,6 +128,13 @@ export function startWorker(opts: WorkerOptions) {
     logger.info("Worker started", { workerId, phases });
     while (!stopped) {
       try {
+        // Old data goes when the worker starts and once a day after; the prune's lock lets one worker at a time do it.
+        if (Date.now() - prunedAt >= PRUNE_EVERY_MS) {
+          prunedAt = Date.now();
+          const pruned = await pruneStorage({ olderThanDays: env.RETENTION_DAYS });
+          if (pruned) logger.info("Pruned old data", pruned);
+        }
+
         const recovered = await recoverStaleRuns({ staleMs, maxAttempts });
         if (recovered.requeued || recovered.failed) logger.warn("Recovered stale runs", recovered);
 

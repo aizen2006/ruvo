@@ -256,7 +256,7 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 | `bun run --filter server seed:demo` | Warms the caches with the demo requests and resets the demo site |
 | `bun run --filter server calibrate` | Re-derives Jev's confidence bands from a finished run |
 | `bun run --filter server probe:registry` | Re-verifies the curated job boards |
-| `bun run --filter server prune` | Frees space: deletes stored pages older than 30 days (`--days N`) that no record cites, and duplicate LLM outputs |
+| `bun run --filter server prune` | Frees space now, as the worker does once a day: deletes stored pages older than `RETENTION_DAYS` (30; `--days N`) that no record cites, duplicate LLM outputs, and older activity of finished runs and AI and search call logs |
 
 CI (`.github/workflows/ci.yml`) runs the type checks, the server tests and a production build of
 the dashboard on every push to `main` and every pull request.

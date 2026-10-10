@@ -76,5 +76,6 @@ with HTTPS and authentication (or a VPN), and don't publish Postgres.
 - **Health:** `GET /health` on the API returns 200 while it can reach the database.
 - **Backups:** `docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U ruvo ruvo > ruvo.sql`.
   Postgres holds everything, remembered plans included.
-- **Disk:** fetched pages are cached in Postgres, so the database grows with use. `bun run prune`
-  in `apps/server` deletes old pages that no record cites.
+- **Disk:** fetched pages are cached in Postgres, so the database grows with use. Once a day the
+  worker deletes data older than `RETENTION_DAYS` (30): pages no record cites, finished runs'
+  activity, and AI and search call logs. `bun run prune` in `apps/server` does the same on demand.
