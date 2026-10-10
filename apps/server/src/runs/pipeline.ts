@@ -3,14 +3,18 @@ import type { RunContext } from "../core/run";
 import { loadRunWorkflow, saveRepairedWorkflow } from "../db/repos/workflows";
 import { executeWorkflow } from "../execute/executor";
 import { scopeLlm } from "../llm/client";
+import type { WorkflowMemory } from "../memory/workflowMemory";
+import type { WebSearch } from "../plan/webDiscovery";
 import { listPagesForMode, runModels } from "./modes";
 import { moreLeads } from "./moreLeads";
 import { createRunContext } from "./runContext";
-import { decider, fetcher, llm, memory, webSearch } from "./services";
 import type { RunExecutor } from "./worker";
 
+/** The services a run uses, which the process builds once (see app/services). */
+type PipelineServices = Pick<RunContext, "fetcher" | "llm" | "decider" | "scrapling"> & { memory: WorkflowMemory; webSearch: WebSearch | null };
+
 /** Execution phase of a run: runs its compiled WorkflowIR. */
-export const runPipeline: RunExecutor = async (run, signal) => {
+export const createPipeline = ({ fetcher, llm, decider, scrapling, memory, webSearch }: PipelineServices): RunExecutor => async (run, signal) => {
   const planned = await loadRunWorkflow(run.id);
   if (!planned) throw new Error("Run has no workflow; it must be prepared before it can execute");
 
@@ -23,6 +27,7 @@ export const runPipeline: RunExecutor = async (run, signal) => {
     fetcher,
     llm: runLlm,
     decider,
+    scrapling,
     maxListPages: listPagesForMode(run.mode),
   });
   try {

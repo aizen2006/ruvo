@@ -4,6 +4,7 @@ import { createBudget, createMetrics, type BudgetKey, type RunContext } from "..
 import { db } from "../db/client";
 import type { Decider } from "../decide/decider";
 import type { Fetcher } from "../fetch/fetcher";
+import type { ScraplingClient } from "../fetch/scrapling";
 import type { LlmClient } from "../llm/client";
 import { runs } from "../db/schema";
 import { logger } from "../libs/logger";
@@ -32,6 +33,7 @@ export async function createRunContext(args: {
   fetcher: Fetcher;
   llm: LlmClient;
   decider: Decider;
+  scrapling?: ScraplingClient;
   initialMetrics?: RunMetrics;
   budgets?: Budgets;
   maxListPages?: number;
@@ -57,6 +59,7 @@ export async function createRunContext(args: {
     fetcher: args.fetcher,
     llm: args.llm,
     decider: args.decider,
+    scrapling: args.scrapling,
     log: logger.child({ runId }),
     repairs: [],
     maxListPages: args.maxListPages,

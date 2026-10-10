@@ -5,12 +5,15 @@
  * Uses LLM_CACHE_MODE, so unchanged prompts are free to re-run.
  */
 import type { Criterion, DatasetContract } from "@repo/contracts";
+import { createServices } from "../src/app/services";
 import { compileRequirement } from "../src/compile/requirementCompiler";
+import { env } from "../src/config/env";
 import { sql } from "../src/db/client";
 import { DEMO_PROMPT } from "../src/plan/demoContract";
 import { discoverSources } from "../src/plan/discovery";
 import { curatedCompanies, type RegistryCompany } from "../src/plan/registry";
-import { llm } from "../src/runs/services";
+
+const { llm } = createServices(env);
 
 type Check = [description: string, passed: (c: DatasetContract) => boolean];
 type EvalCase = { prompt: string; checks: Check[] };

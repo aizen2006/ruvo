@@ -11,6 +11,7 @@ import {
 } from "@repo/contracts";
 import type { Decider } from "../decide/decider";
 import type { Fetcher } from "../fetch/fetcher";
+import type { ScraplingClient } from "../fetch/scrapling";
 import type { Logger } from "../libs/logger";
 import type { LlmClient } from "../llm/client";
 
@@ -34,6 +35,8 @@ export interface RunContext {
   fetcher: Fetcher;
   llm: LlmClient;
   decider: Decider;
+  /** RUVO's Scrapling service, which re-finds a changed recipe's fields (repair/relocate); absent when SCRAPLING_URL is blank. */
+  scrapling?: ScraplingClient;
   log: Logger;
   /** Recipe repairs made during the run; they become a new workflow version when it ends. */
   repairs: RepairNote[];

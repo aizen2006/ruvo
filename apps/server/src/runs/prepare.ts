@@ -24,7 +24,6 @@ import {
 import { recompileWorkflow } from "./editContract";
 import { createEventBus, nextEventSeq, type EventBus } from "./eventBus";
 import { budgetsForMode, newBoardsForMode, runModels, searchResultsPerQuery } from "./modes";
-import { llm as sharedLlm, memory, webSearch } from "./services";
 import type { RunPreparer } from "./worker";
 
 /** Search rounds while preparing a run, at most; each round after the first searches with new queries. */
@@ -33,9 +32,9 @@ const MAX_SEARCH_ROUNDS = 5;
 /**
  * Preparation phase of a run: prompt → Dataset Contract → candidate sources → WorkflowIR.
  * Ends in review (awaiting_approval) unless the run was created with autoStart (see afterPreparing).
- * With `web` (SearXNG, Firecrawl or both configured), sources are also found by searching the web.
+ * With `webSearch` (SearXNG, Firecrawl or both configured), sources are also found by searching the web.
  */
-export const createPreparer = ({ llm: baseLlm, memory, web = null }: { llm: LlmClient; memory?: WorkflowMemory; web?: WebSearch | null }): RunPreparer => async (run, signal) => {
+export const createPreparer = ({ llm: baseLlm, memory, webSearch: web = null }: { llm: LlmClient; memory?: WorkflowMemory; webSearch?: WebSearch | null }): RunPreparer => async (run, signal) => {
   const bus = createEventBus(run.id, { startSeq: await nextEventSeq(run.id) });
   // Compile and plan with the run's models, and count what they cost towards the run.
   const llm = scopeLlm(baseLlm, { models: runModels(run, env), runId: run.id });
@@ -251,5 +250,3 @@ function noSourcesMessage(contract: DatasetContract, search: WebDiscovery | null
     ? "No supported sources match this request"
     : "No page to read yet: add the address of a page that lists these records to the contract";
 }
-
-export const prepareRun = createPreparer({ llm: sharedLlm, memory, web: webSearch });

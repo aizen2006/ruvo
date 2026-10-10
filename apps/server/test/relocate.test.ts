@@ -1,8 +1,9 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import type { EvidenceMethod, RecipeDef } from "@repo/contracts";
 import * as cheerio from "cheerio";
-import { tmpdir } from "node:os";
+import { createServices } from "../src/app/services";
 import { env } from "../src/config/env";
+import { loadEnv } from "../src/config/envSchema";
 import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { db } from "../src/db/client";
 import { evidence, pages, records } from "../src/db/schema";
@@ -69,22 +70,9 @@ const service = Bun.serve({
   },
 });
 const serviceUrl = `http://127.0.0.1:${service.port}`;
-
-// relocate.ts makes its client from SCRAPLING_URL when it loads, so calls to that address are sent on to the fake.
-let forward: { mockRestore(): void };
-beforeAll(() => {
-  if (!env.SCRAPLING_URL) throw new Error("these tests need SCRAPLING_URL set (to any address; its calls go to a fake)");
-  const configured = new URL(env.SCRAPLING_URL).origin;
-  const realFetch = globalThis.fetch;
-  forward = spyOn(globalThis, "fetch").mockImplementation(((input: string | URL, init?: RequestInit) => {
-    const url = new URL(String(input));
-    return realFetch(url.origin === configured ? new URL(url.pathname, serviceUrl) : url, init);
-  }) as unknown as typeof fetch);
-});
-afterAll(() => {
-  forward.mockRestore();
-  service.stop(true);
-});
+afterAll(() => service.stop(true));
+/** The run's Scrapling client, talking to the fake. */
+const scrapling = createScraplingClient(serviceUrl);
 
 const signal = () => new AbortController().signal;
 const serialized = (html: string) => cheerio.load(html).html();
@@ -139,7 +127,7 @@ describe("relocateRecipe", () => {
   test("re-finds the item and fields on a redesigned page from the last page the recipe read", async () => {
     await storePage(careersPage(1));
     const recipe = await saveV1();
-    const fix = await relocateRecipe({ html: careersPage(2), url: URL_ }, recipe, signal());
+    const fix = await relocateRecipe({ html: careersPage(2), url: URL_ }, recipe, { scrapling, signal: signal() });
 
     expect(requests.map((r) => r.body)).toEqual([{ ...V1_RECIPE, oldHtml: serialized(careersPage(1)), newHtml: serialized(careersPage(2)) }]);
     expect(fix?.def).toEqual({
@@ -161,25 +149,25 @@ describe("relocateRecipe", () => {
     await storePage(careersPage(1).replace("Site version 1", "never cited"), { method: null, minutesAgo: 10 });
     await storePage(careersPage(1).replace("Site version 1", "cited by the LLM"), { method: "LLM" });
 
-    await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), signal());
+    await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), { scrapling, signal: signal() });
     expect(requests.map((r) => r.body.oldHtml)).toEqual([serialized(cited)]);
   });
 
   test("without a cited copy the recipe still reads, the service is not asked", async () => {
     const recipe = await saveV1();
-    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, recipe, signal())).toBeNull();
+    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, recipe, { scrapling, signal: signal() })).toBeNull();
 
     await storePage(careersPage(1), { method: null });
     await storePage(careersPage(1), { method: "LLM" });
     await storePage(careersPage(2));
-    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, recipe, signal())).toBeNull();
+    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, recipe, { scrapling, signal: signal() })).toBeNull();
     expect(requests).toHaveLength(0);
   });
 
   test("a field it cannot place, or places outside the item, keeps its old selector", async () => {
     await storePage(careersPage(1));
     reply = { item: TILE, fields: { title: `${TILE} > h3:nth-of-type(1)`, url: null, location: "html > body:nth-of-type(1) > header:nth-of-type(1) > h1:nth-of-type(1)" } };
-    const fix = await relocateRecipe({ html: TILES, url: URL_ }, await saveV1(), signal());
+    const fix = await relocateRecipe({ html: TILES, url: URL_ }, await saveV1(), { scrapling, signal: signal() });
 
     expect(fix?.def).toEqual({ itemSelector: "div.job-tile", fields: V1_RECIPE.fields });
     expect(fix?.result.rows[1]).toMatchObject({ title: "AI Infrastructure Engineer", location: "Berlin" });
@@ -188,31 +176,22 @@ describe("relocateRecipe", () => {
   test("relocated selectors that fail acceptance are no fix", async () => {
     await storePage(careersPage(1));
     reply = { item: ARTICLE, fields: { title: TO_V2.fields.title!, url: null, location: null } };
-    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), signal())).toBeNull();
+    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), { scrapling, signal: signal() })).toBeNull();
     expect(requests).toHaveLength(1);
   });
 
   test("a failing service is no fix", async () => {
     await storePage(careersPage(1));
     reply = 500;
-    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), signal())).toBeNull();
+    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), { scrapling, signal: signal() })).toBeNull();
     expect(requests).toHaveLength(1);
   });
 
   test("a blank SCRAPLING_URL turns it off", async () => {
     await storePage(careersPage(1));
-    const recipe = await saveV1();
-    // relocate.ts reads SCRAPLING_URL when it loads, so it is loaded afresh in a process with the address blank.
-    const script = `
-      const { relocateRecipe } = await import(${JSON.stringify(Bun.fileURLToPath(new URL("../src/repair/relocate.ts", import.meta.url)))});
-      const { careersPage } = await import(${JSON.stringify(Bun.fileURLToPath(new URL("../src/fixtures/careersSite.ts", import.meta.url)))});
-      const fix = await relocateRecipe({ html: careersPage(2), url: ${JSON.stringify(URL_)} }, ${JSON.stringify(recipe)}, new AbortController().signal);
-      console.log(JSON.stringify(fix));
-      process.exit(0);`;
-    // Run outside apps/server, so no .env file sets the address again.
-    const child = Bun.spawn([process.execPath, "-e", script], { cwd: tmpdir(), env: { ...process.env, SCRAPLING_URL: "" }, stdout: "pipe" });
-    expect(await child.exited).toBe(0);
-    expect((await new Response(child.stdout).text()).trim()).toBe("null");
+    const services = createServices(loadEnv({ DATABASE_URL: env.DATABASE_URL, SCRAPLING_URL: "" }));
+    expect(await relocateRecipe({ html: careersPage(2), url: URL_ }, await saveV1(), { scrapling: services.scrapling, signal: signal() })).toBeNull();
+    expect(requests).toHaveLength(0);
   });
 });
 
@@ -236,6 +215,7 @@ describe("repairRecipe with Scrapling relocation", () => {
       metrics: createMetrics(),
       llm,
       decider: choosing(decide),
+      scrapling,
       repairs: [],
       emit: (e: { type: string; message: string }) => events.push(e),
     } as unknown as RunContext;

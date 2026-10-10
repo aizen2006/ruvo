@@ -1,25 +1,26 @@
 import type { Recipe, RecipeDef } from "@repo/contracts";
 import * as cheerio from "cheerio";
 import { and, desc, eq, exists } from "drizzle-orm";
-import { env } from "../config/env";
+import type { RunContext } from "../core/run";
 import { db } from "../db/client";
 import { evidence, pages } from "../db/schema";
-import { createScraplingClient } from "../fetch/scrapling";
 import { logger } from "../libs/logger";
 import { selectAll } from "../page/selectors";
 import { findSimilar } from "../page/similar";
 import { acceptanceFailure, replayRecipe, type ReplayResult } from "../recipes/replay";
 import { groupSelector, relativeSelector } from "../recipes/seed";
 
-/** RUVO's Scrapling service does the relocating; without it this repair is skipped. */
-const scrapling = env.SCRAPLING_URL ? createScraplingClient(env.SCRAPLING_URL) : null;
-
 /**
  * AI-free repair for a changed page, tried after the local fix: Scrapling's adaptive parser finds the recipe's item
  * and fields, as they were on the last page the recipe read, on the new page, and their selectors are written the
  * way discovery writes them. Like any repair, the result must pass the recipe's acceptance checks.
  */
-export async function relocateRecipe(page: { html: string; url: string }, recipe: Recipe, signal: AbortSignal): Promise<{ def: RecipeDef; result: ReplayResult } | null> {
+export async function relocateRecipe(
+  page: { html: string; url: string },
+  recipe: Recipe,
+  { scrapling, signal }: Pick<RunContext, "scrapling" | "signal">,
+): Promise<{ def: RecipeDef; result: ReplayResult } | null> {
+  // RUVO's Scrapling service does the relocating; without it this repair is skipped.
   if (!scrapling) return null;
   const before = await lastPageRead(page.url, recipe);
   if (!before) return null;

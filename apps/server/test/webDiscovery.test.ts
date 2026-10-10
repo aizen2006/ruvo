@@ -266,8 +266,8 @@ describe("preparing a run with web search", () => {
       env: { MODEL_PLANNER: "gpt-6-sol", MODEL_WORKER: "gpt-6-luna", LLM_CACHE_MODE: "off", OPENAI_API_KEY: "x" },
       responses: fake.responses,
     });
-    const web = { searcher: fakeSearcher(searchResults), robots: robots() };
-    return startWorker({ execute: async () => {}, prepare: createPreparer({ llm, web }), pollMs: 20, heartbeatMs: 50 });
+    const webSearch = { searcher: fakeSearcher(searchResults), robots: robots() };
+    return startWorker({ execute: async () => {}, prepare: createPreparer({ llm, webSearch }), pollMs: 20, heartbeatMs: 50 });
   };
   const prepared = async () => {
     const { body } = await api.post("/api/runs", { prompt: "Find climate tech podcasts" });

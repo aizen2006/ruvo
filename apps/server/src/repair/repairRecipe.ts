@@ -107,7 +107,7 @@ function localRepair(run: RunContext, page: FetchedPage, recipe: Recipe, fields:
 
 /** Scrapling re-finds the recipe's fields on the changed page, from the last page it read; null when it can't. */
 async function relocate(run: RunContext, page: FetchedPage, recipe: Recipe, failure: string) {
-  const fix = await relocateRecipe(page, recipe, run.signal);
+  const fix = await relocateRecipe(page, recipe, run);
   return fix && saveRepair(run, page, recipe, fix, failure, "re-found its fields with Scrapling from the last page it read, no LLM needed");
 }
 

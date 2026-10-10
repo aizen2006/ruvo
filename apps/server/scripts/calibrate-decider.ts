@@ -7,6 +7,7 @@
 import { and, desc, eq, isNull, sql } from "drizzle-orm";
 import { writeFile } from "node:fs/promises";
 import { z } from "zod";
+import { createServices } from "../src/app/services";
 import { env } from "../src/config/env";
 import { db, sql as pg } from "../src/db/client";
 import { records, runs } from "../src/db/schema";
@@ -14,7 +15,8 @@ import { loadRunWorkflow } from "../src/db/repos/workflows";
 import type { TaskCalibration } from "../src/decide/calibration";
 import { createSystemOneClient } from "../src/decide/systemOneClient";
 import { truncate } from "../src/libs/text";
-import { llm } from "../src/runs/services";
+
+const { llm } = createServices(env);
 
 const SAMPLES = 60;
 const MIN_PRECISION = 0.9;
