@@ -4,7 +4,7 @@ export type { Env } from "./envSchema";
 
 /**
  * Process-wide validated configuration. Import this, never `process.env`, in app code.
- * Saving settings touches this file, so `bun --watch` restarts the API and the worker (config/settings.ts).
+ * Saving settings rewrites this file unchanged, so `bun --watch` restarts the API and the worker (config/settings.ts).
  */
 export const env = loadEnv(process.env);
 

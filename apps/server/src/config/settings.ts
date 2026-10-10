@@ -1,5 +1,4 @@
 import { SECRET_SETTINGS, VALUE_SETTINGS, type Settings, type SettingsUpdate } from "@repo/contracts";
-import { utimes } from "node:fs/promises";
 import { join } from "node:path";
 import { badRequest } from "../libs/errors";
 import { modelCatalog } from "../llm/models";
@@ -63,11 +62,12 @@ export async function saveSettings(changes: SettingsUpdate) {
 /**
  * Restarts the API and the worker so they read the saved settings. `bun run dev` runs both under
  * `bun --watch`, which restarts a process when a module it imports changes but not when .env does,
- * so this touches env.ts, which both import. Started any other way, they keep the old settings until restarted.
+ * so this rewrites env.ts, which both import, with its own content: on Linux the watcher ignores a
+ * file whose modification time alone changes. Started any other way, they keep the old settings until restarted.
  */
 export async function restartRuvo() {
-  const now = new Date();
-  await utimes(join(import.meta.dir, "env.ts"), now, now);
+  const file = join(import.meta.dir, "env.ts");
+  await Bun.write(file, await Bun.file(file).bytes());
 }
 
 /**
