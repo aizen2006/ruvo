@@ -21,6 +21,17 @@ function searchSource(query: string, hits: SearchHit[]): FoundSource {
   };
 }
 
+/** A PDF file the user linked, as a source of its own: read from its link and headers, never downloaded. */
+export function linkedDocument(url: string): FoundSource {
+  return {
+    ref: `${DOCUMENT_ADAPTER}:${url}`,
+    adapter: DOCUMENT_ADAPTER,
+    label: `${new URL(url).host}${new URL(url).pathname}`,
+    params: { hits: [{ url, title: "", description: "", query: "" }] },
+    reason: "PDF file linked by the user, read from its link and headers without downloading it",
+  };
+}
+
 /**
  * Search rounds also look for PDF files: each of a round's queries again with filetype:pdf. Every PDF a
  * round's searches found is the pack's own, never read as a page, and joins its query's source.

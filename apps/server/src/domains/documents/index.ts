@@ -1,6 +1,8 @@
 import type { DatasetContract } from "@repo/contracts";
+import type { SourceAdapter } from "../../adapters/types";
 import { searchForDescription } from "../generic";
 import type { DomainPack, NormalizeContext } from "../types";
+import { documentHits } from "./adapter";
 import { DOCUMENT_FIELDS } from "./fields";
 import { documentSearch } from "./search";
 
@@ -32,5 +34,6 @@ RUVO reads only what web search results say about each file (title, link, snippe
 semantic: add one hard criterion asking whether the document is about the request's topic, e.g. "Is this document about using voice model APIs?". RUVO finds only PDF files for now, so never add a criterion on the file type.
 searchQueries: 3-6 queries that would find the documents themselves, as a person would search for them (e.g. "voice model API documentation", "speech API developer guide"); RUVO also searches for PDF files with each one.`,
   normalize: normalizeDocuments,
+  adapters: [documentHits] as SourceAdapter<unknown>[],
   search: documentSearch,
 };

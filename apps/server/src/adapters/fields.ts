@@ -59,6 +59,25 @@ export function derived(value: Scalar, basis: string, rule: string, sourceUrl: s
   };
 }
 
+/**
+ * A value from a file's own details, such as its headers, read without downloading the file. `detail`
+ * names it ("Content-Type") and `snippet` shows it as the file stated it.
+ */
+export function fromDocMeta(value: Scalar, detail: string, snippet: string, source: { sourceUrl: string; pageId: string | null }): FieldValue | undefined {
+  if (isEmpty(value)) return undefined;
+  return {
+    value: typeof value === "number" ? String(value) : value!,
+    evidence: {
+      method: "DOC_META",
+      sourceUrl: source.sourceUrl,
+      pageId: source.pageId,
+      snippet: truncate(snippet, SNIPPET_MAX),
+      locator: { kind: "docMeta", value: detail },
+      verified: true,
+    },
+  };
+}
+
 /** Drops undefined entries so items only carry fields that have values. */
 export function compactFields(fields: Record<string, FieldValue | undefined>): Record<string, FieldValue> {
   return Object.fromEntries(Object.entries(fields).filter((e): e is [string, FieldValue] => e[1] !== undefined));
