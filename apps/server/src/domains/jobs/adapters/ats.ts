@@ -28,6 +28,14 @@ export const ATS_BOARD_URL: Record<Ats, (slug: string) => string> = {
   workable: (slug) => `https://apply.workable.com/api/v1/widget/accounts/${slugPart(slug)}`,
 };
 
+/**
+ * In-flight requests per ATS API host. Every board on one of them is a different company, not more pages of one
+ * site, so the fetcher lets each take four at once instead of two.
+ */
+export const ATS_HOST_LIMITS: Record<string, number> = Object.fromEntries(
+  Object.values(ATS_BOARD_URL).map((boardUrl) => [new URL(boardUrl("board")).host, 4]),
+);
+
 /** Number of postings in a board response, whatever its shape. */
 export function countPostings(data: unknown): number {
   if (Array.isArray(data)) return data.length;

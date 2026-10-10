@@ -2,6 +2,7 @@ import type { Env } from "../config/env";
 import { createDecider, type Decider } from "../decide/decider";
 import { createSystemOneClient } from "../decide/systemOneClient";
 import { createDocparse, type Docparse } from "../documents/sandbox";
+import { ATS_HOST_LIMITS } from "../domains/jobs/adapters/ats";
 import { createFetcher, type Fetcher } from "../fetch/fetcher";
 import { createRobots } from "../fetch/robots";
 import { createScraplingClient, type ScraplingClient } from "../fetch/scrapling";
@@ -57,6 +58,7 @@ export function createServices(env: Env): Services {
       scrapling,
       firecrawl: firecrawl && { client: firecrawl, usdPerCredit: env.FIRECRAWL_USD_PER_CREDIT },
       trustedOrigins,
+      hostLimits: ATS_HOST_LIMITS,
     }),
     llm: createLlmClient({ env }),
     webSearch:

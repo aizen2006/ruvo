@@ -66,6 +66,8 @@ export interface FetcherOptions {
   timeoutMs?: number;
   robots?: Robots;
   limiter?: HostLimiter;
+  /** In-flight requests allowed on particular hosts instead of two, e.g. the job-board APIs. */
+  hostLimits?: Record<string, number>;
   breaker?: CircuitBreaker;
   /** RUVO's Scrapling fetch service. Without it (tests), pages are fetched in-process over plain HTTP only. */
   scrapling?: ScraplingClient;
@@ -85,7 +87,7 @@ type BudgetKey = "pages" | "browserPages";
  */
 export function createFetcher(opts: FetcherOptions): Fetcher {
   const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent, allowPrivateNetwork: opts.allowPrivateNetwork });
-  const limiter = opts.limiter ?? createHostLimiter({ maxConcurrent: 2, minDelayMs: 200 });
+  const limiter = opts.limiter ?? createHostLimiter({ maxConcurrent: 2, minDelayMs: 200, perHost: opts.hostLimits });
   const breaker = opts.breaker ?? createCircuitBreaker({ threshold: 5, cooldownMs: 60_000 });
   const cacheTtlMs = opts.cacheTtlMs ?? CACHE_TTL_MS;
   const timeoutMs = opts.timeoutMs ?? 20_000;

@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, setSystemTime, test } from "bun:test";
-import { ATS_BOARD_URL, ATS_LIST } from "../src/adapters/ats";
+import { ATS_BOARD_URL, ATS_HOST_LIMITS, ATS_LIST } from "../src/domains/jobs/adapters/ats";
 import { FetchError } from "../src/fetch/errors";
 import { createHostLimiter } from "../src/fetch/hostLimiter";
 import { createRobots } from "../src/fetch/robots";
@@ -208,7 +208,7 @@ describe("host limiter", () => {
 
   // Every board on an ATS API is a different company, so boards there shouldn't queue two at a time.
   test("lets each ATS API the adapters call run four requests at once", async () => {
-    const limiter = createHostLimiter({ maxConcurrent: 2, minDelayMs: 0 });
+    const limiter = createHostLimiter({ maxConcurrent: 2, minDelayMs: 0, perHost: ATS_HOST_LIMITS });
     for (const ats of ATS_LIST) expect(await peakOn(limiter, new URL(ATS_BOARD_URL[ats]("acme")).host, 6)).toBe(4);
     expect(await peakOn(limiter, "a.com", 6)).toBe(2);
   });
