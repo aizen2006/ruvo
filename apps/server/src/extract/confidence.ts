@@ -4,6 +4,8 @@ import type { EvidenceMethod } from "@repo/contracts";
 const METHOD_PRIOR: Record<EvidenceMethod, number> = {
   API: 0.99,
   JSON_LD: 0.95,
+  // A file's headers, or the properties its author set: reliable for what the file is, not proof of what it claims.
+  DOC_META: 0.9,
   EMBEDDED_JSON: 0.93,
   DOM: 0.88,
   REGEX: 0.8,

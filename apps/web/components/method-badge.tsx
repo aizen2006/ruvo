@@ -5,6 +5,7 @@ import clsx from "clsx";
 const METHOD: Record<EvidenceMethod, { label: string; tier: string }> = {
   API: { label: "Source API", tier: "bg-structured-wash text-structured" },
   JSON_LD: { label: "Structured data", tier: "bg-structured-wash text-structured" },
+  DOC_META: { label: "File details", tier: "bg-structured-wash text-structured" },
   EMBEDDED_JSON: { label: "Page data", tier: "bg-structured-wash text-structured" },
   DOM: { label: "Page layout", tier: "bg-pattern-wash text-pattern" },
   REGEX: { label: "Text pattern", tier: "bg-pattern-wash text-pattern" },

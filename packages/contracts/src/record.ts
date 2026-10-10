@@ -1,18 +1,22 @@
 import { z } from "zod";
 
 /** How a field value was obtained, ordered from most to least trustworthy. */
-export const EVIDENCE_METHODS = ["API", "JSON_LD", "EMBEDDED_JSON", "DOM", "REGEX", "LLM", "SEARCH", "DERIVED"] as const;
+export const EVIDENCE_METHODS = ["API", "JSON_LD", "DOC_META", "EMBEDDED_JSON", "DOM", "REGEX", "LLM", "SEARCH", "DERIVED"] as const;
 export const EvidenceMethod = z.enum(EVIDENCE_METHODS);
 export type EvidenceMethod = z.infer<typeof EvidenceMethod>;
 
-/** How a page was fetched; "stealth" is the stealth browser used past a bot check, "firecrawl" the last resort when Scrapling could not read it. */
-export const PAGE_VIAS = ["http", "browser", "stealth", "search", "firecrawl"] as const;
+/**
+ * How a page was fetched; "stealth" is the stealth browser used past a bot check, "firecrawl" the last resort when
+ * Scrapling could not read it, "document" a file's own details (its headers, or what the document sandbox read).
+ */
+export const PAGE_VIAS = ["http", "browser", "stealth", "search", "firecrawl", "document"] as const;
 export const PageVia = z.enum(PAGE_VIAS);
 export type PageVia = z.infer<typeof PageVia>;
 
 /** Where inside the source the value was found, so evidence can be re-checked later. */
 export const Locator = z.object({
-  kind: z.enum(["jsonPath", "css", "jsonLd", "regex", "textSpan", "derived"]),
+  // docMeta: a file detail by name, e.g. a PDF's "Author" or the "Content-Length" header.
+  kind: z.enum(["jsonPath", "css", "jsonLd", "regex", "textSpan", "derived", "docMeta"]),
   value: z.string(),
 });
 export type Locator = z.infer<typeof Locator>;

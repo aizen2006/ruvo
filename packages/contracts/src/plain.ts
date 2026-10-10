@@ -35,6 +35,7 @@ export const LEAD_TIER_LABEL: Record<LeadTier, string> = { strong: "Strong", goo
 export const SOURCE_PHRASE: Record<EvidenceMethod, string> = {
   API: "From the site's data feed",
   JSON_LD: "From the page's listing data",
+  DOC_META: "From the file's details",
   EMBEDDED_JSON: "From data inside the page",
   DOM: "Read from the page",
   REGEX: "Found in the text",
@@ -50,4 +51,5 @@ export const FETCH_PHRASE: Record<PageVia, string> = {
   stealth: "Opened in a stealth browser, past a bot check",
   search: "From search results",
   firecrawl: "Read through Firecrawl",
+  document: "From the file, never opened as a page",
 };
