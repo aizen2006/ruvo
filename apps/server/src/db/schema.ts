@@ -45,26 +45,35 @@ export const requests = pgTable("requests", {
   createdAt: createdAt(),
 });
 
-export const datasetContracts = pgTable("dataset_contracts", {
-  id: id(),
-  requestId: uuid("request_id").notNull().references(() => requests.id),
-  version: integer("version").notNull(),
-  contract: jsonb("contract").$type<DatasetContract>().notNull(),
-  model: text("model"),
-  editedBy: text("edited_by").$type<"llm" | "user" | "template">().notNull(),
-  createdAt: createdAt(),
-});
+export const datasetContracts = pgTable(
+  "dataset_contracts",
+  {
+    id: id(),
+    requestId: uuid("request_id").notNull().references(() => requests.id),
+    version: integer("version").notNull(),
+    contract: jsonb("contract").$type<DatasetContract>().notNull(),
+    model: text("model"),
+    editedBy: text("edited_by").$type<"llm" | "user" | "template">().notNull(),
+    createdAt: createdAt(),
+  },
+  // Every run summary reads its request's latest contract.
+  (t) => [index("dataset_contracts_request_version_idx").on(t.requestId, t.version)],
+);
 
-export const workflows = pgTable("workflows", {
-  id: id(),
-  contractId: uuid("contract_id").notNull().references(() => datasetContracts.id),
-  version: integer("version").notNull(),
-  parentWorkflowId: uuid("parent_workflow_id"),
-  reusedFromWorkflowId: uuid("reused_from_workflow_id"),
-  planDraft: jsonb("plan_draft").$type<PlanDraft>(),
-  ir: jsonb("ir").$type<WorkflowIR>().notNull(),
-  createdAt: createdAt(),
-});
+export const workflows = pgTable(
+  "workflows",
+  {
+    id: id(),
+    contractId: uuid("contract_id").notNull().references(() => datasetContracts.id),
+    version: integer("version").notNull(),
+    parentWorkflowId: uuid("parent_workflow_id"),
+    reusedFromWorkflowId: uuid("reused_from_workflow_id"),
+    planDraft: jsonb("plan_draft").$type<PlanDraft>(),
+    ir: jsonb("ir").$type<WorkflowIR>().notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("workflows_contract_idx").on(t.contractId)],
+);
 
 /** One row per run. Workers claim `queued_run` rows with FOR UPDATE SKIP LOCKED. */
 export const runs = pgTable(
@@ -230,7 +239,12 @@ export const decisions = pgTable(
     ms: integer("ms").notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("decisions_task_hash_idx").on(t.task, t.inputHash)],
+  // The decider's cache looks answers up by input hash alone, which the (task, hash) index cannot serve.
+  (t) => [
+    index("decisions_task_hash_idx").on(t.task, t.inputHash),
+    index("decisions_hash_idx").on(t.inputHash),
+    index("decisions_run_idx").on(t.runId),
+  ],
 );
 
 /** Every LLM call with cost; also the response cache keyed by input hash. */
@@ -252,7 +266,12 @@ export const llmCalls = pgTable(
     error: text("error"),
     createdAt: createdAt(),
   },
-  (t) => [index("llm_calls_hash_idx").on(t.inputHash), index("llm_calls_run_idx").on(t.runId)],
+  (t) => [
+    index("llm_calls_hash_idx").on(t.inputHash),
+    index("llm_calls_run_idx").on(t.runId),
+    // The daily spending limit sums the last 24 hours of AI and search spend.
+    index("llm_calls_created_idx").on(t.createdAt),
+  ],
 );
 
 /**
@@ -274,7 +293,11 @@ export const searchCalls = pgTable(
     error: text("error"),
     createdAt: createdAt(),
   },
-  (t) => [index("search_calls_hash_idx").on(t.inputHash), index("search_calls_run_idx").on(t.runId)],
+  (t) => [
+    index("search_calls_hash_idx").on(t.inputHash),
+    index("search_calls_run_idx").on(t.runId),
+    index("search_calls_created_idx").on(t.createdAt),
+  ],
 );
 
 /** Plans that produced good datasets, found again by how similar a new contract's summary is (pg_trgm). */
