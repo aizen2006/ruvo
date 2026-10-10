@@ -13,8 +13,9 @@ server:
   limiter: false
 
 outgoing:
-  # RUVO makes a few searches per run and can wait for a slow engine (the 3 s default suits people typing).
-  request_timeout: 6.0
+  # How long a search waits for its slowest engine (SearXNG's default is 3 s). On RUVO-like searches, waiting up
+  # to 6 s found only about 3% more results than 3.5 s, while one hanging engine held each search for the full 6 s.
+  request_timeout: 3.5
 
 # RUVO searches every request, in rounds, so it needs more web engines than the defaults
 # (Google CSE, Brave, DuckDuckGo): when one blocks or rate-limits SearXNG, the others still answer.
