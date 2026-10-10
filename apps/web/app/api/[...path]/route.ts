@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 
-/** The names this machine answers to, as the API has them (apps/server/src/middlewares/localOrigin.ts). */
+/** The names this machine answers to (apps/server/src/middlewares/localOrigin.ts has the API's). */
 const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]"];
 /** All the API reads from a request: the body's type, a new run's Idempotency-Key, and the Origin it checks changes against. */
 const REQUEST_HEADERS = ["content-type", "idempotency-key", "origin"];
@@ -16,9 +16,11 @@ const only = (headers: Headers, names: string[]) => new Headers([...headers].fil
  */
 async function forward(request: NextRequest) {
   // A website that points its own name at this machine (DNS rebinding) is the dashboard's origin to the browser, so
-  // outside production only requests to this machine by name go on. Host is checked, not X-Forwarded-Host, which a page can set.
+  // only requests to this machine by name go on, unless ALLOW_ANY_HOST (read per request, unlike NODE_ENV, which a
+  // build fixes) says the dashboard sits behind your own host names, as in docker-compose.prod.yml.
+  // Host is checked, not X-Forwarded-Host, which a page can set.
   const hostname = request.headers.get("host")?.replace(/:\d+$/, "") ?? "";
-  if (process.env.NODE_ENV !== "production" && !LOCAL_HOSTNAMES.includes(hostname)) {
+  if (process.env.ALLOW_ANY_HOST !== "true" && !LOCAL_HOSTNAMES.includes(hostname)) {
     return Response.json({ error: "RUVO's dashboard answers only requests to localhost on this computer." }, { status: 403 });
   }
 

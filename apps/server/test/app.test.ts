@@ -76,6 +76,9 @@ describe("only the dashboard can call the API", () => {
     expect((await api.raw("/health", { headers: { host: "attacker.example", "x-forwarded-host": "localhost" } })).status).toBe(403);
     expect(await health("127.0.0.1:3000")).toBe(200);
     expect(await health("[::1]:3000")).toBe(200);
+    // The dashboard's container calls the API by its service name in docker-compose.yml.
+    expect(await health("ruvo:3000")).toBe(200);
+    expect(await health("ruvo.attacker.example")).toBe(403);
   });
 
   test("in production, the dashboard is CORS_ORIGINS and any host name gets through", async () => {

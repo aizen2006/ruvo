@@ -121,6 +121,8 @@ services:
     environment:
       # The browser calls the dashboard, whose server passes API calls on to here.
       API_URL: http://api:3000
+      # It sits behind your own host names; without this it answers only requests to localhost.
+      ALLOW_ANY_HOST: "true"
     ports:
       - "3001:3001"
 

@@ -4,8 +4,12 @@ import { HttpError } from "../libs/errors";
 /** A page served from this machine: http://localhost:<port> or http://127.0.0.1:<port>. */
 export const LOOPBACK = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
 
-/** The names this machine answers to. */
-const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]"];
+/**
+ * The names this machine answers to, and ruvo: the API's service name in docker-compose.yml, which the dashboard's
+ * container calls it by. A website can't rebind that name as it can its own: browsers send it only for a page from
+ * http://ruvo:…, a name only Docker's network resolves.
+ */
+const LOCAL_HOSTNAMES = ["localhost", "127.0.0.1", "[::1]", "ruvo"];
 
 /** Methods that change data. */
 const CHANGES = ["POST", "PUT", "PATCH", "DELETE"];
