@@ -115,7 +115,10 @@ function finalize(contract: DatasetContract, criteria: Criterion[], candidate: C
   const next: Candidate = {
     ...candidate,
     signals: [...candidate.signals, ...signals],
-    rejectReasons: [...candidate.rejectReasons, ...signals.filter((s) => s.strength === "hard" && s.passed === false).map((s) => `${s.label}: not met`)],
+    rejectReasons: [
+      ...candidate.rejectReasons,
+      ...signals.filter((s) => s.strength === "hard" && s.passed === false).map((s) => ({ code: "criterion_not_met" as const, message: `${s.label}: not met` })),
+    ],
     matchScore: softTotal > 0 ? earned / softTotal : 1,
   };
   const reasonField = contract.fields.find((f) => f.catalogKey === "match_reason");

@@ -60,10 +60,10 @@ async function topReason(runId: string, step: "qualified" | "complete") {
       ? sql`select s->>'label' as reason, count(*)::int as count from ${records}, jsonb_array_elements(${records.signals}) s
           where ${records.runId} = ${runId} and ${records.status} = 'invalid' and s->>'strength' = 'hard' and s->>'passed' = 'false'
           group by 1 order by 2 desc, 1 limit 1`
-      : // The validate step names them: "Missing required fields: salary, remote".
-        sql`select f as reason, count(*)::int as count from ${records}, jsonb_array_elements_text(${records.rejectReasons}) r,
-            unnest(string_to_array(substring(r from '^Missing required fields?: (.*)$'), ', ')) f
-          where ${records.runId} = ${runId} and ${records.status} = 'incomplete'
+      : // The validate step names them in its missing_fields reason.
+        sql`select f as reason, count(*)::int as count from ${records}, jsonb_array_elements(${records.rejectReasons}) r,
+            jsonb_array_elements_text(r->'fields') f
+          where ${records.runId} = ${runId} and ${records.status} = 'incomplete' and r->>'code' = 'missing_fields'
           group by 1 order by 2 desc, 1 limit 1`,
   );
   return top ?? null;

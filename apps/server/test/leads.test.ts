@@ -23,6 +23,10 @@ const record = (runId: string, status: RecordStatus, extra: Partial<NewRecord> =
   return { runId, sourceId: "src", itemKey: key, canonicalKey: key, data: { key }, status, ...extra };
 };
 const failed = (label: string): Signal => ({ criterionId: label, label, passed: false, strength: "hard", decidedBy: "RULES" });
+/** What the validate step stores for a record without some required values. */
+const missing = (...fields: string[]): NewRecord["rejectReasons"] => [
+  { code: "missing_fields", fields, message: `Missing required field${fields.length > 1 ? "s" : ""}: ${fields.join(", ")}` },
+];
 const funnelOf = async (runId: string) => (await api.get(`/api/runs/${runId}`)).body.funnel;
 
 describe("leadOf", () => {
@@ -111,7 +115,7 @@ describe("run funnel", () => {
     await db.insert(records).values([
       ...Array.from({ length: 4 }, () => record(run.id, "invalid", { signals: [failed("Remote")] })),
       ...Array.from({ length: 2 }, () => record(run.id, "invalid", { signals: [failed("Senior")] })),
-      ...Array.from({ length: 3 }, () => record(run.id, "incomplete", { rejectReasons: ["Missing required field: salary"] })),
+      ...Array.from({ length: 3 }, () => record(run.id, "incomplete", { rejectReasons: missing("salary") })),
       record(run.id, "valid"),
       record(run.id, "valid", { duplicateOf: keeper!.id }),
     ]);
@@ -131,10 +135,10 @@ describe("run funnel", () => {
     const run = await insertRun({ status: "completed" });
     await db.insert(records).values([
       record(run.id, "invalid", { signals: [failed("Remote")] }),
-      record(run.id, "incomplete", { rejectReasons: ["Missing required field: salary"] }),
-      record(run.id, "incomplete", { rejectReasons: ["Missing required field: salary"] }),
-      record(run.id, "incomplete", { rejectReasons: ["Missing required fields: location, salary"] }),
-      record(run.id, "incomplete", { rejectReasons: ["Missing required field: location"] }),
+      record(run.id, "incomplete", { rejectReasons: missing("salary") }),
+      record(run.id, "incomplete", { rejectReasons: missing("salary") }),
+      record(run.id, "incomplete", { rejectReasons: missing("location", "salary") }),
+      record(run.id, "incomplete", { rejectReasons: missing("location") }),
       record(run.id, "valid"),
       record(run.id, "valid"),
     ]);

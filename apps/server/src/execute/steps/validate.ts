@@ -22,11 +22,15 @@ export const validate: StepFn<"validate"> = async (ctx, _branch, step, input) =>
     // Link columns hold only http(s) addresses: a row with a file: or ms-msdt: value is set aside, out of the list and its export.
     for (const field of ctx.contract.fields.filter((f) => f.type === "url" || f.catalogKey === "url")) {
       const value = candidate.item.fields[itemKeyFor(ctx.contract, field.name)]?.value;
-      if (typeof value === "string" && value && !canonicalUrl(value)) reasons.push(`Not a valid http(s) link: ${field.name}`);
+      if (typeof value === "string" && value && !canonicalUrl(value)) {
+        reasons.push({ code: "invalid_link", fields: [field.name], message: `Not a valid http(s) link: ${field.name}` });
+      }
     }
 
     const status = reasons.length ? "invalid" : missing.length ? "incomplete" : "valid";
-    if (missing.length) reasons.push(`Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);
+    if (missing.length) {
+      reasons.push({ code: "missing_fields", fields: missing, message: `Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}` });
+    }
 
     const confidence = Math.min(recordConfidence(candidate, present.map((p) => p.field!)), candidate.maxConfidence ?? 1);
     return { ...candidate, status, rejectReasons: reasons, confidence };

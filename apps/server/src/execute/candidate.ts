@@ -1,4 +1,4 @@
-import type { RecordStatus, Signal } from "@repo/contracts";
+import type { RecordStatus, RejectReason, Signal } from "@repo/contracts";
 import type { Item } from "../core/items";
 
 /**
@@ -11,7 +11,7 @@ export interface Candidate {
   sourceId: string;
   item: Item;
   signals: Signal[];
-  rejectReasons: string[];
+  rejectReasons: RejectReason[];
   matchScore: number;
   /** Trust in the record: the lowest confidence among its required fields (0..1). */
   confidence: number;

@@ -85,7 +85,7 @@ describe("semantic criteria", () => {
     const meaning = (c: Candidate) => c.signals.find((s) => s.criterionId === "meaning")!;
     expect(meaning(inference!)).toMatchObject({ passed: true, decidedBy: "DECIDER" });
     expect(meaning(it!)).toMatchObject({ passed: false, decidedBy: "DECIDER" });
-    expect(it!.rejectReasons).toContain("Backend or AI engineering work: not met");
+    expect(it!.rejectReasons).toContainEqual({ code: "criterion_not_met", message: "Backend or AI engineering work: not met" });
     // Uncertain, and no LLM budget left: undecided rather than rejected.
     expect(meaning(platform!)).toMatchObject({ passed: null, decidedBy: "DEFAULT" });
     expect(platform!.rejectReasons).toEqual([]);

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { RejectReason } from "@repo/contracts";
 import { summarizeQuality } from "../src/execute/quality";
 
 const record = (id: string, status: "valid" | "incomplete" | "invalid", extra: Record<string, unknown> = {}) => ({
@@ -7,7 +8,7 @@ const record = (id: string, status: "valid" | "incomplete" | "invalid", extra: R
   status,
   duplicateOf: null as string | null,
   confidence: 0.99,
-  rejectReasons: [] as string[],
+  rejectReasons: [] as RejectReason[],
   data: { title: "Engineer", salary: null as string | null },
   ...extra,
 });
@@ -18,8 +19,8 @@ describe("summarizeQuality", () => {
     records: [
       record("1", "valid", { data: { title: "A", salary: "USD 1 / year" } }),
       record("2", "valid", { confidence: 0.8 }),
-      record("3", "incomplete", { rejectReasons: ["Missing required field: location"], confidence: 0.6 }),
-      record("4", "invalid", { rejectReasons: ["Remote: not met"] }),
+      record("3", "incomplete", { rejectReasons: [{ code: "missing_fields", fields: ["location"], message: "Missing required field: location" }], confidence: 0.6 }),
+      record("4", "invalid", { rejectReasons: [{ code: "criterion_not_met", message: "Remote: not met" }] }),
       record("5", "valid", { duplicateOf: "1", sourceId: "src_b" }),
     ],
     evidence: [

@@ -280,8 +280,8 @@ describe("match and validate", () => {
     // Both soft preferences (remote 0.5, company 0.3) are met: the full soft weight is earned.
     expect(backend!.matchScore).toBe(1);
     expect(frontend!.rejectReasons).toEqual([
-      "Backend / AI engineering role: not met",
-      "Not a non-engineering or frontend role: not met",
+      { code: "criterion_not_met", message: "Backend / AI engineering role: not met" },
+      { code: "criterion_not_met", message: "Not a non-engineering or frontend role: not met" },
     ]);
   });
 
@@ -293,7 +293,7 @@ describe("match and validate", () => {
     ]);
     expect(unknown!.signals.find((s) => s.criterionId === "good_company")?.passed).toBeNull();
     expect(unknown!.rejectReasons).toEqual([]);
-    expect(tagged!.rejectReasons).toEqual(["AI / infra / devtools company: not met"]);
+    expect(tagged!.rejectReasons.map((r) => r.message)).toEqual(["AI / infra / devtools company: not met"]);
   });
 
   test("partial soft matches score proportionally", async () => {
@@ -319,7 +319,7 @@ describe("match and validate", () => {
     c.item.fields.location!.evidence = { ...c.item.fields.location!.evidence, method: "LLM", verified: false };
     const [unverified] = await validate(ctx, {} as never, validateStep, [c]);
     expect(unverified!.status).toBe("incomplete");
-    expect(unverified!.rejectReasons).toEqual(["Missing required field: location"]);
+    expect(unverified!.rejectReasons).toEqual([{ code: "missing_fields", fields: ["location"], message: "Missing required field: location" }]);
 
     c.item.fields.location!.evidence = { ...c.item.fields.location!.evidence, method: "REGEX", verified: true };
     const [regex] = await validate(ctx, {} as never, validateStep, [c]);
@@ -334,7 +334,7 @@ describe("match and validate", () => {
 
     const [noLocation] = await validate(ctx, {} as never, validateStep, [candidate({ company: "Acme", title: "Backend Engineer", url: "https://a.test" })]);
     expect(noLocation!.status).toBe("incomplete");
-    expect(noLocation!.rejectReasons).toEqual(["Missing required field: location"]);
+    expect(noLocation!.rejectReasons.map((r) => r.message)).toEqual(["Missing required field: location"]);
   });
 
   test("a link column holding anything but an http(s) address sets the row aside", async () => {
@@ -345,9 +345,9 @@ describe("match and validate", () => {
       candidate({ ...base, title: "Backend Engineer", website: "https://acme.test" }),
     ]);
     expect(fileUrl!.status).toBe("invalid");
-    expect(fileUrl!.rejectReasons).toEqual(["Not a valid http(s) link: url"]);
+    expect(fileUrl!.rejectReasons).toEqual([{ code: "invalid_link", fields: ["url"], message: "Not a valid http(s) link: url" }]);
     expect(fileWebsite!.status).toBe("invalid");
-    expect(fileWebsite!.rejectReasons).toEqual(["Not a valid http(s) link: website"]);
+    expect(fileWebsite!.rejectReasons.map((r) => r.message)).toEqual(["Not a valid http(s) link: website"]);
     expect(ok!.status).toBe("valid");
   });
 });

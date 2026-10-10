@@ -50,6 +50,17 @@ export type Signal = z.infer<typeof Signal>;
 export const RecordStatus = z.enum(["valid", "invalid", "incomplete"]);
 export type RecordStatus = z.infer<typeof RecordStatus>;
 
+/**
+ * Why a record was set aside, as stored: a stable code the run funnel counts by, the fields it names
+ * (a link that isn't one, required values that are missing), and the words people read.
+ */
+export const RejectReason = z.object({
+  code: z.enum(["criterion_not_met", "invalid_link", "missing_fields"]),
+  fields: z.array(z.string()).optional(),
+  message: z.string(),
+});
+export type RejectReason = z.infer<typeof RejectReason>;
+
 export const RecordDTO = z.object({
   id: z.string(),
   runId: z.string(),
@@ -60,6 +71,7 @@ export const RecordDTO = z.object({
   matchScore: z.number(),
   confidence: z.number(),
   signals: z.array(Signal),
+  /** The messages of its reject reasons. */
   rejectReasons: z.array(z.string()),
   seenOn: z.array(z.string()),
   createdAt: z.string(),

@@ -24,7 +24,7 @@ export function toRecordDTO(r: RecordRow): RecordDTO {
     matchScore: r.matchScore,
     confidence: r.confidence,
     signals: r.signals,
-    rejectReasons: r.rejectReasons,
+    rejectReasons: r.rejectReasons.map((reason) => reason.message),
     seenOn: r.seenOn,
     createdAt: r.createdAt.toISOString(),
   };

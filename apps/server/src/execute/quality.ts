@@ -27,7 +27,7 @@ export function summarizeQuality(input: {
 
   const reasons = new Map<string, number>();
   for (const r of unique.filter((r) => r.status !== "valid")) {
-    for (const reason of r.rejectReasons) reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+    for (const { message } of r.rejectReasons) reasons.set(message, (reasons.get(message) ?? 0) + 1);
   }
 
   const sources = [...new Set(input.records.map((r) => r.sourceId))];
