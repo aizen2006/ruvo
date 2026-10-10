@@ -67,6 +67,8 @@ export function startWorker(opts: WorkerOptions) {
   async function processRun(run: ClaimedRun) {
     const controller = new AbortController();
     current = controller;
+    // A stop() that came while this run was being claimed had nothing to abort yet.
+    if (stopped) controller.abort(ABORT_SHUTDOWN);
     const preparing = run.status === "compiling";
     const log = logger.child({ runId: run.id, workerId, attempt: run.attempt, phase: preparing ? "prepare" : "execute" });
     const lifecycle = (type: string, message: string, level: "info" | "warn" | "error" = "info") =>
@@ -87,6 +89,8 @@ export function startWorker(opts: WorkerOptions) {
     }, heartbeatMs);
 
     try {
+      // A run claimed as the worker stops goes straight back to the queue.
+      controller.signal.throwIfAborted();
       if (preparing) {
         const next = await opts.prepare!(run, controller.signal);
         controller.signal.throwIfAborted();
