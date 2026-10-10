@@ -76,7 +76,7 @@ const scrapling = createScraplingClient(serviceUrl);
 
 const signal = () => new AbortController().signal;
 const serialized = (html: string) => cheerio.load(html).html();
-const saveV1 = () => saveRecipe({ ...urlPatternOf(URL_), pageType: "job_list", parentId: null, origin: "llm_discovery", def: V1_RECIPE, acceptance: acceptanceFor(LIST_FIELDS) });
+const saveV1 = () => saveRecipe({ ...urlPatternOf(URL_), parentId: null, origin: "llm_discovery", def: V1_RECIPE, acceptance: acceptanceFor(LIST_FIELDS) });
 
 /** Stores a copy of the careers page that a record cites with `method` evidence (null: no record cites it). */
 async function storePage(body: string, { method = "DOM", minutesAgo = 0 }: { method?: EvidenceMethod | null; minutesAgo?: number } = {}) {

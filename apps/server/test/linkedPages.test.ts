@@ -64,7 +64,6 @@ describe("planning linked pages", () => {
     const [candidate] = discoverSources(STORIES, registry).candidates;
     const draft: PlanDraft = {
       sources: [{ ref: candidate!.ref, include: true, reason: "linked", titleKeywords: [], fetchDetails: false, maxItems: 30 }],
-      fieldStrategies: [],
       llmBudget: 0,
       rationale: "",
     };

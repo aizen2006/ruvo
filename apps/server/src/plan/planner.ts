@@ -19,7 +19,6 @@ For each candidate source, return an entry with:
 
 Candidates with origin "search" were found by searching the web: company job boards (adapters greenhouse, ashby, lever, workable, read through their APIs like registry companies), list pages (adapter html_list), pages about a single record (html_record, which yields one record) and public profiles known only from search results (search_hits). Their discoveryReason names the query that found them. Include the ones likely to hold records the contract asks for; skip off-topic ones.
 
-fieldStrategies: for each contract field, the extraction methods to try in order, from: adapter, json_ld, embedded_json, dom_recipe, regex, llm, derived. Prefer adapter when the source provides the field.
 llmBudget: LLM calls to allow for this run (0-60); API-only plans need few.
 rationale: 2-3 sentences explaining the plan.`;
 

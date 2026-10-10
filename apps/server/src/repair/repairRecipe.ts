@@ -127,7 +127,6 @@ async function saveRepair(run: RunContext, page: FetchedPage, parent: Recipe, fi
   const recipe = await saveRecipe({
     host: parent.host,
     urlPattern: parent.urlPattern,
-    pageType: parent.pageType,
     parentId: parent.id,
     origin: "local_repair",
     def: fix.def,

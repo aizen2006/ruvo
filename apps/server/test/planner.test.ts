@@ -25,7 +25,6 @@ const provenance = { plannedBy: "llm" as const, model: "gpt-6-sol", reusedFrom: 
 
 const draft = (overrides: Partial<PlanDraft> = {}): PlanDraft => ({
   sources: candidates.map((c) => ({ ref: c.ref, include: true, reason: `Use ${c.label}`, titleKeywords: [], fetchDetails: false, maxItems: 30 })),
-  fieldStrategies: [],
   llmBudget: 10,
   rationale: "test",
   ...overrides,

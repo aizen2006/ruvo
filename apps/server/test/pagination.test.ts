@@ -72,7 +72,7 @@ describe("html_list pagination", () => {
   };
 
   async function collect(pages: Record<string, string>, maxListPages: number) {
-    await saveRecipe({ ...urlPatternOf(URL_), pageType: "job_list", parentId: null, origin: "llm_discovery", def: RECIPE, acceptance: acceptanceFor(CONTRACT.fields) });
+    await saveRecipe({ ...urlPatternOf(URL_), parentId: null, origin: "llm_discovery", def: RECIPE, acceptance: acceptanceFor(CONTRACT.fields) });
     const events: Array<{ type: string; message: string }> = [];
     const requested: string[] = [];
     const ctx = {

@@ -20,7 +20,6 @@ export function urlPatternOf(url: string): { host: string; urlPattern: string } 
 export const toRecipe = (row: RecipeRow): Recipe => ({
   id: row.id,
   host: row.host,
-  pageType: row.pageType,
   urlPattern: row.urlPattern,
   version: row.version,
   parentId: row.parentId,
@@ -33,12 +32,12 @@ export const toRecipe = (row: RecipeRow): Recipe => ({
 });
 
 /** The newest active recipe for pages like `url`, if one has been recorded. */
-export async function findActiveRecipe(url: string, pageType: Recipe["pageType"] = "job_list"): Promise<Recipe | null> {
+export async function findActiveRecipe(url: string): Promise<Recipe | null> {
   const { host, urlPattern } = urlPatternOf(url);
   const [row] = await db
     .select()
     .from(recipes)
-    .where(and(eq(recipes.host, host), eq(recipes.urlPattern, urlPattern), eq(recipes.pageType, pageType), eq(recipes.status, "active")))
+    .where(and(eq(recipes.host, host), eq(recipes.urlPattern, urlPattern), eq(recipes.status, "active")))
     .orderBy(desc(recipes.version))
     .limit(1);
   return row ? toRecipe(row) : null;
@@ -50,7 +49,7 @@ export async function saveRecipe(input: Omit<Recipe, "id" | "version" | "status"
     const [latest] = await tx
       .select({ version: max(recipes.version) })
       .from(recipes)
-      .where(and(eq(recipes.host, input.host), eq(recipes.urlPattern, input.urlPattern), eq(recipes.pageType, input.pageType)));
+      .where(and(eq(recipes.host, input.host), eq(recipes.urlPattern, input.urlPattern)));
     await tx
       .update(recipes)
       .set({ status: "retired" })

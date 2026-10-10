@@ -97,7 +97,7 @@ describe("per-run models and cost", () => {
     const planAll = ({ input }: { input: Array<{ content: string }> }): PlanDraft => {
       const { candidates } = JSON.parse(input.at(-1)!.content) as { candidates: Array<{ ref: string }> };
       const sources = candidates.map((c) => ({ ref: c.ref, include: true, reason: "t", titleKeywords: [], fetchDetails: false, maxItems: 10 }));
-      return { sources, fieldStrategies: [], llmBudget: 500, rationale: "t" };
+      return { sources, llmBudget: 500, rationale: "t" };
     };
     const fake = fakeResponses({ dataset_contract: DEMO_CONTRACT, plan_draft: planAll });
     const llm = createLlmClient({ env: { ...models, LLM_CACHE_MODE: "off", OPENAI_API_KEY: "x" }, responses: fake.responses });

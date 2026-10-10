@@ -46,7 +46,6 @@ export async function discoverRecipe(
   const accept = async (def: RecipeDef, result: ReplayResult, attempts: number, method: Discovered["method"]): Promise<Discovered> => {
     const recipe = await saveRecipe({
       ...urlPatternOf(page.url),
-      pageType: "job_list",
       parentId: opts.parent?.id ?? null,
       origin: opts.origin,
       def,

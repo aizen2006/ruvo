@@ -189,7 +189,6 @@ export const recipes = pgTable(
   {
     id: id(),
     host: text("host").notNull(),
-    pageType: text("page_type").$type<Recipe["pageType"]>().notNull(),
     urlPattern: text("url_pattern").notNull(),
     version: integer("version").notNull(),
     parentId: uuid("parent_id"),
@@ -200,7 +199,7 @@ export const recipes = pgTable(
     stats: jsonb("stats").$type<Recipe["stats"]>().notNull(),
     createdAt: createdAt(),
   },
-  (t) => [index("recipes_host_type_idx").on(t.host, t.pageType, t.status)],
+  (t) => [index("recipes_host_status_idx").on(t.host, t.status)],
 );
 
 /** Curated and auto-detected companies with a verified public ATS board. */

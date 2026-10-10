@@ -89,7 +89,6 @@ function mergeDraft(previous: PlanDraft | null, refs: string[], fallback: (ref: 
   const planned = new Map((previous?.sources ?? []).map((s) => [s.ref, s]));
   return {
     sources: refs.map((ref) => planned.get(ref) ?? fallback(ref)),
-    fieldStrategies: previous?.fieldStrategies ?? [],
     llmBudget: previous?.llmBudget ?? 0,
     rationale: previous?.rationale ?? "Recompiled after a contract edit",
   };

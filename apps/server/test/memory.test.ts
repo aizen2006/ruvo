@@ -7,7 +7,7 @@ import { contractSummary, createWorkflowMemory, REUSE_MIN_VALID } from "../src/m
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { resetDb } from "./helpers/db";
 
-const DRAFT: PlanDraft = { sources: [], fieldStrategies: [], llmBudget: 5, rationale: "remembered" };
+const DRAFT: PlanDraft = { sources: [], llmBudget: 5, rationale: "remembered" };
 const memory = createWorkflowMemory({ log: logger });
 
 /** The same request worded differently: the compiler names things a little differently. */

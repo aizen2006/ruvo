@@ -23,7 +23,6 @@ if (env.NODE_ENV !== "production") recipesRouter.post("/:id/simulate-drift", asy
   const drifted = await saveRecipe({
     host: source.host,
     urlPattern: source.urlPattern,
-    pageType: source.pageType,
     parentId: source.id,
     origin: "simulated_drift",
     def: driftRecipe(source.def, mode),

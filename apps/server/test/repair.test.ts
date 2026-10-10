@@ -42,7 +42,7 @@ const V2_RECIPE: RecipeDef = {
 };
 
 const saveV1 = (def: RecipeDef = V1_RECIPE) =>
-  saveRecipe({ ...urlPatternOf(URL_), pageType: "job_list", parentId: null, origin: "llm_discovery", def, acceptance: acceptanceFor(LIST_FIELDS) });
+  saveRecipe({ ...urlPatternOf(URL_), parentId: null, origin: "llm_discovery", def, acceptance: acceptanceFor(LIST_FIELDS) });
 
 /** Serves one page per transport, as the fetcher would after (or without) escalation. */
 function pages(byVia: { http: string; browser?: string }): Fetcher {

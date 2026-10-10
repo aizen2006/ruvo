@@ -242,7 +242,6 @@ describe("preparing a run with web search", () => {
     const { candidates } = JSON.parse(input.at(-1)!.content) as { candidates: Array<{ ref: string }> };
     return {
       sources: candidates.map((c) => ({ ref: c.ref, include: true, reason: "test", titleKeywords: [], fetchDetails: false, maxItems: 10 })),
-      fieldStrategies: [],
       llmBudget: 5,
       rationale: "test plan",
     };

@@ -7,7 +7,6 @@ import type { RegistryCompany } from "./registry";
 export function templateDraft(candidates: SourceCandidate[], maxItemsPerSource: number): PlanDraft {
   return {
     sources: candidates.map((c) => ({ ...defaultSourcePlan(c), maxItems: maxItemsPerSource })),
-    fieldStrategies: [],
     llmBudget: 0,
     rationale: "Template plan: every discovered source with default settings",
   };

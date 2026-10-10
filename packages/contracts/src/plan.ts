@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 /** Rungs of the extraction ladder, cheapest and most reliable first. */
-export const Rung = z.enum(["adapter", "json_ld", "embedded_json", "dom_recipe", "regex", "llm", "derived"]);
+export const Rung = z.enum(["json_ld", "regex", "llm"]);
 export type Rung = z.infer<typeof Rung>;
 
 /**
@@ -19,7 +19,6 @@ export const PlanDraft = z.object({
       maxItems: z.number(),
     }),
   ),
-  fieldStrategies: z.array(z.object({ field: z.string(), rungs: z.array(Rung) })),
   llmBudget: z.number(),
   rationale: z.string(),
 });

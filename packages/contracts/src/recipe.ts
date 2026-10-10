@@ -29,7 +29,6 @@ export const RecipeOrigin = z.enum(["llm_discovery", "local_repair", "llm_repair
 export const Recipe = z.object({
   id: z.string(),
   host: z.string(),
-  pageType: z.enum(["job_list", "list"]),
   urlPattern: z.string(),
   version: z.number().int(),
   parentId: z.string().nullable(),
