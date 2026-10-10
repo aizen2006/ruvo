@@ -1,14 +1,16 @@
 /**
  * Verifies every external dependency RUVO needs: `bun run smoke` (`bun run doctor` from the repo root).
  * Postgres; both models through the AI account (OpenAI's API, or the ChatGPT sign-in server); the decision
- * provider; Scrapling and the fetch service; SearXNG. Checks that need a missing API key, a service turned off
+ * provider; Scrapling and the fetch service; the document sandbox; SearXNG. Checks that need a missing API key, a service turned off
  * with a blank URL, or SearXNG while it isn't running, are reported as "skip", not failures. So are a Python without
  * Scrapling, which only a fetch service run outside Docker needs, and a fetch service that `bun run dev` will start.
  */
-import { SQL } from "bun";
+import { $, SQL } from "bun";
 import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { env } from "../src/config/env";
+import { createDocparse, DOCPARSE_IMAGE } from "../src/documents/sandbox";
+import { tinyPdf } from "../src/documents/tinyPdf";
 import { chatgptFailure, openaiFor } from "../src/llm/client";
 import { findPython } from "./python";
 
@@ -108,6 +110,23 @@ const checks: Check[] = [
       if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
       const page = (await res.json()) as { status: number };
       return pass(`scrapling ${scrapling} fetched https://example.com: HTTP ${page.status}`);
+    },
+  },
+  {
+    name: `document sandbox ${env.DOCPARSE === "docker" ? DOCPARSE_IMAGE : new URL(env.DOCPARSE).host}`,
+    run: async () => {
+      const docker = env.DOCPARSE === "docker";
+      if (docker && (await $`docker info`.quiet().nothrow()).exitCode !== 0) {
+        return skip("Docker isn't running, so documents found by search can't be opened; start Docker Desktop");
+      }
+      const result = await createDocparse(env.DOCPARSE)
+        .run(tinyPdf("RUVO doctor"), { parse: true })
+        .catch((err: Error) => {
+          if (docker && err.message.includes("No such image")) throw new Error(`${DOCPARSE_IMAGE} isn't built; run \`bun run setup\``);
+          throw err;
+        });
+      if (result.verdict !== "clean" || result.text !== "RUVO doctor") throw new Error(`a clean test PDF came back ${result.verdict}: ${result.reason ?? "no text"}`);
+      return pass("read a one-page test PDF in the sandbox");
     },
   },
   {

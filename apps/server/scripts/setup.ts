@@ -2,7 +2,8 @@
  * Local setup, safe to re-run: `bun run setup` from the repo root.
  * Creates the env files from their templates and picks how the Scrapling fetch service runs: with a Python that has
  * Scrapling, else in Docker (the compose `fetch` profile), else in a Python that uv installs Scrapling for. Then, once
- * the ports it needs are free, starts Postgres and SearXNG, applies migrations and checks every dependency (`bun run doctor`).
+ * the ports it needs are free, starts Postgres and SearXNG, builds the document sandbox, applies migrations and checks
+ * every dependency (`bun run doctor`).
  */
 import { $ } from "bun";
 import { existsSync } from "node:fs";
@@ -10,6 +11,7 @@ import { copyFile } from "node:fs/promises";
 import { connect } from "node:net";
 import { join, relative } from "node:path";
 import { loadEnv } from "../src/config/envSchema";
+import { DOCPARSE_IMAGE } from "../src/documents/sandbox";
 import { createVenv, findPython } from "./python";
 
 const root = join(import.meta.dir, "..", "..", "..");
@@ -31,7 +33,9 @@ process.loadEnvFile(join(server, ".env"));
 const env = loadEnv(process.env);
 
 const docker = (await $`docker info`.quiet().nothrow()).exitCode === 0;
-if (!docker) console.log("\nDocker isn't running, so setup can't start Postgres and SearXNG: install or start Docker Desktop.");
+if (!docker) {
+  console.log("\nDocker isn't running, so setup can't start Postgres and SearXNG, or build the sandbox that opens documents: install or start Docker Desktop.");
+}
 
 // How the fetch service runs: natively, with SCRAPLING_PYTHON or a Python found with Scrapling; else in Docker; else
 // natively with Scrapling that uv installs in a venv.
@@ -84,6 +88,11 @@ if (fetchService === "uv") await createVenv();
 if (docker) {
   console.log(`\nStarting Postgres and SearXNG${profiles.length ? ", and the fetch service: the first time, Docker downloads its image and browsers" : ""}...`);
   await $`docker compose ${profiles} up -d --wait`.cwd(root);
+  // Each document found by search is opened in a container of its own, from this image (DOCPARSE=docker).
+  if (env.DOCPARSE === "docker") {
+    console.log("\nBuilding the document sandbox, which opens PDFs and spreadsheets in a container of their own...");
+    await $`docker build -t ${DOCPARSE_IMAGE} infra/docparse`.cwd(root).quiet();
+  }
 }
 console.log("\nApplying migrations...");
 await $`bun run db:migrate`.cwd(server);

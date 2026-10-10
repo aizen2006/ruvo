@@ -4,35 +4,13 @@
  */
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createDocparse, DOCPARSE_IMAGE, DocparseError, dockerTransport } from "../src/documents/sandbox";
+import { tinyPdf } from "../src/documents/tinyPdf";
 
 /** The sandbox, but each run hangs before it reads its document (docparse's test-only hook). */
 const HUNG_IMAGE = "ruvo-docparse-hung";
 
 const docker = (...args: string[]) => Bun.spawnSync(["docker", ...args], { stdout: "pipe", stderr: "pipe" });
 const failure = async (run: Promise<unknown>) => (await run.catch((e: unknown) => e)) as DocparseError;
-
-/** A one-page PDF with a line of Helvetica text. */
-function tinyPdf(text: string): Uint8Array {
-  const content = `BT /F1 12 Tf 72 720 Td (${text}) Tj ET`;
-  const objects = [
-    "<< /Type /Catalog /Pages 2 0 R >>",
-    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-    `<< /Length ${content.length} >>\nstream\n${content}\nendstream`,
-  ];
-  let pdf = "%PDF-1.7\n";
-  const offsets = objects.map((body, i) => {
-    const offset = pdf.length;
-    pdf += `${i + 1} 0 obj\n${body}\nendobj\n`;
-    return offset;
-  });
-  const xref = pdf.length;
-  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
-  pdf += offsets.map((offset) => `${String(offset).padStart(10, "0")} 00000 n \n`).join("");
-  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
-  return new TextEncoder().encode(pdf);
-}
 
 describe.skipIf(process.env.RUVO_SANDBOX_TESTS !== "1")("the document sandbox in Docker", () => {
   beforeAll(() => {
