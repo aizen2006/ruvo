@@ -23,6 +23,11 @@ const site = Bun.serve({
         return new Response(null, { status: 302, headers: { location: "http://[bad" } });
       case "/redirect":
         return new Response(null, { status: 302, headers: { location: "/ok" } });
+      // Onto this site under another host name, to a page its robots.txt disallows.
+      case "/offsite":
+        return new Response(null, { status: 302, headers: { location: `http://127.0.0.1:${new URL(req.url).port}/private/page` } });
+      case "/private/page":
+        return html("<p>private</p>");
       case "/flaky":
         return ++flakyCalls === 1
           ? new Response("slow down", { status: 429, headers: { "retry-after": "0" } })
@@ -96,6 +101,7 @@ describe("fetcher", () => {
   test("refuses robots-disallowed paths, oversize bodies, 404s and an empty budget", async () => {
     const fetcher = localFetcher();
     expect(await failureKind(fetcher.fetch(scope(), page("/private/x")))).toBe("robots_disallowed");
+    expect(await failureKind(fetcher.fetch(scope(), page("/offsite")))).toBe("robots_disallowed");
     expect(await failureKind(fetcher.fetch(scope(), page("/big", { maxBytes: 1000 })))).toBe("too_large");
     expect(await failureKind(fetcher.fetch(scope(), page("/nope")))).toBe("http_status");
     expect(await failureKind(fetcher.fetch(scope(0), page("/ok")))).toBe("budget_exhausted");

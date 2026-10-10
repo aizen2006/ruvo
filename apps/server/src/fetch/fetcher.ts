@@ -78,7 +78,8 @@ type Fetched = { finalUrl: string; status: number; contentType: string | null; b
  * Polite, cached fetching through RUVO's Scrapling service, moving to a stronger method only when a
  * cheaper one fails: plain HTTP, then a browser for a JavaScript shell, or the stealth browser for a
  * bot check; last, Firecrawl (with a key) when the stealth browser is refused or the Scrapling service is down.
- * Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport.
+ * Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport,
+ * and a page that ends on another host after a redirect passes that host's circuit breaker and robots.txt too.
  */
 export function createFetcher(opts: FetcherOptions): Fetcher {
   const robots = opts.robots ?? createRobots({ userAgent: opts.userAgent, allowPrivateNetwork: opts.allowPrivateNetwork });
@@ -111,14 +112,20 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   async function preflight(scope: FetchScope, url: string, budget: BudgetKey[]) {
     if (opts.cacheMode === "cache_only") throw new FetchError("cache_miss", `Not in cache (cache_only mode): ${url}`, { url });
     await guard(url);
+    const { host, crawlDelayMs } = await checkHost(url);
+    const short = budget.find((key) => scope.budget.left(key) < 1);
+    if (short) throw new FetchError("budget_exhausted", `${short === "pages" ? "Page" : "Browser page"} budget exhausted for this run`, { url });
+    for (const key of budget) scope.budget.take(key);
+    return { host, crawlDelayMs };
+  }
+
+  /** The circuit breaker and robots.txt of a URL's host, asked before a fetch and of the host a redirect ends on. */
+  async function checkHost(url: string) {
     const { host, origin } = new URL(url);
     if (breaker.isOpen(host)) throw new FetchError("circuit_open", `Skipping ${host}: too many recent failures`, { url });
     // robots.txt is never read from a local address, so a trusted origin (RUVO's own demo site) is not asked about.
     const { allowed, crawlDelayMs } = trusted.has(origin) ? { allowed: true, crawlDelayMs: 0 } : await robots.check(url);
     if (!allowed) throw new FetchError("robots_disallowed", `robots.txt disallows ${url}`, { url });
-    const short = budget.find((key) => scope.budget.left(key) < 1);
-    if (short) throw new FetchError("budget_exhausted", `${short === "pages" ? "Page" : "Browser page"} budget exhausted for this run`, { url });
-    for (const key of budget) scope.budget.take(key);
     return { host, crawlDelayMs };
   }
 
@@ -156,6 +163,8 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
       });
     }
     const { challenge, ...fetched } = response;
+    // The requested host's checks don't cover a redirect onto another host; refused there, the page is not stored.
+    if (new URL(fetched.finalUrl).host !== host) await checkHost(fetched.finalUrl);
     if (challenge) {
       const passed = await fetchVia(scope, req, "stealth");
       return { ...passed, escalation: { reason: `a bot check (HTTP ${fetched.status})`, textLength: assessHtml(fetched.body).textLength } };

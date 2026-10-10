@@ -16,7 +16,8 @@ const JOBS_URL = "https://shop.example/jobs";
 const fullPage = `<html><body><h1>Jobs</h1><p>${"Backend engineer, remote. ".repeat(40)}</p></body></html>`;
 const challenge = `<html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt = {};</script></body></html>`;
 const html = (status: number, body: string, headers: Record<string, string> = {}) => ({ status, body, headers: { "content-type": "text/html", ...headers } });
-type Reply = ReturnType<typeof html> | FetchError;
+/** A reply with its own `url` ended elsewhere, as after a redirect. */
+type Reply = (ReturnType<typeof html> & { url?: string }) | FetchError;
 
 /** A fake Scrapling service: one reply per engine, and a log of the engines asked. */
 function fakeScrapling(replies: Partial<Record<ScraplingEngine, Reply>>) {
@@ -155,6 +156,21 @@ describe("fetch ladder", () => {
     expect((await failure(fetcher.fetch(scope(), req("http")))).kind).toBe("service_down");
     // Not retried either: one call per fetch.
     expect(calls).toEqual(["http", "http"]);
+  });
+
+  test("a redirect onto another host is refused by that host's robots.txt or open breaker, and nothing is stored", async () => {
+    const elsewhere = "https://elsewhere.example/jobs";
+    const robots = createRobots({
+      userAgent: "RUVO-test",
+      fetchText: async (url) => (new URL(url).host === "elsewhere.example" ? { status: 200, text: "User-agent: *\nDisallow: /" } : { status: 404, text: "" }),
+    });
+    const { client } = fakeScrapling({ http: { ...html(200, fullPage), url: elsewhere } });
+    expect(await failure(fetcherWith(client, { robots }).fetch(scope(), req("http")))).toMatchObject({ kind: "robots_disallowed", details: { url: elsewhere } });
+
+    const breaker = createCircuitBreaker({ threshold: 1, cooldownMs: 60_000 });
+    breaker.recordFailure("elsewhere.example");
+    expect(await failure(fetcherWith(client, { breaker }).fetch(scope(), req("http")))).toMatchObject({ kind: "circuit_open", details: { url: elsewhere } });
+    expect(await storedVias()).toEqual([]);
   });
 });
 
