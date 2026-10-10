@@ -38,3 +38,14 @@ jobs:
         working-directory: apps/server
       - run: bun run build
         working-directory: apps/web
+
+  # The document sandbox (infra/docparse) against hostile files, made as its suite runs, in Docker as the worker runs it.
+  sandbox:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.2
+      - run: bun run test:sandbox
+        working-directory: apps/server

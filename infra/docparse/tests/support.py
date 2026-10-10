@@ -4,6 +4,7 @@ import io
 import json
 import subprocess
 import sys
+import zipfile
 
 from openpyxl import Workbook
 
@@ -38,10 +39,10 @@ HELVETICA = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"
 
 
 def text_pdf(pages: list[str], catalog: bytes = b"", font: bytes = HELVETICA, extra: tuple[bytes, ...] = (),
-             info: bytes | None = None) -> bytes:
+             info: bytes | None = None, page: bytes = b"") -> bytes:
     """A PDF with a page of text per item of `pages` (lines split on "\\n", characters taken as the font's codes).
-    Its objects: the catalog (1), the page tree (2), the font (3), then `extra` from 4, which the catalog and font may
-    refer to, then each page and its content, then the Info dictionary when given."""
+    Its objects: the catalog (1), the page tree (2), the font (3), then `extra` from 4, which the catalog, font and
+    each page's added entries (`page`) may refer to, then each page and its content, then the Info dictionary."""
     first_page = 4 + len(extra)
     page_numbers = [first_page + 2 * i for i in range(len(pages))]
     objects = [
@@ -52,7 +53,7 @@ def text_pdf(pages: list[str], catalog: bytes = b"", font: bytes = HELVETICA, ex
     ]
     for number, text in zip(page_numbers, pages):
         lines = b" 0 -14 Td ".join(b"(%s) Tj" % escape(line) for line in text.split("\n"))
-        objects.append(b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents %d 0 R >>" % (number + 1))
+        objects.append(b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents %d 0 R %s >>" % (number + 1, page))
         objects.append(stream(b"BT /F1 12 Tf 72 720 Td %s ET" % lines))
     if info is None:
         return pdf(*objects)
@@ -63,10 +64,32 @@ def escape(text: str) -> bytes:
     return text.encode("latin-1").replace(b"\\", b"\\\\").replace(b"(", b"\\(").replace(b")", b"\\)")
 
 
-def xlsx(build) -> bytes:
+def suppliers(workbook) -> None:
+    workbook.active.append(["Company", "City"])
+    workbook.active.append(["Acme", "Paris"])
+
+
+def xlsx(build=suppliers) -> bytes:
     """An Excel workbook made by `build(workbook)`."""
     workbook = Workbook()
     build(workbook)
     out = io.BytesIO()
     workbook.save(out)
     return out.getvalue()
+
+
+def repack(archive: bytes, parts: dict[str, bytes]) -> bytes:
+    """A ZIP archive (a workbook) with `parts` added or replaced."""
+    out = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(archive)) as source, zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as target:
+        for name in source.namelist():
+            if name not in parts:
+                target.writestr(name, source.read(name))
+        for name, data in parts.items():
+            target.writestr(name, data)
+    return out.getvalue()
+
+
+def part(archive: bytes, name: str) -> bytes:
+    with zipfile.ZipFile(io.BytesIO(archive)) as source:
+        return source.read(name)
