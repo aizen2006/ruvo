@@ -6,7 +6,7 @@ import type { StepFn } from "./types";
 
 /**
  * Assigns each candidate a status and a confidence:
- * - invalid: a hard criterion failed or the URL is unusable
+ * - invalid: a hard criterion failed or a link column holds anything but an http(s) URL
  * - incomplete: a required field is missing, or its value could not be verified
  * - valid: otherwise
  * Confidence is the weakest required field's confidence (a record is only as
@@ -19,8 +19,11 @@ export const validate: StepFn<"validate"> = async (ctx, _branch, step, input) =>
     const present = requiredFields.filter(({ field }) => hasVerifiedValue(field));
     const missing = requiredFields.filter((r) => !present.includes(r)).map((r) => r.name);
 
-    const url = candidate.item.fields.url?.value;
-    if (typeof url === "string" && url && !canonicalUrl(url)) reasons.push("URL is not a valid http(s) link");
+    // Link columns hold only http(s) addresses: a row with a file: or ms-msdt: value is set aside, out of the list and its export.
+    for (const field of ctx.contract.fields.filter((f) => f.type === "url" || f.catalogKey === "url")) {
+      const value = candidate.item.fields[itemKeyFor(ctx.contract, field.name)]?.value;
+      if (typeof value === "string" && value && !canonicalUrl(value)) reasons.push(`Not a valid http(s) link: ${field.name}`);
+    }
 
     const status = reasons.length ? "invalid" : missing.length ? "incomplete" : "valid";
     if (missing.length) reasons.push(`Missing required field${missing.length > 1 ? "s" : ""}: ${missing.join(", ")}`);

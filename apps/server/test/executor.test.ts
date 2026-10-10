@@ -282,4 +282,18 @@ describe("match and validate", () => {
     expect(noLocation!.status).toBe("incomplete");
     expect(noLocation!.rejectReasons).toEqual(["Missing required field: location"]);
   });
+
+  test("a link column holding anything but an http(s) address sets the row aside", async () => {
+    const withWebsite = { ...DEMO_CONTRACT, fields: [...DEMO_CONTRACT.fields, { name: "website", catalogKey: "custom" as const, type: "url" as const, required: false, description: "" }] };
+    const [fileUrl, fileWebsite, ok] = await validate({ contract: withWebsite } as never, {} as never, validateStep, [
+      candidate({ ...base, title: "Backend Engineer", url: "file:///C:/Windows/win.ini" }),
+      candidate({ ...base, title: "Backend Engineer", website: "file:///C:/Windows/win.ini" }),
+      candidate({ ...base, title: "Backend Engineer", website: "https://acme.test" }),
+    ]);
+    expect(fileUrl!.status).toBe("invalid");
+    expect(fileUrl!.rejectReasons).toEqual(["Not a valid http(s) link: url"]);
+    expect(fileWebsite!.status).toBe("invalid");
+    expect(fileWebsite!.rejectReasons).toEqual(["Not a valid http(s) link: website"]);
+    expect(ok!.status).toBe("valid");
+  });
 });
