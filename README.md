@@ -52,7 +52,7 @@ dropped, not guessed.
 | **26 s** | to read a page behind a Cloudflare check that used to stop RUVO cold |
 | **33 → 97** | good leads when a run went back for two more rounds on its own |
 | **0** | AI calls to read a list page RUVO has seen before |
-| **640+** | tests, run by CI on every push, plus a suite of hostile files for the document sandbox |
+| **680+** | tests, run by CI on every push, plus a suite of hostile files for the document sandbox |
 
 ## What makes it different
 
@@ -335,9 +335,12 @@ must sit behind your own HTTPS and authentication before it faces the internet.
 - **Jobs are the deep domain.** Each kind of record has a domain pack; jobs have the richest one.
   Everything else uses the generic pack, web search and pages you link. RUVO follows "next page"
   links but doesn't click, scroll or log in.
-- **PDFs and spreadsheets aren't read yet.** Search results that point at a document are still
-  skipped. The sandbox that will open them, one locked-down container per file, is built and
-  tested; wiring it into runs comes next.
+- **PDFs are used from their details; their text isn't read yet.** Ask for documents ("PDF guides
+  on voice model APIs") and each PDF a search finds, or one you link, becomes a lead. Its title,
+  site, date and summary come from the search result. Its type, size and date come from the file's
+  own headers, fetched without downloading it, under the same robots.txt and private-network rules
+  as any page. The sandbox that will open the files, one locked-down container per file, is built
+  and tested; wiring it into runs comes next. Spreadsheets and other files are still skipped.
 - **Search is only as good as the engines SearXNG can reach.** Public engines sometimes rate-limit
   it or show it a CAPTCHA. A search then finds less, or falls back to Firecrawl if you have a key.
 - **Social profiles come from search snippets only.** Instagram, X, LinkedIn and similar sites
