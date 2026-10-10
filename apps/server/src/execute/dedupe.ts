@@ -1,5 +1,5 @@
 import { EVIDENCE_METHODS, type DatasetContract, type EvidenceMethod } from "@repo/contracts";
-import { locationBucket } from "../extract/parsers/location";
+import { parserOf } from "../domains";
 import { canonicalUrl } from "../libs/url";
 
 /**
@@ -10,7 +10,7 @@ import { canonicalUrl } from "../libs/url";
 
 export function recordKeys(contract: DatasetContract, data: Record<string, unknown>, specs: string[][]): string[] {
   return specs.map((spec) => {
-    const parts = spec.map((name) => normalizeFor(catalogKeyOf(contract, name), data[name]));
+    const parts = spec.map((name) => normalizeFor(contract, catalogKeyOf(contract, name), data[name]));
     // A key only identifies a record when every part of it is known.
     return parts.every(Boolean) ? `${spec.join("+")}:${parts.join("|")}` : "";
   });
@@ -71,21 +71,13 @@ export const methodRank = (methods: EvidenceMethod[]) =>
 
 const catalogKeyOf = (contract: DatasetContract, name: string) => contract.fields.find((f) => f.name === name)?.catalogKey ?? "custom";
 
-const LEGAL_SUFFIX = /\b(inc|incorporated|llc|ltd|limited|gmbh|corp|corporation|co|plc|sa|ag|bv)\b\.?/g;
-
-function normalizeFor(catalogKey: string, value: unknown): string {
+/** A value as dedup keys compare it: links canonical, others in the domain's coarse form for the field (a job's city), as plain words. */
+function normalizeFor(contract: DatasetContract, catalogKey: string, value: unknown): string {
   if (value === null || value === undefined || value === "") return "";
   const text = String(value);
-  switch (catalogKey) {
-    case "url":
-      return canonicalUrl(text) ?? "";
-    case "location":
-      return locationBucket(text);
-    case "company":
-      return normalizeText(text.toLowerCase().replace(LEGAL_SUFFIX, ""));
-    default:
-      return normalizeText(text);
-  }
+  if (catalogKey === "url") return canonicalUrl(text) ?? "";
+  const dedupeKey = parserOf(contract, catalogKey)?.dedupeKey;
+  return normalizeText(dedupeKey ? dedupeKey(text) : text);
 }
 
 /** Lowercase, "&" → "and", "sr" → "senior", punctuation removed, whitespace collapsed. */

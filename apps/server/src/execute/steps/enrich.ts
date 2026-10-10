@@ -1,9 +1,9 @@
 import type { FieldSpec } from "@repo/contracts";
 import { itemKeyFor, type FieldValue } from "../../core/items";
+import { packOf } from "../../domains";
 import { runLadder } from "../../extract/ladder";
 import { jsonLdRung } from "../../extract/rungs/jsonLd";
 import { llmRung } from "../../extract/rungs/llm";
-import { regexRung } from "../../extract/rungs/regex";
 import { FetchError } from "../../fetch/errors";
 import { LlmError } from "../../llm/client";
 import { htmlToText } from "../../libs/text";
@@ -15,13 +15,14 @@ const CONCURRENCY = 4;
 
 /**
  * Fills fields the source's list data lacks, cheapest first:
- * 1. regex over the description the source already returned (e.g. Greenhouse pay ranges)
- * 2. the posting's own page, when allowed: JSON-LD, then regex over its text (at most `maxFetches` pages)
+ * 1. the domain's patterns over the description the source already returned (e.g. Greenhouse pay ranges)
+ * 2. the posting's own page, when allowed: JSON-LD, then the patterns over its text (at most `maxFetches` pages)
  * 3. the LLM over the description, only for required fields and only if the plan allows it
  */
 export const enrich: StepFn<"enrich"> = async (ctx, branch, step, input) => {
   const fields = ctx.contract.fields.filter((f) => step.fields.includes(f.name));
   const missing = (c: Candidate) => fields.filter((f) => !c.item.fields[itemKeyFor(ctx.contract, f.name)]);
+  const patterns = packOf(ctx.contract).regex ?? [];
   let fetchesLeft = step.rungs.includes("json_ld") ? step.maxFetches : 0;
   let llmAllowed = step.rungs.includes("llm");
   const counts = { text: 0, page: 0, llm: 0 };
@@ -33,7 +34,7 @@ export const enrich: StepFn<"enrich"> = async (ctx, branch, step, input) => {
     // 1. The description we already have.
     if (candidate.item.text && stillMissing().length) {
       const text = { ...candidate.item.text, text: candidate.item.text.plain };
-      const got = await runLadder(ctx, text, stillMissing(), [regexRung]);
+      const got = await runLadder(ctx, text, stillMissing(), patterns);
       if (Object.keys(got).length) counts.text++;
       Object.assign(filled, got);
     }
@@ -45,7 +46,7 @@ export const enrich: StepFn<"enrich"> = async (ctx, branch, step, input) => {
       try {
         const page = await ctx.fetcher.fetch(ctx, { url, expect: "html", purpose: "posting page", mode: step.fetch === "browser" ? "browser" : "http" });
         const input = { text: htmlToText(page.body), html: page.body, sourceUrl: page.finalUrl, pageId: page.pageId };
-        const got = await runLadder(ctx, input, stillMissing(), [jsonLdRung, regexRung]);
+        const got = await runLadder(ctx, input, stillMissing(), [jsonLdRung, ...patterns]);
         if (Object.keys(got).length) counts.page++;
         Object.assign(filled, got);
       } catch (err) {

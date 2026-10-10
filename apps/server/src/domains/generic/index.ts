@@ -1,3 +1,4 @@
+import { schemaRecordReader } from "../../extract/schemaOrg";
 import type { DomainPack } from "../types";
 
 /** Any other kind of record (companies, people, creators, products, events…), read from pages that search finds. */
@@ -15,4 +16,5 @@ export const genericPack: DomainPack = {
     warnings.push("Added a search query from the dataset description, as none were given");
     return { ...contract, sourceHints: { ...contract.sourceHints, searchQueries: [fallback] } };
   },
+  jsonLd: [schemaRecordReader],
 };

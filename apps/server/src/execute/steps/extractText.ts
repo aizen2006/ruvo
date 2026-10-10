@@ -1,7 +1,7 @@
 import { itemKeyFor, type FieldValue } from "../../core/items";
+import { packOf } from "../../domains";
 import { runLadder, type ExtractorRung } from "../../extract/ladder";
 import { llmRung } from "../../extract/rungs/llm";
-import { regexRung } from "../../extract/rungs/regex";
 import { LlmError } from "../../llm/client";
 import { mapLimit } from "../../libs/limit";
 import type { Candidate } from "../candidate";
@@ -11,14 +11,15 @@ const LLM_CONCURRENCY = 6;
 
 /**
  * Fills contract fields that a text source's parser could not, using the extraction ladder.
- * Regex runs for every post. The LLM runs only for posts still missing a required field
- * (those come first), at most `llmBudget` times, and never beyond the run's LLM budget.
+ * The domain's patterns run for every post. The LLM runs only for posts still missing a required
+ * field (those come first), at most `llmBudget` times, and never beyond the run's LLM budget.
  */
 export const extractText: StepFn<"extract_text"> = async (ctx, branch, step, input) => {
   const fields = ctx.contract.fields.filter((f) => f.catalogKey !== "match_reason");
   const has = (c: Candidate, name: string) => Boolean(c.item.fields[itemKeyFor(ctx.contract, name)]);
   const missingFor = (c: Candidate) => fields.filter((f) => !has(c, f.name));
   const lacksRequired = (c: Candidate) => fields.some((f) => f.required && !has(c, f.name));
+  const patterns = packOf(ctx.contract).regex ?? [];
 
   const needsWork = input
     .filter((c) => c.item.text && missingFor(c).length > 0)
@@ -38,7 +39,7 @@ export const extractText: StepFn<"extract_text"> = async (ctx, branch, step, inp
 
   let extracted = 0;
   const results = await mapLimit(needsWork, LLM_CONCURRENCY, async (candidate) => {
-    const rungs = lacksRequired(candidate) ? [regexRung, gatedLlm] : [regexRung];
+    const rungs = lacksRequired(candidate) ? [...patterns, gatedLlm] : patterns;
     try {
       const filled = await runLadder(ctx, { ...candidate.item.text!, text: candidate.item.text!.plain }, missingFor(candidate), rungs);
       if (Object.keys(filled).length) extracted++;

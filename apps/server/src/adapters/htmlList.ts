@@ -1,7 +1,8 @@
-import type { FieldSpec } from "@repo/contracts";
+import type { DatasetContract, FieldSpec } from "@repo/contracts";
 import { z } from "zod";
 import { itemKeyFor, type FieldValue, type Item } from "../core/items";
 import type { RunContext } from "../core/run";
+import { packOf, parserOf } from "../domains";
 import { FetchError } from "../fetch/errors";
 import type { FetchResult } from "../fetch/fetcher";
 import { canonicalUrl } from "../libs/url";
@@ -11,8 +12,6 @@ import { readWithRecipe } from "../recipes/lifecycle";
 import { replayRecipe, type RecipeRow } from "../recipes/replay";
 import { explainFailure } from "../repair/classify";
 import type { FetchedPage, RepairInput } from "../repair/repairRecipe";
-import { detectArrangement } from "../extract/parsers/remote";
-import { formatSalary, parseSalary } from "../extract/parsers/salary";
 import { truncate } from "../libs/text";
 import { compactFields, derived } from "./fields";
 import type { SourceAdapter } from "./types";
@@ -57,13 +56,15 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
       });
     }
 
-    // A company's own board doesn't repeat the company name per item. The registry supplies it;
-    // for a linked page it is read from the page itself, and a recipe need not find it per item.
-    const owner = company ? { name: company, basis: new URL(url).host, rule: "registry board owner" } : pageOwner(page.body);
+    // A company's own board doesn't repeat the company name per item, so in a domain whose records
+    // name their page's owner (a job's company), the registry supplies it; for a linked page it is
+    // read from the page itself, and a recipe need not find it per item.
+    const { ownerField } = packOf(run.contract);
+    const owner = !ownerField ? null : company ? { name: company, basis: new URL(url).host, rule: "registry board owner" } : pageOwner(page.body);
     const fields = run.contract.fields
-      .filter((f) => LIST_FIELDS.has(f.catalogKey) && !(company && f.catalogKey === "company"))
-      .map((f) => (owner && f.catalogKey === "company" ? { ...f, required: false } : f));
-    const companyKey = run.contract.fields.find((f) => f.catalogKey === "company")?.name;
+      .filter((f) => LIST_FIELDS.has(f.catalogKey) && !(company && f.catalogKey === ownerField))
+      .map((f) => (owner && f.catalogKey === ownerField ? { ...f, required: false } : f));
+    const ownerKey = run.contract.fields.find((f) => f.catalogKey === ownerField)?.name;
     const refetch: RepairInput["refetch"] = async (mode) => {
       const again = await fetcher.fetch(scope, { url, expect: "html", purpose: "list page (retry)", mode, fresh: true });
       return toFetched(again);
@@ -80,6 +81,7 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
             domField(
               row[f.name] ?? null,
               fieldOf(run, f.name),
+              run.contract,
               `${recipe.def.itemSelector} ${f.selector || ":scope"} @${f.attr}`,
               sourceUrl,
               listPage.pageId,
@@ -87,8 +89,8 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
           ]),
         ),
       );
-      if (companyKey && !values[companyKey] && owner) {
-        values[companyKey] = derived(owner.name, owner.basis, owner.rule, sourceUrl, listPage.pageId)!;
+      if (ownerKey && !values[ownerKey] && owner) {
+        values[ownerKey] = derived(owner.name, owner.basis, owner.rule, sourceUrl, listPage.pageId)!;
       }
       return {
         externalId: row[fields.find((f) => f.catalogKey === "url")?.name ?? "url"] ?? `${sourceUrl}#${i}`,
@@ -131,21 +133,21 @@ export const htmlList: SourceAdapter<HtmlListParams> = {
 const canonical = (url: string) => canonicalUrl(url) ?? url;
 
 /**
- * A value read from the page. Arrangement, salary and numbers are normalized like every other
- * source ("Remote" → "remote", "1,204 points" → "1204"); the snippet keeps the page's original text.
+ * A value read from the page. Values the domain parses (a job's arrangement or pay) and numbers are
+ * normalized like every other source ("Remote" → "remote", "1,204 points" → "1204"); the snippet
+ * keeps the page's original text.
  */
-function domField(raw: string | null, field: FieldSpec | undefined, locator: string, sourceUrl: string, pageId: string | null): FieldValue | undefined {
+function domField(
+  raw: string | null,
+  field: FieldSpec | undefined,
+  contract: DatasetContract,
+  locator: string,
+  sourceUrl: string,
+  pageId: string | null,
+): FieldValue | undefined {
   if (!raw) return undefined;
-  const catalogKey = field?.catalogKey ?? "custom";
-  const salary = catalogKey === "salary" ? parseSalary(raw) : null;
-  const value =
-    catalogKey === "remote"
-      ? (detectArrangement(raw) ?? raw.toLowerCase())
-      : salary
-        ? formatSalary(salary)
-        : field?.type === "number"
-          ? (firstNumber(raw) ?? raw)
-          : raw;
+  const normalize = parserOf(contract, field?.catalogKey ?? "custom")?.normalize;
+  const value = normalize ? normalize(raw) : field?.type === "number" ? (firstNumber(raw) ?? raw) : raw;
   return {
     value,
     evidence: { method: "DOM", sourceUrl, pageId, snippet: truncate(raw, 300), locator: { kind: "css", value: locator }, verified: true },

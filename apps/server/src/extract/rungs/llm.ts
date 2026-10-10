@@ -1,12 +1,12 @@
 import type { DatasetContract, FieldSpec } from "@repo/contracts";
 import { z } from "zod";
 import type { FieldValue } from "../../core/items";
+import { parserOf } from "../../domains";
+import type { FieldParser } from "../../domains/types";
 import { truncate } from "../../libs/text";
 import { PAGE_CONTENT_GUARD } from "../../llm/guard";
 import type { ExtractorRung } from "../ladder";
 import { parseCount } from "../parsers/count";
-import { detectArrangement } from "../parsers/remote";
-import { formatSalary, parseSalary } from "../parsers/salary";
 import { verifyQuote } from "../verifyQuote";
 
 /** Text beyond this is cut (and reported) to keep calls cheap; job posts rarely need more. */
@@ -66,9 +66,10 @@ export const llmRung: ExtractorRung = {
     for (const extracted of data.fields) {
       const field = fields.find((f) => f.name === extracted.name);
       if (!field || !extracted.value || !extracted.quote) continue;
+      const parser = parserOf(ctx.contract, field.catalogKey);
       const span = verifyQuote(extracted.quote, input.text);
       // The quote must be on the page, and must actually say the value (not just mention the topic).
-      const problem = !span ? "its quote was not found in the source" : !quoteSupports(field, extracted.value, extracted.quote) ? "its quote does not state that value" : null;
+      const problem = !span ? "its quote was not found in the source" : !quoteSupports(parser, extracted.value, extracted.quote) ? "its quote does not state that value" : null;
       if (problem || !span) {
         ctx.emit({
           stage: "extracting",
@@ -80,7 +81,7 @@ export const llmRung: ExtractorRung = {
         continue;
       }
       out[field.name] = {
-        value: normalizeValue(field, extracted.value),
+        value: normalizeValue(field, parser, extracted.value),
         evidence: {
           method: "LLM",
           sourceUrl: input.sourceUrl,
@@ -96,31 +97,19 @@ export const llmRung: ExtractorRung = {
 };
 
 /**
- * Whether the quoted text states the value. Arrangement and salary are compared after parsing
- * both sides ("fully remote" supports "remote"; "$250k-$300k" supports "250,000–300,000");
- * other values must have every word of the value in the quote.
+ * Whether the quoted text states the value. Values the domain parses (a job's arrangement or pay)
+ * are compared as parsed by its parser; other values must have every word of the value in the quote.
  */
-export function quoteSupports(field: FieldSpec, value: string, quote: string): boolean {
-  if (field.catalogKey === "remote") {
-    const stated = detectArrangement(quote);
-    return stated !== null && stated === (detectArrangement(value) ?? value.trim().toLowerCase());
-  }
-  if (field.catalogKey === "salary") {
-    const [fromValue, fromQuote] = [parseSalary(value), parseSalary(quote)];
-    return fromValue !== null && fromQuote !== null && fromValue.min === fromQuote.min && fromValue.max === fromQuote.max;
-  }
+export function quoteSupports(parser: FieldParser | undefined, value: string, quote: string): boolean {
+  if (parser?.supports) return parser.supports(value, quote);
   const words = (s: string) => s.toLowerCase().replace(/(\d),(\d)/g, "$1$2").match(/[\p{L}\p{N}]+/gu) ?? [];
   const quoted = new Set(words(quote));
   return words(value).every((w) => quoted.has(w));
 }
 
 /** Puts model output into the same shape the deterministic parsers produce. */
-function normalizeValue(field: FieldSpec, value: string): string {
-  if (field.catalogKey === "remote") return detectArrangement(value) ?? value.trim().toLowerCase();
-  if (field.catalogKey === "salary") {
-    const salary = parseSalary(value);
-    return salary ? formatSalary(salary) : value.trim();
-  }
+function normalizeValue(field: FieldSpec, parser: FieldParser | undefined, value: string): string {
+  if (parser?.normalize) return parser.normalize(value);
   if (field.type === "number") return String(parseCount(value) ?? value.trim());
   return value.trim();
 }

@@ -1,12 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { FieldSpec } from "@repo/contracts";
+import { packOf } from "../src/domains";
 import { hnWhoIsHiring } from "../src/domains/jobs/adapters/hn";
+import { salaryRung } from "../src/domains/jobs/readers";
 import { createBudget, createMetrics, type RunContext } from "../src/core/run";
 import { toCandidate } from "../src/execute/candidate";
 import { extractText } from "../src/execute/steps/extractText";
 import { runLadder } from "../src/extract/ladder";
 import { llmRung, quoteSupports } from "../src/extract/rungs/llm";
-import { regexRung } from "../src/extract/rungs/regex";
 import { verifyQuote } from "../src/extract/verifyQuote";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { resetDb } from "./helpers/db";
@@ -59,10 +60,10 @@ const fields = (names: string[]) => DEMO_CONTRACT.fields.filter((f) => names.inc
 const input = { text: "Acme AI is hiring a Backend Engineer in Berlin. Salary €80k–€95k.", sourceUrl: "https://news.ycombinator.com/item?id=1", pageId: null };
 
 describe("extraction ladder", () => {
-  test("regex fills salary without calling the LLM", async () => {
+  test("the jobs pack's pattern rung fills salary without calling the LLM", async () => {
     const llm = fakeLlm();
     const { ctx } = fakeContext(llm);
-    const out = await runLadder(ctx, input, fields(["salary"]), [regexRung, llmRung]);
+    const out = await runLadder(ctx, input, fields(["salary"]), [salaryRung, llmRung]);
     expect(out.salary?.value).toBe("EUR 80,000–95,000 / year");
     expect(out.salary?.evidence.method).toBe("REGEX");
     expect(llm.calls).toHaveLength(0);
@@ -79,7 +80,7 @@ describe("extraction ladder", () => {
       },
     });
     const { ctx, events } = fakeContext(llm);
-    const out = await runLadder(ctx, input, fields(["title", "location", "company"]), [regexRung, llmRung]);
+    const out = await runLadder(ctx, input, fields(["title", "location", "company"]), [salaryRung, llmRung]);
 
     expect(out.title).toMatchObject({ value: "Backend Engineer", evidence: { method: "LLM", verified: true, snippet: "hiring a Backend Engineer" } });
     expect(out.location?.value).toBe("Berlin");
@@ -119,8 +120,6 @@ describe("extract_text step", () => {
 });
 
 describe("quoteSupports", () => {
-  const field = (catalogKey: FieldSpec["catalogKey"]) => ({ name: catalogKey, catalogKey, type: "string", required: false, description: "" }) as FieldSpec;
-
   test.each([
     ["salary", "$250,000 - $300,000", "The base salary range is $250,000–$300,000 per year.", true],
     ["salary", "$250,000", "We offer a competitive salary.", false],
@@ -129,6 +128,7 @@ describe("quoteSupports", () => {
     ["location", "Berlin, Germany", "Based in Berlin, Germany or remote.", true],
     ["location", "Paris", "Based in Berlin, Germany.", false],
   ] as const)("%s %p in %p → %p", (key, value, quote, supported) => {
-    expect(quoteSupports(field(key), value, quote)).toBe(supported);
+    // A job's arrangement and pay are compared as the jobs pack parses them; other values word by word.
+    expect(quoteSupports(packOf(DEMO_CONTRACT).parsers?.[key], value, quote)).toBe(supported);
   });
 });

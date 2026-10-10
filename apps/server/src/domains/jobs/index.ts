@@ -9,6 +9,7 @@ import { workable } from "./adapters/workable";
 import { boardSearch } from "./boards";
 import { COMPANY_TAG_GUIDE, JOB_FIELD_GUIDE } from "./fields";
 import { normalizeJobs } from "./normalize";
+import { jobParsers, jobPostingReader, salaryRung } from "./readers";
 import { knownJobSources } from "./sources";
 
 /** Job postings: the deep domain, read from job boards RUVO knows, boards found by search, and job pages. */
@@ -28,4 +29,8 @@ searchQueries: leave empty (RUVO uses its job-board registry).`,
   adapters: [greenhouse, ashby, lever, workable, hnWhoIsHiring] as SourceAdapter<unknown>[],
   knownSources: knownJobSources,
   search: boardSearch,
+  parsers: jobParsers,
+  jsonLd: [jobPostingReader],
+  regex: [salaryRung],
+  ownerField: "company",
 };

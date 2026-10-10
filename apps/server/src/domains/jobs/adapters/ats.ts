@@ -1,8 +1,8 @@
 import { z } from "zod";
 import { fromApi } from "../../../adapters/fields";
 import type { FieldValue } from "../../../core/items";
-import { formatSalary, type SalaryPeriod } from "../../../extract/parsers/salary";
 import type { FetchResult } from "../../../fetch/fetcher";
+import { formatSalary, type SalaryPeriod } from "../parsers/salary";
 
 /** Parameters shared by all ATS job-board adapters. */
 export const AtsParams = z.object({

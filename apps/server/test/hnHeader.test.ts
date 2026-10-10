@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseHnHeader } from "../src/extract/parsers/hnHeader";
+import { parseHnHeader } from "../src/domains/jobs/parsers/hnHeader";
 
 // Header lines from the September 2026 "Who is hiring?" thread.
 describe("parseHnHeader", () => {

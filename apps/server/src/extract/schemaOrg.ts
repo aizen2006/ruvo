@@ -1,4 +1,5 @@
 import type { FieldSpec } from "@repo/contracts";
+import type { JsonLdReader } from "../domains/types";
 
 /** Reads schema.org records of any kind (JSON-LD) onto a contract's fields. */
 
@@ -17,8 +18,8 @@ const PROPERTY_HINTS: Array<[RegExp, string[]]> = [
 const typeOf = (node: Node) => ([] as unknown[]).concat(node["@type"] ?? []).map(String);
 const isRecord = (node: Node) => typeOf(node).some((t) => RECORD_TYPE.test(t));
 
-/** The records a page describes at its top level: a person, organization, product, event, work… */
-export const schemaRecords = (items: Node[]) => items.filter(isRecord);
+/** Any record a page describes at its top level (a person, organization, product, event, work…), read by its fields' names. */
+export const schemaRecordReader: JsonLdReader = { matches: isRecord, read: (node, field) => readSchemaField(node, field) };
 
 /** The entries of the page's ItemLists: their items, or the entries themselves when they carry a name. */
 export function schemaListItems(items: Node[]): Node[] {

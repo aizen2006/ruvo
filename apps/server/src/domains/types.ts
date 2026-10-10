@@ -1,7 +1,8 @@
-import type { AdapterId, DatasetContract, FoundSource, RunMode } from "@repo/contracts";
+import type { AdapterId, DatasetContract, FieldSpec, FoundSource, RunMode } from "@repo/contracts";
 import type { SearchHit } from "../adapters/searchHits";
 import type { SourceAdapter } from "../adapters/types";
 import type { EmitInput } from "../core/run";
+import type { ExtractorRung } from "../extract/ladder";
 
 /**
  * What RUVO knows about one kind of record, e.g. job postings. The requirement compiler is told
@@ -29,6 +30,31 @@ export interface DomainPack {
   knownSources?(contract: DatasetContract, lookUp?: SourceLookUp): Promise<SourceCandidate[]>;
   /** What it adds to searching the web for sources (for jobs, the job-board platforms). */
   search?: PackSearch;
+  /** How it reads, checks and compares values of its catalog fields, by key (for jobs: arrangement, pay, place, company). */
+  parsers?: Record<string, FieldParser>;
+  /** Readers for the schema.org records (JSON-LD) its pages publish, most specific first: the first to find its kind of record on a page reads it. */
+  jsonLd?: JsonLdReader[];
+  /** Rungs that read its values from free text by pattern (for jobs, pay ranges). */
+  regex?: ExtractorRung[];
+  /** The catalog key a list page's owner fills when its items don't name it (for jobs, the hiring company on its own board). */
+  ownerField?: string;
+}
+
+/** How a pack reads, checks and compares one of its fields' values. */
+export interface FieldParser {
+  /** A value as RUVO keeps it, from a page's or the model's words ("Remote" → "remote"). */
+  normalize?(raw: string): string;
+  /** Whether a quote states the value, compared as parsed values ("fully remote" states "remote"). */
+  supports?(value: string, quote: string): boolean;
+  /** The coarse form records share when they are duplicates ("San Francisco, CA; NYC" → "san francisco"). */
+  dedupeKey?(value: string): string;
+}
+
+/** Reads one kind of schema.org record (JSON-LD) onto a contract's fields. */
+export interface JsonLdReader {
+  matches(node: Record<string, unknown>): boolean;
+  /** A field's value in the record, with the property path it came from. */
+  read(node: Record<string, unknown>, field: FieldSpec): { value: string; path: string } | null;
 }
 
 /** A source the planner may choose. `ref` is the stable id plans refer to. */

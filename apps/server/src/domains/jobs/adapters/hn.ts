@@ -2,9 +2,9 @@ import { z } from "zod";
 import { compactFields, derived, fromText } from "../../../adapters/fields";
 import type { SourceAdapter } from "../../../adapters/types";
 import type { Item } from "../../../core/items";
-import { parseHnHeader } from "../../../extract/parsers/hnHeader";
-import { formatSalary } from "../../../extract/parsers/salary";
 import { htmlToText, truncate } from "../../../libs/text";
+import { parseHnHeader } from "../parsers/hnHeader";
+import { formatSalary } from "../parsers/salary";
 
 const HnParams = z.object({
   /** "latest" or a specific thread's item id. */

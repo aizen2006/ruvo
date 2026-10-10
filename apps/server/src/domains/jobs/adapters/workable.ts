@@ -1,7 +1,7 @@
 import { compactFields, derived, fromApi } from "../../../adapters/fields";
 import type { SourceAdapter } from "../../../adapters/types";
-import { joinLocations } from "../../../extract/parsers/location";
-import { detectArrangement } from "../../../extract/parsers/remote";
+import { joinLocations } from "../parsers/location";
+import { detectArrangement } from "../parsers/remote";
 import { ATS_BOARD_URL, AtsParams } from "./ats";
 
 interface WorkableJob {

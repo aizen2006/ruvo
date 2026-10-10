@@ -1,8 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { compileKeywords } from "../src/libs/keywords";
-import { joinLocations, locationBucket } from "../src/extract/parsers/location";
-import { arrangementFromWorkplaceType, detectArrangement } from "../src/extract/parsers/remote";
-import { formatSalary, parseSalary } from "../src/extract/parsers/salary";
+import { joinLocations, locationBucket } from "../src/domains/jobs/parsers/location";
+import { arrangementFromWorkplaceType, detectArrangement } from "../src/domains/jobs/parsers/remote";
+import { formatSalary, parseSalary } from "../src/domains/jobs/parsers/salary";
 import { verifyQuote } from "../src/extract/verifyQuote";
 import { decodeEntities, htmlToText, truncate } from "../src/libs/text";
 import { canonicalUrl, sameSiteCanonical } from "../src/libs/url";
