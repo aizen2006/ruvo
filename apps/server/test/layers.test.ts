@@ -5,7 +5,7 @@ import { dirname, join, relative } from "node:path";
 
 const SRC = join(import.meta.dir, "../src");
 /** Folders below the run pipeline. They take run and item types from core/, so they never import the pipeline. */
-const LOWER = new Set(["core", "adapters", "fetch", "llm", "decide", "extract", "recipes", "repair", "search"]);
+const LOWER = new Set(["core", "adapters", "fetch", "llm", "decide", "extract", "recipes", "repair", "search", "domains"]);
 const PIPELINE = new Set(["runs", "execute"]);
 
 /** Every relative import in src/, static or dynamic, as importing file → imported path, both from src/. */

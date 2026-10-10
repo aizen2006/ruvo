@@ -56,6 +56,12 @@ export function normalizeWhitespace(text: string): string {
 /** Collapses all whitespace, line breaks included, to single spaces, after normalizeChars. */
 export const singleLine = (text: string) => normalizeChars(text).replace(/\s+/g, " ").trim();
 
+/** A guide as prompt lines: "- key: meaning". */
+export const bulletList = (guide: Record<string, string>) =>
+  Object.entries(guide)
+    .map(([key, meaning]) => `- ${key}: ${meaning}`)
+    .join("\n");
+
 /** Shortens text to at most `max` characters on a word boundary, adding an ellipsis. */
 export function truncate(text: string, max: number): string {
   if (text.length <= max) return text;

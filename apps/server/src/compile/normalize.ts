@@ -1,5 +1,5 @@
 import { CatalogKey, type Criterion, type DatasetContract, type FieldSpec } from "@repo/contracts";
-import { JOB_FIELD_GUIDE } from "./catalog";
+import { JOB_FIELD_GUIDE } from "../domains/jobs/fields";
 
 /**
  * Deterministic clean-up of a compiled contract, so later stages can rely on its shape

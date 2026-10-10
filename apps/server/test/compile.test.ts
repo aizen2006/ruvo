@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import type { DatasetContract } from "@repo/contracts";
 import { isSafeRegex, normalizeContract } from "../src/compile/normalize";
+import { COMPILE_SYSTEM_PROMPT } from "../src/compile/prompt";
 import { compileRequirement } from "../src/compile/requirementCompiler";
+import { PACKS } from "../src/domains";
+import { bulletList } from "../src/libs/text";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT, DEMO_PROMPT } from "../src/plan/demoContract";
 import { resetDb } from "./helpers/db";
@@ -80,6 +83,32 @@ describe("normalizeContract", () => {
     const { contract, warnings } = normalizeContract({ ...base, criteria: [criterion] }, "jobs");
     expect(contract.criteria).toEqual([]);
     expect(warnings).toContain('Dropped criterion "Evil": invalid, too long or too slow regular expression');
+  });
+});
+
+describe("the compile prompt", () => {
+  test("lists every domain, then gives each its catalog and rules after the shared ones", () => {
+    for (const pack of PACKS) {
+      expect(COMPILE_SYSTEM_PROMPT).toContain(`- "${pack.id}": ${pack.describe}`);
+      expect(COMPILE_SYSTEM_PROMPT).toContain(`ENTITY "${pack.id}": ${pack.describe}
+Catalog keys:
+${bulletList(pack.fields)}`);
+      expect(COMPILE_SYSTEM_PROMPT).toContain(pack.prompt);
+    }
+  });
+
+  test("keeps the rules it had before domains, now in their domain's section", () => {
+    for (const rule of [
+      "Always include company, title and url.",
+      "List 20-35 short title stems and synonyms",
+      'for work arrangement use field "remote" with values from "remote", "hybrid", "onsite"',
+      "(choose only the 1-3 tags that fit the request; never list all of them)",
+      "- ai_lab: Builds frontier AI models",
+      "searchQueries: leave empty (RUVO uses its job-board registry).",
+      '"custom" for the rest (type "number" for counts and amounts), and require only the fields that identify an item',
+    ]) {
+      expect(COMPILE_SYSTEM_PROMPT).toContain(rule);
+    }
   });
 });
 
