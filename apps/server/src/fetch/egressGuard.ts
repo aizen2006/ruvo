@@ -65,6 +65,8 @@ function parseConnect(b: Buffer): { host: string; port: number } | null {
   return null;
 }
 
-// Run on its own (`bun src/fetch/egressGuard.ts`): on every interface only inside a container. It reads NODE_ENV
-// itself, not through config/env, so its container needs none of RUVO's configuration or secrets.
-if (import.meta.main) startEgressGuard({ host: process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1", port: 1080 });
+// Run on its own (`bun src/fetch/egressGuard.ts`): on every interface only inside a container. It reads NODE_ENV and
+// EGRESS_PORT itself, not through config/env, so its container needs none of RUVO's configuration or secrets.
+if (import.meta.main) {
+  startEgressGuard({ host: process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1", port: Number(process.env.EGRESS_PORT || 1080) });
+}

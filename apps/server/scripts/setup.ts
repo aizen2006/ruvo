@@ -21,7 +21,8 @@ for (const { template, target, note } of envFiles) {
   console.log(`Created ${relative(root, target)} from its template${note ? `; ${note}` : ""}.`);
 }
 
-// Bun loads only the current directory's .env (the repo root's), so read SCRAPLING_PYTHON from the server's.
+// Bun loads only the current directory's .env (the repo root's), so load the server's: SCRAPLING_PYTHON, and the
+// ports docker compose reads from this process's environment (POSTGRES_PORT).
 process.loadEnvFile(join(server, ".env"));
 const python = process.env.SCRAPLING_PYTHON || (process.platform === "win32" ? "python" : "python3");
 const scrapling = await $`${python} -c "import scrapling, starlette, uvicorn"`.quiet().nothrow();

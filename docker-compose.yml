@@ -1,6 +1,8 @@
 # Local infrastructure for RUVO.
 #   docker compose up -d                  -> postgres and searxng
 #   docker compose --profile laya up -d   -> also the optional self-hosted Laya decider
+# A port set in apps/server/.env (POSTGRES_PORT) applies when `bun run setup` starts these,
+# or by hand with `docker compose --env-file apps/server/.env up -d`.
 services:
   postgres:
     image: postgres:17
@@ -9,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ruvo
       POSTGRES_DB: ruvo
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:

@@ -1,7 +1,7 @@
 /**
  * Runs RUVO's Scrapling fetch service natively for development: `bun scripts/fetch-service.ts`.
- * Starts the egress guard on 127.0.0.1:1080, then infra/scrapling/server.py with your own Scrapling,
- * which sends every connection it makes through the guard. The service stops when this script does.
+ * Starts the egress guard on 127.0.0.1:EGRESS_PORT, then infra/scrapling/server.py with your own Scrapling on
+ * SCRAPLING_URL's port; the service sends every connection it makes through the guard and stops when this script does.
  */
 import { $ } from "bun";
 import { once } from "node:events";
@@ -25,7 +25,7 @@ if (installed.exitCode !== 0) {
   process.exit(1);
 }
 
-const guard = { host: "127.0.0.1", port: 1080 };
+const guard = { host: "127.0.0.1", port: env.EGRESS_PORT };
 await once(startEgressGuard(guard), "listening");
 
 // The service gets only what Python and its browsers need (Playwright keeps them under LOCALAPPDATA on Windows):

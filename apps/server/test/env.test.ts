@@ -32,6 +32,13 @@ describe("loadEnv", () => {
     expect(() => loadEnv({ ...minimal, CORS_ORIGINS: "ruvo.example.com" })).toThrow(/CORS_ORIGINS/);
   });
 
+  test("the fetch service's URL follows SCRAPLING_PORT unless it is set; blank turns the service off", () => {
+    expect(loadEnv(minimal).SCRAPLING_URL).toBe("http://127.0.0.1:8001");
+    expect(loadEnv({ ...minimal, SCRAPLING_PORT: "18001" }).SCRAPLING_URL).toBe("http://127.0.0.1:18001");
+    expect(loadEnv({ ...minimal, SCRAPLING_PORT: "18001", SCRAPLING_URL: "http://fetch:8001" }).SCRAPLING_URL).toBe("http://fetch:8001");
+    expect(loadEnv({ ...minimal, SCRAPLING_URL: "" }).SCRAPLING_URL).toBeUndefined();
+  });
+
   test("lists every invalid variable in one error", () => {
     expect(() => loadEnv({ DECIDER_PROVIDER: "gpt" })).toThrow(/DATABASE_URL[\s\S]*DECIDER_PROVIDER/);
   });
