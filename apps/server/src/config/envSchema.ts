@@ -76,6 +76,16 @@ const EnvSchema = z.object({
   SCRAPLING_URL: serviceUrl("http://127.0.0.1:8001"),
   /** The Python that has Scrapling installed; unset means `python` on Windows and `python3` elsewhere. */
   SCRAPLING_PYTHON: unsetIfBlank,
+  /**
+   * How documents found on the web are read, always in the sandbox (infra/docparse): "docker" starts a container per
+   * document from the ruvo-docparse image; the docparse service's URL (http://docparse:8100) is for a worker that runs
+   * in Docker itself. Blank means "docker".
+   */
+  DOCPARSE: z
+    .string()
+    .default("docker")
+    .transform((v) => v || "docker")
+    .pipe(z.union([z.literal("docker"), z.url({ protocol: /^https?$/ })])),
 
   /** SearXNG, the local web search for finding sources (docker compose runs it); blank turns it off. */
   SEARXNG_URL: serviceUrl("http://127.0.0.1:8888"),

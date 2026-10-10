@@ -8,7 +8,7 @@
     "start": "bun src/index.ts",
     "start:worker": "bun src/worker.ts",
     "test": "bun test",
-    "test:sandbox": "docker build -t ruvo-docparse ../../infra/docparse && docker build --target tests -t ruvo-docparse-tests ../../infra/docparse && docker run --rm --network none --read-only --tmpfs /tmp:size=64m --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 512m --cpus 1 --user 65534 ruvo-docparse-tests",
+    "test:sandbox": "docker build -t ruvo-docparse ../../infra/docparse && docker build --target tests -t ruvo-docparse-tests ../../infra/docparse && docker run --rm --network none --read-only --tmpfs /tmp:size=64m --cap-drop ALL --security-opt no-new-privileges --pids-limit 64 --memory 512m --cpus 1 --user 65534 ruvo-docparse-tests && RUVO_SANDBOX_TESTS=1 bun test test/sandbox.docker.test.ts",
     "check-types": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "bun src/db/migrate.ts",

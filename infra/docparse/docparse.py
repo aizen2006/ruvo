@@ -37,6 +37,7 @@ import csv
 import html
 import io
 import json
+import logging
 import math
 import os
 import re
@@ -44,6 +45,7 @@ import resource
 import subprocess
 import sys
 import unicodedata
+import warnings
 import zipfile
 from datetime import date, datetime, time, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -57,6 +59,11 @@ from openpyxl import load_workbook
 from openpyxl.worksheet._reader import WorkSheetParser
 from pypdf import PdfReader
 from pypdf.generic import ArrayObject, DictionaryObject, IndirectObject, NameObject
+
+# The parsers' complaints about a damaged file (one a line, so a hostile file can write megabytes of them) are noise
+# here: the verdict says what matters, and stderr is left for failures.
+logging.disable(logging.WARNING)
+warnings.simplefilter("ignore")
 
 MB = 1 << 20
 MAX_BYTES = 64 * MB  # RUVO caps downloads well below this

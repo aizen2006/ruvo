@@ -40,12 +40,28 @@ jobs:
         working-directory: apps/web
 
   # The document sandbox (infra/docparse) against hostile files, made as its suite runs, in Docker as the worker runs it.
+  # Its client's Docker test runs under bun test, which needs Postgres as above.
   sandbox:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ruvo
+          POSTGRES_PASSWORD: ruvo
+          POSTGRES_DB: ruvo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ruvo -d ruvo"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
+      - run: bun install --frozen-lockfile
       - run: bun run test:sandbox
         working-directory: apps/server
