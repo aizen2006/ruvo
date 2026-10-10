@@ -34,6 +34,13 @@ describe("verifyQuote", () => {
     expect(verifyQuote("fully remote worldwide", text)).toBeNull();
     expect(verifyQuote("a", text)).toBeNull();
   });
+
+  test("tolerates invisible characters and Unicode forms on either side", () => {
+    const raw = "Senior Back\u200Bend Engineer, \uFB01ntech";
+    const span = verifyQuote("backend engineer, fintech", raw)!;
+    expect(raw.slice(span.start, span.end)).toBe("Back\u200Bend Engineer, \uFB01ntech");
+    expect(verifyQuote("Back\u2060end", "Senior Backend Engineer")).not.toBeNull();
+  });
 });
 
 function fakeContext(llm: ReturnType<typeof fakeLlm>, maxLlmCalls = 10) {

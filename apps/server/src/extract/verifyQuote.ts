@@ -1,6 +1,9 @@
+import { normalizeChars } from "../libs/text";
+
 /**
  * Finds a quote inside source text, tolerating the differences an LLM (or a copy-paste)
- * introduces: whitespace runs, curly vs straight quotes, dash variants, and letter case.
+ * introduces: whitespace runs, curly vs straight quotes, dash variants, letter case, Unicode
+ * forms and invisible characters. Both sides are normalized alike, whether or not the text was.
  * Returns the span in the ORIGINAL text, so evidence points at exactly what the source says.
  */
 export function verifyQuote(quote: string, text: string): { start: number; end: number } | null {
@@ -23,7 +26,6 @@ const EQUIVALENT: Record<string, string> = {
   "–": "-",
   "—": "-",
   "−": "-",
-  " ": " ",
 };
 
 /** Normalized text plus, for each normalized character, its index in the original. */
@@ -32,18 +34,21 @@ function normalize(text: string): { value: string; origin: number[] } {
   const origin: number[] = [];
   let lastWasSpace = true; // also trims leading whitespace
   for (let i = 0; i < text.length; i++) {
-    const ch = EQUIVALENT[text[i]!] ?? text[i]!;
-    if (/\s/.test(ch)) {
-      if (!lastWasSpace) {
-        value += " ";
-        origin.push(i);
+    // Each character in the form stored text has (normalizeChars): "ﬁ" becomes "fi", a zero-width space nothing.
+    for (const c of normalizeChars(text[i]!)) {
+      const ch = EQUIVALENT[c] ?? c;
+      if (/\s/.test(ch)) {
+        if (!lastWasSpace) {
+          value += " ";
+          origin.push(i);
+        }
+        lastWasSpace = true;
+        continue;
       }
-      lastWasSpace = true;
-      continue;
+      value += ch.toLowerCase();
+      origin.push(i);
+      lastWasSpace = false;
     }
-    value += ch.toLowerCase();
-    origin.push(i);
-    lastWasSpace = false;
   }
   if (value.endsWith(" ")) {
     value = value.slice(0, -1);

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { compileKeywords } from "../src/execute/keywords";
 import { joinLocations, locationBucket } from "../src/extract/parsers/location";
 import { arrangementFromWorkplaceType, detectArrangement } from "../src/extract/parsers/remote";
 import { formatSalary, parseSalary } from "../src/extract/parsers/salary";
@@ -119,6 +120,12 @@ describe("text helpers", () => {
     );
     expect(text).toBe("Salary: $120k");
     expect(verifyQuote("Salary: $900k", text)).toBeNull();
+  });
+
+  test("text has one Unicode form and no invisible characters, so a keyword split by a zero-width space still matches", () => {
+    const text = htmlToText("<h1>Senior Back\u200Bend Engineer\u202E (\uFF32\uFF55\uFF53\uFF54)</h1>");
+    expect(text).toBe("Senior Backend Engineer (Rust)");
+    expect(compileKeywords(["backend"])!.test(text)).toBe(true);
   });
 
   test("decodeEntities unescapes API-escaped HTML", () => {

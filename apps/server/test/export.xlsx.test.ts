@@ -31,7 +31,7 @@ beforeAll(async () => {
     .insert(records)
     .values([
       { runId, sourceId, itemKey: "a", status: "valid", matchScore: 0.75, confidence: 0.95, data: { company: "Acme", title: "Backend engineer", location: "Remote", url: POSTING } },
-      { runId, sourceId, itemKey: "b", status: "invalid", confidence: 0.5, data: { company: "=HYPERLINK(\"http://evil\")", title: "Sales lead", location: "Paris", url: "javascript:alert(1)" } },
+      { runId, sourceId, itemKey: "b", status: "invalid", confidence: 0.5, data: { company: "=HYPERLINK(\"http://evil\")", title: "Sales\u202E lead\u202C", location: "Paris", url: "javascript:alert(1)" } },
     ])
     .returning();
   const receipt = { method: "API" as const, sourceUrl: POSTING, pageId: null, locator: { kind: "jsonPath" as const, value: "$.title" }, verified: true };
@@ -105,6 +105,8 @@ describe("Excel export", () => {
     const setAside = workbook.getWorksheet("Data")!.getRow(3);
     expect(setAside.getCell(header.indexOf("Status") + 1).value).toBe("Set aside");
     expect(setAside.getCell(1).value).toBe("'=HYPERLINK(\"http://evil\")");
+    // Bidirectional controls, which could reorder what a reader sees, are dropped.
+    expect(setAside.getCell(header.indexOf("title") + 1).value).toBe("Sales lead");
     // Only http(s) addresses are linked.
     expect(setAside.getCell(DEMO_CONTRACT.fields.findIndex((f) => f.name === "url") + 1).value).toBe("javascript:alert(1)");
 

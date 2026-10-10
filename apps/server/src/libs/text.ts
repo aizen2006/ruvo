@@ -35,18 +35,26 @@ export function decodeEntities(text: string): string {
   return cheerio.load(`<div>${text}</div>`)("div").text();
 }
 
-/** Collapses runs of spaces within lines and blank lines between them. */
+/** Zero-width and bidirectional control characters: unseen, yet they split words and can reorder what a reader sees. */
+export const INVISIBLE = /[\u200B-\u200D\u2060\uFEFF\u202A-\u202E\u2066-\u2069]/g;
+
+/**
+ * Text in one Unicode form (NFKC: "ﬁ" → "fi", full-width "Ｒ" → "R", a no-break space → a space)
+ * without invisible characters, so quotes and keywords match however a page encoded them.
+ */
+export const normalizeChars = (text: string) => text.normalize("NFKC").replace(INVISIBLE, "");
+
+/** Collapses runs of spaces within lines and blank lines between them, after normalizeChars. */
 export function normalizeWhitespace(text: string): string {
-  return text
-    .replace(/ /g, " ")
+  return normalizeChars(text)
     .split("\n")
     .map((line) => line.replace(/[ \t]+/g, " ").trim())
     .filter(Boolean)
     .join("\n");
 }
 
-/** Collapses all whitespace, line breaks included, to single spaces. */
-export const singleLine = (text: string) => text.replace(/\s+/g, " ").trim();
+/** Collapses all whitespace, line breaks included, to single spaces, after normalizeChars. */
+export const singleLine = (text: string) => normalizeChars(text).replace(/\s+/g, " ").trim();
 
 /** Shortens text to at most `max` characters on a word boundary, adding an ellipsis. */
 export function truncate(text: string, max: number): string {

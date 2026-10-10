@@ -112,4 +112,10 @@ describe("toCsv", () => {
   test("neutralises spreadsheet formulas", () => {
     expect(toCsv(["a"], [{ a: "=HYPERLINK(1)" }])).toBe("a\r\n'=HYPERLINK(1)\r\n");
   });
+
+  test("drops invisible and bidirectional control characters, and keeps every other character as it is", () => {
+    expect(toCsv(["a"], [{ a: "\u202EAcme \uFB01nance\u202C\u2066" }])).toBe("a\r\nAcme \uFB01nance\r\n");
+    // Removed before the formula check, so they can't hide a formula from it.
+    expect(toCsv(["a"], [{ a: "\u200B=HYPERLINK(1)" }])).toBe("a\r\n'=HYPERLINK(1)\r\n");
+  });
 });
