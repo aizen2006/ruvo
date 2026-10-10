@@ -1,6 +1,6 @@
 import type { DatasetContract } from "@repo/contracts";
 import { z } from "zod";
-import { fromDocMeta, fromSearch } from "../../adapters/fields";
+import { derived, fromDocMeta, fromSearch } from "../../adapters/fields";
 import type { SourceAdapter } from "../../adapters/types";
 import { itemKeyFor, type FieldValue, type Item } from "../../core/items";
 import { FetchError } from "../../fetch/errors";
@@ -25,6 +25,20 @@ const fact = (value: string | null | undefined, quote: string | null | undefined
 
 /** Search engines mark files in their titles ("[PDF] Guide", "Guide (PDF)", "Guide - PDF", "guide.pdf"); the title is what's left. */
 const cleanTitle = (title: string) => title.replace(/^\s*\[PDF\]\s*|\s*\(PDF\)\s*$|\s+[-–|]\s+PDF\s*$|\.pdf\s*$/gi, "").trim();
+
+/** A title from a file's name: "Voice_SDK-Manual.pdf" reads "Voice SDK Manual". */
+const titleOfName = (name: string | null | undefined) => (name ? cleanTitle(name).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim() : null);
+
+/** The file name at the end of a link, decoded; null when the link ends in a folder. */
+function linkFileName(url: string): string | null {
+  const last = URL.canParse(url) ? new URL(url).pathname.split("/").pop() : null;
+  if (!last) return null;
+  try {
+    return decodeURIComponent(last);
+  } catch {
+    return last;
+  }
+}
 
 /** A date as RUVO keeps it (YYYY-MM-DD): an ISO one as written, any other (an HTTP date) read in UTC. */
 function isoDate(raw: string | null | undefined): string | null {
@@ -66,6 +80,11 @@ async function leadOf(contract: DatasetContract, hit: SearchHit): Promise<Item> 
     const value = found && fromSearch(found.value, found.quote, text, source);
     if (value) fields[catalogKey] = value;
   }
+  // A linked file has no search result: until its headers name it, its title is the file name in its link.
+  if (!fields.title && contract.fields.some((f) => f.catalogKey === "title")) {
+    const title = derived(titleOfName(linkFileName(hit.url)), hit.url, "the file name in its link", hit.url, page.id);
+    if (title) fields.title = title;
+  }
   return { externalId: canonicalUrl(hit.url) ?? hit.url, fields, text: { plain: text, ...source }, meta: { query: hit.query } };
 }
 
@@ -96,7 +115,8 @@ function withHead(contract: DatasetContract, url: string, lead: Item, res: HeadR
     file_type: typed || sniffed ? fromDocMeta("PDF", typed ? "Content-Type" : "URL", typed ? `Content-Type: ${res.contentType}` : res.finalUrl, source) : undefined,
     size_bytes: fromDocMeta(res.contentLength, "Content-Length", `Content-Length: ${res.contentLength}`, source),
     published: lead.fields.published ? undefined : fromDocMeta(isoDate(res.lastModified), "Last-Modified", `Last-Modified: ${res.lastModified}`, source),
-    title: lead.fields.title ? undefined : fromDocMeta(res.filename && cleanTitle(res.filename), "filename", res.filename ?? "", source),
+    // The headers' file name beats one taken from the link, never a search result's title.
+    title: lead.fields.title?.evidence.method === "SEARCH" ? undefined : fromDocMeta(titleOfName(res.filename), "filename", res.filename ?? "", source),
   };
   const keys = new Set(contract.fields.map((f) => f.catalogKey));
   const added = Object.entries(details).filter((e): e is [string, FieldValue] => e[1] !== undefined && keys.has(e[0]));

@@ -139,6 +139,12 @@ describe("document leads", () => {
     expect(file!.fields.file_type!.evidence.locator).toEqual({ kind: "docMeta", value: "URL" });
   });
 
+  test("a linked file with no search result is titled from its link's file name until its headers name it", async () => {
+    const pasted = { url: "https://c.example/files/Voice_SDK%20Manual-v2.pdf", title: "", description: "", query: "" };
+    const [item] = await collect(noService, [pasted]);
+    expect(item!.fields.title).toMatchObject({ value: "Voice SDK Manual v2", evidence: { method: "DERIVED", snippet: pasted.url } });
+  });
+
   test("a page at a file's address is dropped; a refused request keeps the lead as search found it", async () => {
     const fetcher = fetcherWith(async (_scope, url) => {
       if (url === GUIDE.url) return pdfHead(url, { contentType: "text/html; charset=utf-8" });
