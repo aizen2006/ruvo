@@ -80,20 +80,20 @@ const spent = async () => db.select({ runId: searchCalls.runId, provider: search
 beforeEach(resetDb);
 
 describe("Firecrawl reads the page", () => {
-  test("when the fetch service is down, and the page is saved as read by Firecrawl", async () => {
-    const scrapling = fakeScrapling({ http: down });
+  test("when it needs a browser and the fetch service is down, and the page is saved as read by Firecrawl", async () => {
+    const scrapling = fakeScrapling({ browser: down });
     const firecrawl = fakeFirecrawl();
     const s = scope();
-    const page = await fetcherWith(scrapling.client, firecrawl.client).fetch(s, req());
+    const page = await fetcherWith(scrapling.client, firecrawl.client).fetch(s, req("browser"));
 
     expect(page).toMatchObject({ via: "firecrawl", fromCache: false, status: 200, finalUrl: JOBS_URL, contentType: "text/html", body: firecrawlPage, escalation: null });
-    expect(scrapling.calls).toEqual(["http"]);
+    expect(scrapling.calls).toEqual(["browser"]);
     // The whole page as HTML, so the recipes read it like any other.
     expect(firecrawl.calls).toEqual([{ url: JOBS_URL, opts: { formats: ["rawHtml"], onlyMainContent: false } }]);
     expect(await stored()).toEqual([{ via: "firecrawl", body: firecrawlPage }]);
-    // It is a browser page in the run's budget, and its credits are charged to the run.
+    // It is a browser page in the run's budget, like the browser's try before it, and its credits are charged to the run.
     expect(s.metrics.snapshot()).toMatchObject({ pagesVisited: 1, browserPages: 1 });
-    expect(s.budget.left("browserPages")).toBe(4);
+    expect(s.budget.left("browserPages")).toBe(3);
     expect(await spent()).toEqual([{ runId: s.runId!, provider: "firecrawl", query: JOBS_URL, credits: 1, costUsd: USD_PER_CREDIT, hits: null }]);
   });
 
@@ -116,13 +116,13 @@ describe("Firecrawl reads the page", () => {
   }
 
   test("auto mode reuses a stored Firecrawl copy", async () => {
-    const scrapling = fakeScrapling({ http: down });
+    const scrapling = fakeScrapling({ browser: down });
     const firecrawl = fakeFirecrawl();
     const fetcher = fetcherWith(scrapling.client, firecrawl.client);
-    await fetcher.fetch(scope(), req());
+    await fetcher.fetch(scope(), req("browser"));
     const s = scope();
     expect(await fetcher.fetch(s, req())).toMatchObject({ via: "firecrawl", fromCache: true, body: firecrawlPage });
-    expect([scrapling.calls, firecrawl.calls.length]).toEqual([["http"], 1]);
+    expect([scrapling.calls, firecrawl.calls.length]).toEqual([["browser"], 1]);
     expect(s.metrics.snapshot().cacheHits).toBe(1);
     expect(await spent()).toHaveLength(1);
   });
@@ -130,9 +130,12 @@ describe("Firecrawl reads the page", () => {
 
 describe("Firecrawl is never asked", () => {
   /** Fetches with `scrapling`'s replies and a Firecrawl key, and returns the error once Firecrawl was not asked. */
-  async function refused(replies: Parameters<typeof fakeScrapling>[0], o: { extra?: Partial<FetcherOptions>; scope?: FetchScope; url?: string } = {}) {
+  async function refused(
+    replies: Parameters<typeof fakeScrapling>[0],
+    o: { extra?: Partial<FetcherOptions>; scope?: FetchScope; url?: string; mode?: FetchRequest["mode"] } = {},
+  ) {
     const firecrawl = fakeFirecrawl();
-    const error = await failure(fetcherWith(fakeScrapling(replies).client, firecrawl.client, o.extra).fetch(o.scope ?? scope(), req("auto", o.url)));
+    const error = await failure(fetcherWith(fakeScrapling(replies).client, firecrawl.client, o.extra).fetch(o.scope ?? scope(), req(o.mode, o.url)));
     expect(firecrawl.calls).toEqual([]);
     expect(await spent()).toEqual([]);
     return error;
@@ -161,7 +164,21 @@ describe("Firecrawl is never asked", () => {
   });
 
   test("with the browser page budget used up, the service's failure stands", async () => {
-    expect((await refused({ http: down }, { scope: scope({ maxBrowserPages: 0 }) })).kind).toBe("service_down");
+    // The browser's try takes the only browser page.
+    expect((await refused({ browser: down }, { scope: scope({ maxBrowserPages: 1 }), mode: "browser" })).kind).toBe("service_down");
+  });
+
+  test("for a plain page while the fetch service is down, which is read in-process", async () => {
+    const site = Bun.serve({ port: 0, fetch: () => new Response(fullPage, { headers: { "content-type": "text/html" } }) });
+    try {
+      const firecrawl = fakeFirecrawl();
+      const fetcher = fetcherWith(fakeScrapling({ http: down }).client, firecrawl.client);
+      expect(await fetcher.fetch(scope(), req("auto", `http://127.0.0.1:${site.port}/jobs`))).toMatchObject({ via: "http", body: fullPage });
+      expect(firecrawl.calls).toEqual([]);
+      expect(await spent()).toEqual([]);
+    } finally {
+      site.stop(true);
+    }
   });
 
   test("for a JSON API (fetcher.json), which is fetched in-process", async () => {
@@ -178,8 +195,8 @@ describe("Firecrawl is never asked", () => {
   });
 
   test("without a key", async () => {
-    const fetcher = fetcherWith(fakeScrapling({ http: down }).client, undefined);
-    expect((await failure(fetcher.fetch(scope(), req()))).kind).toBe("service_down");
+    const fetcher = fetcherWith(fakeScrapling({ browser: down }).client, undefined);
+    expect((await failure(fetcher.fetch(scope(), req("browser")))).kind).toBe("service_down");
     expect(await failure(fetcher.fetch(scope(), req("firecrawl")))).toMatchObject({ kind: "unsupported_content", message: "Firecrawl is not configured" });
   });
 });
@@ -198,14 +215,14 @@ describe("when Firecrawl cannot read the page either", () => {
 
   test("an error status is not stored, and the service's failure stands", async () => {
     const firecrawl = fakeFirecrawl(firecrawlReads(fullPage, 403));
-    expect((await failure(fetcherWith(fakeScrapling({ http: down }).client, firecrawl.client).fetch(scope(), req()))).kind).toBe("service_down");
+    expect((await failure(fetcherWith(fakeScrapling({ browser: down }).client, firecrawl.client).fetch(scope(), req("browser")))).kind).toBe("service_down");
     expect(firecrawl.calls).toHaveLength(1);
     expect(await stored()).toEqual([]);
   });
 
   test("a failed scrape costs nothing, and the service's failure stands", async () => {
     const firecrawl = fakeFirecrawl(new FirecrawlError(402, "Insufficient credits", false));
-    expect((await failure(fetcherWith(fakeScrapling({ http: down }).client, firecrawl.client).fetch(scope(), req()))).kind).toBe("service_down");
+    expect((await failure(fetcherWith(fakeScrapling({ browser: down }).client, firecrawl.client).fetch(scope(), req("browser")))).kind).toBe("service_down");
     expect(firecrawl.calls).toHaveLength(1);
     expect(await stored()).toEqual([]);
     expect(await spent()).toEqual([]);

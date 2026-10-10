@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, test } from "bun:test";
-import { createBudget, createMetrics } from "../src/core/run";
+import { createBudget, createMetrics, type EmitInput } from "../src/core/run";
 import { db } from "../src/db/client";
 import { pages } from "../src/db/schema";
 import { FetchError } from "../src/fetch/errors";
@@ -14,6 +14,8 @@ import { resetDb } from "./helpers/db";
 const JOBS_URL = "https://shop.example/jobs";
 const fullPage = `<html><body><h1>Jobs</h1><p>${"Backend engineer, remote. ".repeat(40)}</p></body></html>`;
 const challenge = `<html><head><title>Just a moment...</title></head><body><script>window._cf_chl_opt = {};</script></body></html>`;
+const appShell = `<html><body><div id="root"></div></body></html>`;
+const down = new FetchError("service_down", "RUVO's fetch service is unreachable", { url: JOBS_URL });
 const html = (status: number, body: string, headers: Record<string, string> = {}) => ({ status, body, headers: { "content-type": "text/html", ...headers } });
 /** A reply with its own `url` ended elsewhere, as after a redirect. */
 type Reply = (ReturnType<typeof html> & { url?: string }) | FetchError;
@@ -96,7 +98,7 @@ describe("fetch ladder", () => {
   });
 
   test("a thin page goes to the browser, which says why", async () => {
-    const { client, calls } = fakeScrapling({ http: html(200, `<html><body><div id="root"></div></body></html>`), browser: html(200, fullPage) });
+    const { client, calls } = fakeScrapling({ http: html(200, appShell), browser: html(200, fullPage) });
     const s = scope();
     const page = await fetcherWith(client).fetch(s, req("auto"));
     expect(page.via).toBe("browser");
@@ -148,13 +150,12 @@ describe("fetch ladder", () => {
 
   test("a fetch service that is down does not count against the site", async () => {
     const breaker = createCircuitBreaker({ threshold: 1, cooldownMs: 60_000 });
-    const { client, calls } = fakeScrapling({ http: new FetchError("service_down", "down", { url: JOBS_URL }) });
+    const { client, calls } = fakeScrapling({ browser: down });
     const fetcher = fetcherWith(client, { breaker });
-    expect((await failure(fetcher.fetch(scope(), req("http")))).kind).toBe("service_down");
+    expect((await failure(fetcher.fetch(scope(), req("browser")))).kind).toBe("service_down");
     expect(breaker.isOpen("shop.example")).toBe(false);
-    expect((await failure(fetcher.fetch(scope(), req("http")))).kind).toBe("service_down");
-    // Not retried either: one call per fetch.
-    expect(calls).toEqual(["http", "http"]);
+    expect((await failure(fetcher.fetch(scope(), req("browser")))).kind).toBe("service_down");
+    expect(calls).toEqual(["browser", "browser"]);
   });
 
   test("a redirect onto another host is refused by that host's robots.txt or open breaker, and nothing is stored", async () => {
@@ -191,5 +192,33 @@ describe("in-process fetching", () => {
     const fetcher = fetcherWith(undefined);
     expect(await fetcher.fetch(scope(), req("auto", local))).toMatchObject({ via: "http", body: "<p>local</p>", escalation: null });
     expect(await failure(fetcher.fetch(scope(), req("browser", local)))).toMatchObject({ kind: "unsupported_content" });
+  });
+
+  test("with the service down, a plain page is read in-process, and the run's activity log says so once", async () => {
+    const { client, calls } = fakeScrapling({ http: down });
+    const events: EmitInput[] = [];
+    const emit = (event: EmitInput) => void events.push(event);
+    const fetcher = fetcherWith(client);
+    // Two branches of one run, each with its own copy of the run's context.
+    expect(await fetcher.fetch({ ...scope(), emit }, req("http", local))).toMatchObject({ via: "http", body: "<p>local</p>", fromCache: false });
+    expect(await fetcher.fetch({ ...scope(), emit }, req("http", `${local}?page=2`))).toMatchObject({ via: "http", body: "<p>local</p>" });
+    expect(calls).toEqual(["http", "http"]);
+    expect(events).toEqual([
+      {
+        stage: "collecting",
+        type: "fetch.service_down",
+        level: "warn",
+        message: "The fetch service isn't running, so pages are read directly; pages that need a browser can't be read",
+      },
+    ]);
+  });
+
+  test("with the service down, a page that needs a browser still fails", async () => {
+    const { client, calls } = fakeScrapling({ http: down, browser: down });
+    const fetcher = fetcherWith(client);
+    expect((await failure(fetcher.fetch(scope(), req("browser", local)))).kind).toBe("service_down");
+    // Read in-process, the page has too little text: auto mode asks for the browser.
+    expect((await failure(fetcher.fetch(scope(), req("auto", local)))).kind).toBe("service_down");
+    expect(calls).toEqual(["browser", "http", "browser"]);
   });
 });

@@ -22,7 +22,8 @@ export interface FetchRequest {
   /**
    * http: plain request; browser: render in a browser; stealth: Scrapling's stealth browser; firecrawl: Firecrawl's scrape;
    * auto: http, then the browser if the page is a JS shell. A bot check goes to the stealth browser in any mode, and
-   * Firecrawl (with a key) reads a page the stealth browser was refused, or any page while the Scrapling service is down.
+   * Firecrawl (with a key) reads a page the stealth browser was refused, or one that needs a browser while the Scrapling
+   * service is down (plain requests are then made from this process).
    */
   mode?: Via | "auto";
   /** Skip stored copies and fetch again (the new copy is still stored). Used when retrying a failure. */
@@ -43,8 +44,11 @@ export interface FetchResult {
   escalation: { reason: string; textLength: number } | null;
 }
 
-/** The slice of a run a fetch needs: cancellation, time limit, budget and counters, and the run a paid fetch (Firecrawl) is charged to. */
-export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics"> & Partial<Pick<RunContext, "runId" | "endsAt">>;
+/**
+ * The slice of a run a fetch needs: cancellation, time limit, budget and counters, the run a paid fetch (Firecrawl)
+ * is charged to, and its activity log.
+ */
+export type FetchScope = Pick<RunContext, "signal" | "budget" | "metrics"> & Partial<Pick<RunContext, "runId" | "endsAt" | "emit">>;
 
 export interface Fetcher {
   fetch(scope: FetchScope, req: FetchRequest): Promise<FetchResult>;
@@ -65,7 +69,7 @@ export interface FetcherOptions {
   breaker?: CircuitBreaker;
   /** RUVO's Scrapling fetch service. Without it (tests), pages are fetched in-process over plain HTTP only. */
   scrapling?: ScraplingClient;
-  /** The last way to read a page, when the Scrapling service is down or a site refuses even the stealth browser. */
+  /** The last way to read a page, when the Scrapling service is down for a browser read or a site refuses even the stealth browser. */
   firecrawl?: { client: FirecrawlClient; usdPerCredit: number };
 }
 
@@ -75,6 +79,7 @@ type BudgetKey = "pages" | "browserPages";
  * Polite, cached fetching through RUVO's Scrapling service, moving to a stronger method only when a
  * cheaper one fails: plain HTTP, then a browser for a JavaScript shell, or the stealth browser for a
  * bot check; last, Firecrawl (with a key) when the stealth browser is refused or the Scrapling service is down.
+ * While the service is down, plain requests are made from this process instead.
  * Every request passes: cache → SSRF guard → circuit breaker → robots.txt → budget → rate-limited transport,
  * and a page that ends on another host after a redirect passes that host's circuit breaker and robots.txt too.
  */
@@ -96,6 +101,8 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
   // JSON APIs (no browser needed, bodies up to 40 MB) and trusted origins (the service's guard refuses
   // local addresses) are fetched in-process, as is everything without a service.
   const serviceFor = (req: FetchRequest) => (req.expect === "json" || trusted.has(new URL(req.url).origin) ? undefined : scrapling);
+  // The activity logs (one a run) already told that the service is down, so each run hears it once.
+  const toldServiceDown = new WeakSet<NonNullable<FetchScope["emit"]>>();
 
   /** Stored copy of a page for this transport, honouring the cache mode. */
   async function fromCache(scope: FetchScope, url: string, via: Via): Promise<FetchResult | null> {
@@ -141,7 +148,11 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     const cached = req.fresh ? null : ((await fromCache(scope, req.url, via)) ?? (via === "http" || via === "browser" ? await fromCache(scope, req.url, "stealth") : null));
     if (cached) return cached;
     const { host, crawlDelayMs } = await preflight(scope, req.url, via === "http" ? ["pages"] : ["pages", "browserPages"]);
-    const transport = () => (via === "firecrawl" ? firecrawl!(scope, req) : service ? service(scope, req, via) : direct(scope, req));
+    const transport = () => {
+      if (via === "firecrawl") return firecrawl!(scope, req);
+      if (!service) return direct(scope, req);
+      return service(scope, req, via).catch((err: unknown) => readDirectly(scope, req, via, err));
+    };
     let response: Fetched;
     try {
       response = await withRetry(() => limiter.run(host, crawlDelayMs, transport, scope.signal), {
@@ -174,6 +185,26 @@ export function createFetcher(opts: FetcherOptions): Fetcher {
     scope.metrics.inc("pagesVisited");
     if (via !== "http") scope.metrics.inc("browserPages");
     return toResult(await savePage({ url: req.url, via, ...fetched }), false);
+  }
+
+  /**
+   * After the Scrapling service failed a read with `err`: when the service is down, a plain request is made from this
+   * process instead, and the run's activity log says so once. Any other failure, or a read that needs a browser, stands.
+   */
+  async function readDirectly(scope: FetchScope, req: FetchRequest, via: Via, err: unknown): Promise<Fetched> {
+    if (via !== "http" || !(err instanceof FetchError && err.kind === "service_down")) throw err;
+    // The direct request checks every address it is sent to, redirects included, with the SSRF guard (ssrf.ts), but it
+    // can't pin the connection to the addresses checked the way the egress guard does, so a DNS rebind goes unseen.
+    if (scope.emit && !toldServiceDown.has(scope.emit)) {
+      toldServiceDown.add(scope.emit);
+      scope.emit({
+        stage: "collecting",
+        type: "fetch.service_down",
+        level: "warn",
+        message: "The fetch service isn't running, so pages are read directly; pages that need a browser can't be read",
+      });
+    }
+    return direct(scope, req);
   }
 
   /**
