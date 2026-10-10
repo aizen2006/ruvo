@@ -52,13 +52,13 @@ dropped, not guessed.
 | **26 s** | to read a page behind a Cloudflare check that used to stop RUVO cold |
 | **33 → 97** | good leads when a run went back for two more rounds on its own |
 | **0** | AI calls to read a list page RUVO has seen before |
-| **500+** | tests, run by CI on every push |
+| **640+** | tests, run by CI on every push, plus a suite of hostile files for the document sandbox |
 
 ## What makes it different
 
 **It always goes and looks.** Every request searches the web, in rounds, while its search budget
 lasts and each round still finds something new. The search engine is [SearXNG](https://github.com/searxng/searxng), running in Docker on
-your machine, so it costs nothing. Job requests also turn up more companies hiring on Greenhouse,
+your machine, so it costs nothing, and a round's searches run three at a time. Job requests also turn up more companies hiring on Greenhouse,
 Lever, Ashby and Workable, and RUVO reads those boards through their official APIs. A built-in list
 of companies is one source among many, never the only one.
 
@@ -90,8 +90,15 @@ LLM judge. Duplicates across sources merge, keeping the strongest evidence.
 **It stays polite, and it stays home.** robots.txt is obeyed, even when the file itself hides
 behind a bot check. Each site gets its own rate limit and circuit breaker, and HTTP 451 stops a
 source. A guard checks every connection Scrapling makes, browsers included, at connect time, so
-nothing reaches your own network. Postgres and SearXNG run in Docker; Scrapling runs on your own
-Python.
+nothing reaches your own network. Postgres and SearXNG run in Docker; Scrapling runs in Docker or
+on your own Python.
+
+**It treats the web as hostile.** Only the dashboard can call RUVO's API: other websites, and
+pages that point their own name at your machine, are refused. Page text is data to its AI, never
+instructions, and each item is judged on its own text. Text a page hides from view can't plant a
+value, and links open only http(s) addresses. Bot checks, consent walls and login walls are
+recognised and never stored as content. Spreadsheet exports defuse anything that looks like a
+formula.
 
 **Bring your own AI.** Use an OpenAI API key, or sign in with your ChatGPT plan from the
 dashboard's Settings page and pay nothing per call.
@@ -143,18 +150,30 @@ similar request reuses without calling the planner.
 
 ## Run it
 
-You need **Bun 1.4.2+**, **Node 24+**, **Docker**, **Python with Scrapling**, and either an
-**OpenAI API key** or a **ChatGPT plan**. A TypeSafe key for Jev is optional; without one, rules and
-the LLM judge make every call.
+You need **Docker** and either an **OpenAI API key** or a **ChatGPT plan**. Run everything in
+Docker, or run RUVO with **Bun 1.4.2+** and **Node 24+** on your machine. A TypeSafe key for Jev is
+optional; without one, rules and the LLM judge make every call.
+
+**Everything in Docker**, with one command:
 
 ```bash
-pip install "scrapling[all]"   # Scrapling, its fetchers, and the small web server RUVO's fetch service uses
-scrapling install              # the Chromium and the stealth browser Scrapling drives
+git clone https://github.com/aizen2006/ruvo && cd ruvo
+cp apps/server/.env.example apps/server/.env   # copy it first: Docker would make a folder in its place
+docker compose --profile all up -d --build     # the first build is slow: Scrapling's browsers are about 2.3 GB
+```
 
+Settings work there too: saving writes `apps/server/.env` and restarts RUVO in a second or two.
+`docker compose logs -f ruvo` shows what it's doing, and `docker compose --profile all down` stops
+it. `PORT`, `WEB_PORT`, `POSTGRES_PORT` and `SCRAPLING_PORT` move its ports if they're taken.
+
+**Or with Bun on your machine:**
+
+```bash
 git clone https://github.com/aizen2006/ruvo && cd ruvo
 bun install
-bun run setup        # env file, Postgres 17 and SearXNG in Docker, tables, then a dependency check
-                     # set OPENAI_API_KEY (or use ChatGPT, below) and TYPESAFE_API_KEY in apps/server/.env
+bun run setup        # env file; the fetch service with your Python's Scrapling, else in Docker, else in a
+                     # Python that uv installs; Postgres and SearXNG in Docker; the document sandbox; tables;
+                     # then a dependency check. Set OPENAI_API_KEY (or use ChatGPT, below) in apps/server/.env
 bun run doctor       # re-checks every dependency; run it after changing settings
 bun run dev          # API :3000, worker, fetch service and its guard, dashboard :3001
 ```
@@ -194,6 +213,10 @@ ChatGPT plan" instead of showing dollar estimates. If your `.env` came from an o
 delete its `AI_ACCOUNT` line, which RUVO no longer reads, and any `MODEL_PLANNER=gpt-6-sol` line:
 ChatGPT plans don't offer that model.
 
+With everything in Docker, the sign-in can't finish inside a container: run `bunx openai-oauth login`
+(or `npx openai-oauth login`) on your machine once. The stack uses that sign-in, and **Start the
+sign-in server** in Settings does the rest.
+
 openai-oauth is not an official OpenAI tool. It reuses the Codex CLI's sign-in, so it could stop
 working at any time, and using it could put your ChatGPT account at risk.
 
@@ -232,8 +255,11 @@ settings worth knowing:
 | `TYPESAFE_API_KEY`, `DECIDER_PROVIDER` | unset, `jev` | You have Jev access. `off` uses rules and the LLM judge only. For a self-hosted Laya, run `docker compose --profile laya up -d` and set `laya` with `DECIDER_BASE_URL=http://localhost:8000`. |
 | `SEARXNG_URL` | `http://127.0.0.1:8888` | SearXNG runs somewhere else. Blank turns it off; web search then needs a Firecrawl key. |
 | `FIRECRAWL_API_KEY`, `MAX_SEARCHES` | unset, 20 | You want a backup for when SearXNG finds nothing, and a last way to read pages Scrapling can't. Its credits count in each run's cost. `MAX_SEARCHES` caps searches per run. |
-| `SCRAPLING_URL` | `http://127.0.0.1:8001` | Port 8001 is taken, or the fetch service runs elsewhere. Blank turns Scrapling off: pages are read with plain requests only (no browser, no stealth), for a server without Python. |
-| `SCRAPLING_PYTHON` | `python` on Windows, `python3` elsewhere | The Python that has Scrapling is another one, such as a virtualenv's. |
+| `SCRAPLING_URL` | `http://127.0.0.1:<SCRAPLING_PORT>` | The fetch service runs elsewhere. Blank turns Scrapling off: pages are read with plain requests only (no browser, no stealth). If the service is down, plain pages are still read directly and the run says so. |
+| `SCRAPLING_PYTHON` | setup's `.venv`, else `python` on Windows, `python3` elsewhere | The Python that has Scrapling is another one. |
+| `POSTGRES_PORT`, `SCRAPLING_PORT`, `EGRESS_PORT` | 5432, 8001, 1080 | A port is taken; setup tells you. `DATABASE_URL` must use the same Postgres port. |
+| `DOCPARSE` | `docker` | The document sandbox runs as a service instead of a container per file (the all-Docker setup uses `http://docparse:8100`). |
+| `RETENTION_DAYS` | 30 | You want old activity, AI and search logs, and uncited pages kept for more or fewer days. The worker prunes once a day. |
 | `FETCH_CACHE_MODE` | `ttl` | You want repeatable demos (`prefer_cache`) or no network at all (`cache_only`). |
 | `LLM_CACHE_MODE` | `on` | Identical LLM calls are answered from Postgres. `cache_only` replays offline. |
 | `MAX_PAGES`, `MAX_BROWSER_PAGES`, `MAX_LLM_CALLS`, `MAX_RUN_MS` | 300, 20, 150, 8 min | These are ceilings no mode goes above. Lower them to cap what anyone can spend. |
@@ -246,11 +272,12 @@ Run these from the repo root, or drop the `--filter server` inside `apps/server`
 
 | Command | What it does |
 |---|---|
-| `bun run setup` | Local setup, safe to re-run: env file, Postgres and SearXNG, migrations, a dependency check |
-| `bun run doctor` | Checks Postgres, both models through your AI account, the decision provider, Scrapling and the fetch service, and a search on SearXNG. A service that's off or not started yet is a "skip", not a failure |
+| `bun run setup` | Local setup, safe to re-run: env file, the fetch service (your Python, Docker or uv), Postgres and SearXNG, the document sandbox, migrations, a dependency check |
+| `bun run doctor` | Checks Postgres, both models through your AI account, the decision provider, Scrapling and the fetch service, the document sandbox, and a search on SearXNG. A service that's off or not started yet is a "skip"; one that can't work says how to fix it |
 | `bun run dev` | API, worker, fetch service and dashboard, with reload |
 | `bun run check-types` | TypeScript across every package |
-| `cd apps/server && bun test` | 500+ tests against a throwaway `ruvo_test` database. They need only Postgres: the fetch service, SearXNG and the AI providers are faked |
+| `cd apps/server && bun test` | 640+ tests against a throwaway `ruvo_test` database. They need only Postgres: the fetch service, SearXNG and the AI providers are faked |
+| `bun run --filter server test:sandbox` | The document sandbox in Docker against generated hostile files (scripts, macros, zip bombs, nesting bombs, disguised types): each must end rejected, metadata only or capped |
 | `bun run --filter server eval` | Golden prompts with checks on each compiled contract; run it after changing a prompt |
 | `bun run --filter server e2e` | The example request end to end against the running stack, then a re-run |
 | `bun run --filter server seed:demo` | Warms the caches with the demo requests and resets the demo site |
@@ -265,9 +292,13 @@ the dashboard on every push to `main` and every pull request.
 
 ```
 apps/server         Bun + Express 5 API and a separate run worker. Drizzle on Postgres, which
-                    also holds the job queue. cheerio, OpenAI, Jev, and the SOCKS guard in
-                    front of the fetch service.
+                    also holds the job queue and tells the dashboard what changed as a run goes.
+                    Domain packs hold what RUVO knows about each kind of record: jobs, and a
+                    generic pack for everything else.
 infra/scrapling     The fetch service: a small Python server around Scrapling.
+infra/egress        The SOCKS guard every connection of the fetch service goes through.
+infra/docparse      The document sandbox: scans and parses PDFs and spreadsheets, one
+                    locked-down container per file (no network, read-only, non-root, limits).
 infra/searxng       SearXNG's settings for the local web search.
 apps/web            Next.js 16 dashboard: Tailwind v4, shadcn/ui-style components on Radix,
                     TanStack Query. docs/design.md covers its tokens, words and components.
@@ -293,14 +324,19 @@ Five rules shaped the code:
   read. robots.txt, rate limits and circuit breakers always apply, HTTP 451 stops a source, and
   RUVO never logs in or reaches your own network.
 
-`docker compose -f docker-compose.prod.yml up -d --build` runs the whole stack in Docker;
+`docker compose --profile all up -d` runs RUVO on your machine in Docker, Settings and sign-in
+included. For a server, `docker compose -f docker-compose.prod.yml up -d --build`;
 [docs/deploy.md](docs/deploy.md) covers configuration, scaling workers, backups, and why the API
 must sit behind your own HTTPS and authentication before it faces the internet.
 
 ## Limits, honestly
 
-- **Jobs are the deep domain.** Other kinds of data come from web search and pages you link. RUVO
-  follows "next page" links but doesn't click, scroll or log in.
+- **Jobs are the deep domain.** Each kind of record has a domain pack; jobs have the richest one.
+  Everything else uses the generic pack, web search and pages you link. RUVO follows "next page"
+  links but doesn't click, scroll or log in.
+- **PDFs and spreadsheets aren't read yet.** Search results that point at a document are still
+  skipped. The sandbox that will open them, one locked-down container per file, is built and
+  tested; wiring it into runs comes next.
 - **Search is only as good as the engines SearXNG can reach.** Public engines sometimes rate-limit
   it or show it a CAPTCHA. A search then finds less, or falls back to Firecrawl if you have a key.
 - **Social profiles come from search snippets only.** Instagram, X, LinkedIn and similar sites
@@ -321,8 +357,8 @@ must sit behind your own HTTPS and authentication before it faces the internet.
 - **Some numbers are approximate.** Cost estimates are averages, budgets cap the number of AI
   calls rather than their length, and the plan-memory threshold (0.7 similarity) is tuned on a
   handful of requests.
-- **There are no accounts.** The API has no authentication. RUVO is built for one person on one
-  machine.
+- **There are no accounts.** The API has no authentication, so it answers only the dashboard on
+  your machine. RUVO is built for one person on one machine.
 
 ## License
 
