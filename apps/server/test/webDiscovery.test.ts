@@ -2,7 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from "bun:test";
 import type { AdapterId, DatasetContract, FoundSource, PlanDraft } from "@repo/contracts";
 import { createLlmClient } from "../src/llm/client";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
-import { addFoundSources, discoverFromSearch, type WebSearch } from "../src/plan/webDiscovery";
+import { addFoundSources, discoverFromSearch, runSearches, type WebSearch } from "../src/plan/webDiscovery";
 import { createBudget } from "../src/runs/budget";
 import { createMetrics } from "../src/runs/metrics";
 import { createPreparer } from "../src/runs/prepare";
@@ -151,6 +151,66 @@ describe("discoverFromSearch", () => {
     const second = await run(1);
     expect(second.searches.map((s) => s.cached)).toEqual([true, false]);
     expect(calls).toBe(2);
+  });
+});
+
+describe("runSearches", () => {
+  /**
+   * A searcher shaped like the real one: after a cache lookup of `lookupMs[query]` ms, a `cached` query
+   * is free and any other takes a search from the budget, or gets nothing once it is used up.
+   */
+  function timedSearcher(results: Record<string, SearchResultItem[]>, { lookupMs, cached = [] }: { lookupMs: Record<string, number>; cached?: string[] }) {
+    const stats = { inFlight: 0, maxInFlight: 0, live: [] as string[] };
+    const searcher: SearchRunner = {
+      async run(query, { scope }) {
+        stats.maxInFlight = Math.max(stats.maxInFlight, ++stats.inFlight);
+        try {
+          await Bun.sleep(lookupMs[query]!);
+          if (cached.includes(query)) return { hits: results[query]!, cached: true, costUsd: 0 };
+          if (!scope.budget.take("searches")) return null;
+          stats.live.push(query);
+          await Bun.sleep(5);
+          return { hits: results[query]!, cached: false, costUsd: 0 };
+        } finally {
+          stats.inFlight--;
+        }
+      },
+    };
+    return { searcher, stats };
+  }
+  const page = (path: string, title: string) => hit(`https://example.com/${path}`, title);
+  // Later queries answer first.
+  const lookupMs = { q1: 40, q2: 30, q3: 20, q4: 10, q5: 5 };
+
+  test("runs three searches at once and merges their hits as one at a time would", async () => {
+    const results = {
+      q1: [page("a", "A"), page("b", "B")],
+      q2: [page("b", "B again"), page("c", "C")],
+      q3: [page("c", "C again"), page("d", "D")],
+      q4: [page("e", "E")],
+      q5: [page("a", "A again")],
+    };
+    const { searcher, stats } = timedSearcher(results, { lookupMs });
+    const { hits, searches } = await runSearches(Object.keys(results), searcher, { runId: crypto.randomUUID(), scope: scope(), resultsPerQuery: 10 });
+
+    expect(hits.map((h) => [h.url, h.title, h.query])).toEqual([
+      ["https://example.com/a", "A", "q1"],
+      ["https://example.com/b", "B", "q1"],
+      ["https://example.com/c", "C", "q2"],
+      ["https://example.com/d", "D", "q3"],
+      ["https://example.com/e", "E", "q4"],
+    ]);
+    expect(searches.map((s) => [s.query, s.hits])).toEqual([["q1", 2], ["q2", 2], ["q3", 2], ["q4", 1], ["q5", 1]]);
+    expect(stats.maxInFlight).toBe(3);
+  });
+
+  test("with fewer searches left than queries, they go to the first queries a cached one leaves them to", async () => {
+    const results = { q1: [page("a", "A")], q2: [page("b", "B")], q3: [page("c", "C")], q4: [page("d", "D")] };
+    const { searcher, stats } = timedSearcher(results, { lookupMs, cached: ["q1"] });
+    const { searches } = await runSearches(Object.keys(results), searcher, { runId: crypto.randomUUID(), scope: scope(2), resultsPerQuery: 10 });
+
+    expect(stats.live).toEqual(["q2", "q3"]);
+    expect(searches.map((s) => s.error ?? (s.cached ? "cached" : "live"))).toEqual(["cached", "live", "live", "Search budget used up"]);
   });
 });
 

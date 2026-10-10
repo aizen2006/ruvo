@@ -4,9 +4,10 @@ import { registeredAdapters } from "../adapters";
 import type { SearchHit } from "../adapters/searchHits";
 import type { FetchScope } from "../fetch/fetcher";
 import type { Robots } from "../fetch/robots";
+import { mapLimit } from "../libs/limit";
 import { canonicalUrl } from "../libs/url";
 import type { LlmClient } from "../llm/client";
-import type { SearchRunner } from "../search/cache";
+import type { CachedSearch, SearchRunner } from "../search/cache";
 
 /** What web discovery needs: a (cached, budgeted) search and the robots.txt rules the fetcher obeys. */
 export interface WebSearch {
@@ -34,6 +35,8 @@ const MAX_LIST_PAGES = 8;
 const MAX_RECORD_PAGES = 10;
 /** Uncertain hits classified per LLM call. */
 const CLASSIFY_BATCH = 40;
+/** Searches a round runs at once; each can wait up to SearXNG's engine timeout. */
+const SEARCH_CONCURRENCY = 3;
 
 /**
  * Social sites whose robots.txt forbids automated reading. RUVO never fetches them; their public
@@ -151,27 +154,39 @@ export function addFoundSources(earlier: FoundSource[], found: FoundSource[]): F
   return [...added, ...byRef.values()];
 }
 
-/** Runs each query in turn and merges the hits by canonical URL, keeping the first query that found each. */
+/**
+ * Runs the queries and merges their hits by canonical URL in query order, keeping the first query that
+ * found each. Only a live search draws on the run's budget (a cached one is free). When the searches left
+ * cover every query they run three at a time; otherwise one at a time, since which queries the budget then
+ * reaches depends on whether the ones before them were cached.
+ */
 export async function runSearches(queries: string[], searcher: SearchRunner, opts: WebDiscoveryOptions) {
-  const searches: SearchLog[] = [];
-  const hits = new Map<string, SearchHit>();
-  for (const query of queries) {
-    if (opts.scope.signal.aborted) break;
+  const search = async (query: string): Promise<{ log: SearchLog; items: CachedSearch["hits"] } | null> => {
+    if (opts.scope.signal.aborted) return null;
     try {
       const res = await searcher.run(query, { limit: opts.resultsPerQuery, runId: opts.runId, scope: opts.scope });
       if (!res) {
         const reason = opts.scope.budget.left("searches") < 1 ? "Search budget used up" : "Not in the search cache";
-        searches.push({ query, hits: 0, cached: false, error: reason });
-        continue;
+        return { log: { query, hits: 0, cached: false, error: reason }, items: [] };
       }
-      searches.push({ query, hits: res.hits.length, cached: res.cached, error: null });
-      for (const item of res.hits) {
-        const url = item.url && canonicalUrl(item.url);
-        if (url && !hits.has(url)) hits.set(url, { url, title: item.title ?? "", description: item.description ?? "", query });
-      }
+      return { log: { query, hits: res.hits.length, cached: res.cached, error: null }, items: res.hits };
     } catch (err) {
       if (opts.scope.signal.aborted) throw err;
-      searches.push({ query, hits: 0, cached: false, error: err instanceof Error ? err.message : String(err) });
+      return { log: { query, hits: 0, cached: false, error: err instanceof Error ? err.message : String(err) }, items: [] };
+    }
+  };
+  const concurrency = opts.scope.budget.left("searches") >= queries.length ? SEARCH_CONCURRENCY : 1;
+  const answers = await mapLimit(queries, concurrency, search);
+
+  const searches: SearchLog[] = [];
+  const hits = new Map<string, SearchHit>();
+  for (const answer of answers) {
+    // Queries started after the run was stopped come last and were never searched.
+    if (!answer) break;
+    searches.push(answer.log);
+    for (const item of answer.items) {
+      const url = item.url && canonicalUrl(item.url);
+      if (url && !hits.has(url)) hits.set(url, { url, title: item.title ?? "", description: item.description ?? "", query: answer.log.query });
     }
   }
   return { hits: [...hits.values()], searches };
