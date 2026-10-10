@@ -37,6 +37,7 @@ export async function createRunContext(args: {
   initialMetrics?: RunMetrics;
   budgets?: Budgets;
   maxListPages?: number;
+  branchConcurrency?: number;
 }): Promise<OwnedRunContext> {
   const { runId } = args;
   const bus = createEventBus(runId, { startSeq: await nextEventSeq(runId) });
@@ -63,6 +64,7 @@ export async function createRunContext(args: {
     log: logger.child({ runId }),
     repairs: [],
     maxListPages: args.maxListPages,
+    branchConcurrency: args.branchConcurrency,
     emit: bus.emit,
     async setStage(stage) {
       currentStage = stage;

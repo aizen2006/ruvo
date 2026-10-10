@@ -111,6 +111,33 @@ describe("executeWorkflow", () => {
     }
   });
 
+  test("reads as many sources at once as the run's mode allows, three without one", async () => {
+    const boards = "abcdefgh".split("").map((slug) => company(slug.toUpperCase(), "ashby", slug, []));
+    /** The most boards that were being fetched at once in a run reading `boards`. */
+    const peakWith = async (branchConcurrency?: number) => {
+      const run = await insertRun({ status: "running" });
+      const ir = buildTemplateIr(DEMO_CONTRACT, boards, { budgets, maxItemsPerSource: 40 });
+      const { fetcher: fixtures } = fixtureFetcher({ "ashbyhq.com": "ashby" });
+      let active = 0;
+      let peak = 0;
+      const fetcher: Fetcher = {
+        fetch: fixtures.fetch,
+        async json(scope, url, purpose, opts) {
+          peak = Math.max(peak, ++active);
+          await Bun.sleep(20);
+          active--;
+          return fixtures.json(scope, url, purpose, opts);
+        },
+      };
+      const ctx = await createRunContext({ runId: run.id, signal: new AbortController().signal, contract: DEMO_CONTRACT, ir, fetcher, llm: fakeLlm(), decider: offDecider, branchConcurrency });
+      await executeWorkflow(ctx);
+      await ctx.dispose();
+      return peak;
+    };
+    expect(await peakWith()).toBe(3);
+    expect(await peakWith(6)).toBe(6);
+  });
+
   test("fails the run when every source fails", async () => {
     await expect(runWith([company("Missing Co", "workable", "missing", [])])).rejects.toThrow("Missing Co could not be collected");
   });

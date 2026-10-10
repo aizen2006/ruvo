@@ -15,7 +15,7 @@ import { store } from "./steps/store";
 import { triage } from "./steps/triage";
 import { validate } from "./steps/validate";
 
-/** How many source branches run at once; per-host politeness is enforced by the fetcher. */
+/** How many source branches run at once unless the run's mode says (ctx.branchConcurrency); per-host politeness is enforced by the fetcher. */
 const BRANCH_CONCURRENCY = 3;
 /** Rounds of looking for more sources a run may add after its planned ones. */
 const MAX_EXTRA_ROUNDS = 2;
@@ -47,7 +47,7 @@ export async function executeWorkflow(ctx: RunContext, findMore?: FindMore): Pro
   const outcomes: Array<string | null> = [];
   const read = async (more: SourceBranch[]) => {
     branches.push(...more);
-    outcomes.push(...(await mapLimit(more, BRANCH_CONCURRENCY, (branch) => runBranch(ctx, branch, deadline, endsAt))));
+    outcomes.push(...(await mapLimit(more, ctx.branchConcurrency ?? BRANCH_CONCURRENCY, (branch) => runBranch(ctx, branch, deadline, endsAt))));
   };
   await read(ctx.ir.sources);
   if (findMore) await readMore(ctx, findMore, read, deadline, endsAt);

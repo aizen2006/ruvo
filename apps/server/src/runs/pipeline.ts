@@ -5,7 +5,7 @@ import { executeWorkflow } from "../execute/executor";
 import { scopeLlm } from "../llm/client";
 import type { WorkflowMemory } from "../memory/workflowMemory";
 import type { WebSearch } from "../plan/webDiscovery";
-import { listPagesForMode, runModels } from "./modes";
+import { branchConcurrencyForMode, listPagesForMode, runModels } from "./modes";
 import { moreLeads } from "./moreLeads";
 import { createRunContext } from "./runContext";
 import type { RunExecutor } from "./worker";
@@ -29,6 +29,7 @@ export const createPipeline = ({ fetcher, llm, decider, scrapling, memory, webSe
     decider,
     scrapling,
     maxListPages: listPagesForMode(run.mode),
+    branchConcurrency: branchConcurrencyForMode(run.mode),
   });
   try {
     // A run short of good leads searches for more sources itself, when web search is set up.

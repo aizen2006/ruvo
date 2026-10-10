@@ -42,6 +42,8 @@ export interface RunContext {
   repairs: RepairNote[];
   /** Pages a paginated list source may read (the run mode's cap); 1 when unset. */
   maxListPages?: number;
+  /** Source branches read at once (the run mode's); the executor's default when unset. */
+  branchConcurrency?: number;
   /** When the run's time limit ends (epoch ms), set while its sources are read; a fetch waits out a long Retry-After only if it ends sooner. */
   endsAt?: number;
   emit(event: EmitInput): void;

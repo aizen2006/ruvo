@@ -1,4 +1,5 @@
 import { afterAll, describe, expect, setSystemTime, test } from "bun:test";
+import { ATS_BOARD_URL, ATS_LIST } from "../src/adapters/ats";
 import { FetchError } from "../src/fetch/errors";
 import { createHostLimiter } from "../src/fetch/hostLimiter";
 import { createRobots } from "../src/fetch/robots";
@@ -187,18 +188,29 @@ describe("robots.txt (RFC 9309)", () => {
 });
 
 describe("host limiter", () => {
-  test("caps concurrency per host", async () => {
-    const limiter = createHostLimiter({ maxConcurrent: 2, minDelayMs: 0 });
+  /** The most of `count` requests to `host` that ran at once. */
+  async function peakOn(limiter: ReturnType<typeof createHostLimiter>, host: string, count: number) {
     let active = 0;
     let peak = 0;
     const task = () =>
-      limiter.run("a.com", 0, async () => {
+      limiter.run(host, 0, async () => {
         peak = Math.max(peak, ++active);
         await Bun.sleep(20);
         active--;
       });
-    await Promise.all([task(), task(), task(), task()]);
-    expect(peak).toBe(2);
+    await Promise.all(Array.from({ length: count }, task));
+    return peak;
+  }
+
+  test("caps concurrency per host", async () => {
+    expect(await peakOn(createHostLimiter({ maxConcurrent: 2, minDelayMs: 0 }), "a.com", 4)).toBe(2);
+  });
+
+  // Every board on an ATS API is a different company, so boards there shouldn't queue two at a time.
+  test("lets each ATS API the adapters call run four requests at once", async () => {
+    const limiter = createHostLimiter({ maxConcurrent: 2, minDelayMs: 0 });
+    for (const ats of ATS_LIST) expect(await peakOn(limiter, new URL(ATS_BOARD_URL[ats]("acme")).host, 6)).toBe(4);
+    expect(await peakOn(limiter, "a.com", 6)).toBe(2);
   });
 
   test("spaces request starts by the crawl delay", async () => {

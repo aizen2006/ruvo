@@ -75,6 +75,9 @@ export const searchResultsPerQuery = (mode: RunMode) => (mode === "thorough" ? 2
 /** List pages a paginated source may read; deeper modes follow more "next" links. */
 export const listPagesForMode = (mode: RunMode) => ({ quick: 2, balanced: 5, thorough: 10 })[mode];
 
+/** Sources read at once; deeper modes read more sources, so more side by side (each host's own limit still holds). */
+export const branchConcurrencyForMode = (mode: RunMode) => ({ quick: 3, balanced: 4, thorough: 6 })[mode];
+
 /**
  * Companies web search may add to a job request's plan. Each is one more board to collect and
  * judge: a Balanced run read 16 registry boards in 1.5 of its 4 minutes, so 15 more fit beside

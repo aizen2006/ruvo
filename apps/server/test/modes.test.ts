@@ -8,7 +8,7 @@ import { createLlmClient, scopeLlm } from "../src/llm/client";
 import { modelCatalog } from "../src/llm/models";
 import { DEMO_CONTRACT } from "../src/plan/demoContract";
 import { syncCuratedRegistry } from "../src/plan/registry";
-import { budgetsForMode, modelsForMode, modeOptions } from "../src/runs/modes";
+import { branchConcurrencyForMode, budgetsForMode, modelsForMode, modeOptions } from "../src/runs/modes";
 import { createPreparer } from "../src/runs/prepare";
 import { startWorker } from "../src/runs/worker";
 import { resetDb, waitFor } from "./helpers/db";
@@ -37,6 +37,10 @@ describe("mode presets", () => {
     const tight = { MAX_PAGES: 100, MAX_BROWSER_PAGES: 5, MAX_LLM_CALLS: 30, MAX_RUN_MS: 60_000, MAX_SEARCHES: 5 };
     expect(budgetsForMode("thorough", tight, 200)).toEqual({ maxPages: 100, maxBrowserPages: 5, maxLlmCalls: 30, maxSearches: 5, maxDurationMs: 60_000, maxRecords: 200 });
     expect(budgetsForMode("quick", ceilings).maxPages).toBe(40);
+  });
+
+  test("deeper modes read more sources at once", () => {
+    expect((["quick", "balanced", "thorough"] as const).map(branchConcurrencyForMode)).toEqual([3, 4, 6]);
   });
 
   test("an explicit model choice overrides the mode's, blanks do not", () => {
