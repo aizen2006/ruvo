@@ -1,9 +1,11 @@
 # Local infrastructure for RUVO.
 #   docker compose up -d                   -> postgres and searxng
 #   docker compose --profile fetch up -d   -> also the fetch service, for a machine without Python and Scrapling
+#   docker compose --profile all up -d     -> all of RUVO, with only Docker: also the fetch service, the API and worker,
+#                                             the document sandbox and the dashboard (http://localhost:3001)
 #   docker compose --profile laya up -d    -> also the optional self-hosted Laya decider
-# Ports set in apps/server/.env (POSTGRES_PORT, SCRAPLING_PORT) apply when `bun run setup` starts these,
-# or by hand with `docker compose --env-file apps/server/.env up -d`.
+# Ports set in apps/server/.env (POSTGRES_PORT, SCRAPLING_PORT, and the all profile's PORT and WEB_PORT for the API and
+# dashboard) apply when `bun run setup` starts these, or by hand with `docker compose --env-file apps/server/.env up -d`.
 services:
   postgres:
     image: postgres:17
@@ -39,10 +41,11 @@ services:
       timeout: 3s
       retries: 10
 
-  # The fetch service (SCRAPLING_URL), which `bun run dev` uses when it answers. As in docker-compose.prod.yml, its
-  # only network is internal, so the egress guard, which refuses private addresses, is its only way out.
+  # The fetch service (SCRAPLING_URL), which `bun run dev` and the all profile's API and worker use. As in
+  # docker-compose.prod.yml, its only network is internal, so the egress guard, which refuses private addresses, is its
+  # only way out.
   scrapling:
-    profiles: ["fetch"]
+    profiles: ["fetch", "all"]
     build: ./infra/scrapling
     restart: unless-stopped
     init: true
@@ -53,7 +56,7 @@ services:
     security_opt: ["no-new-privileges:true"]
 
   egress:
-    profiles: ["fetch"]
+    profiles: ["fetch", "all"]
     build:
       context: .
       dockerfile: infra/egress/Dockerfile
@@ -63,9 +66,10 @@ services:
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
 
-  # Docker publishes no port for a container whose only network is internal, so this one forwards 127.0.0.1:SCRAPLING_PORT to it.
+  # Docker publishes no port for a container whose only network is internal, so this one forwards 127.0.0.1:SCRAPLING_PORT
+  # to it. The all profile's API and worker use it too, staying off the scrape network, where the fetch service could reach them.
   relay:
-    profiles: ["fetch"]
+    profiles: ["fetch", "all"]
     image: alpine/socat:1.8.1.1
     command: ["TCP-LISTEN:8001,fork,reuseaddr", "TCP:scrapling:8001"]
     restart: unless-stopped
@@ -74,6 +78,95 @@ services:
     networks: [default, scrape]
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
+
+  # The API and the worker, with what docker-compose.prod.yml turns off: Settings, the ChatGPT sign-in and the demo
+  # site. They share one process (WORKER_INLINE) under `bun --watch`, as with `bun run dev`, so saving Settings, which
+  # rewrites the mounted apps/server/.env, restarts both, and both reach the ChatGPT sign-in server on this container's
+  # loopback. That file's settings apply, except those set here.
+  ruvo:
+    profiles: ["all"]
+    build:
+      context: .
+      dockerfile: apps/server/Dockerfile
+    # The image's files belong to root, and saving Settings rewrites src/config/env.ts to restart RUVO.
+    user: root
+    # Migrations first. A folder at .env means the file was missing when Docker started this (see volumes).
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -f .env ]; then
+          echo "apps/server/.env is missing, so Docker made a folder in its place: delete that folder, copy apps/server/.env.example to apps/server/.env, then start again." >&2
+          exit 1
+        fi
+        bun src/db/migrate.ts && exec bun --watch src/index.ts
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: development
+      HOST: 0.0.0.0
+      PORT: ${PORT:-3000}
+      WORKER_INLINE: "true"
+      DATABASE_URL: postgres://ruvo:ruvo@postgres:5432/ruvo
+      SEARXNG_URL: http://searxng:8080
+      SCRAPLING_URL: http://relay:8001
+      DOCPARSE: http://docparse-relay:8100
+      CODEX_HOME: /codex
+    volumes:
+      # Copy apps/server/.env.example to apps/server/.env before the first `up`. Where it's missing, Docker on Linux
+      # refuses to start this, and Docker Desktop makes a folder in its place.
+      - type: bind
+        source: ./apps/server/.env
+        target: /app/apps/server/.env
+        bind:
+          create_host_path: false
+      # Your ChatGPT sign-in, read-write so the sign-in server can refresh it. Sign in on this machine
+      # (bunx openai-oauth login): the login's callback listens on this container's loopback, out of the browser's reach.
+      - ${CODEX_HOME:-~/.codex}:/codex
+    ports:
+      - "127.0.0.1:${PORT:-3000}:${PORT:-3000}"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # The document sandbox as a service (docparse serve): here the worker can't start a container per document. Its
+  # only network is internal and shared with its relay alone, so it has no way out and can't reach the API.
+  docparse:
+    profiles: ["all"]
+    build: ./infra/docparse
+    command: ["serve"]
+    restart: unless-stopped
+    init: true
+    networks: [docparse]
+    read_only: true
+    tmpfs: ["/tmp:size=64m"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: 1g
+    pids_limit: 64
+
+  # Forwards the worker's documents to docparse (DOCPARSE).
+  docparse-relay:
+    profiles: ["all"]
+    image: alpine/socat:1.8.1.1
+    command: ["TCP-LISTEN:8100,fork,reuseaddr", "TCP:docparse:8100"]
+    restart: unless-stopped
+    networks: [default, docparse]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  # The dashboard; its server passes the browser's API calls on to API_URL.
+  web:
+    profiles: ["all"]
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    init: true
+    environment:
+      API_URL: http://ruvo:${PORT:-3000}
+    ports:
+      - "127.0.0.1:${WEB_PORT:-3001}:3001"
 
   # Fallback decision provider; the MVP uses the hosted Jev API instead.
   laya:
@@ -87,6 +180,8 @@ services:
 
 networks:
   scrape:
+    internal: true
+  docparse:
     internal: true
 
 volumes:
